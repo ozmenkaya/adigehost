@@ -1,0 +1,24 @@
+options {
+	directory "/var/cache/bind";
+
+	// Authoritative-only sunucu: özyineleme (recursion) KAPALI.
+	// Açık resolver olmamak için kritik (DNS amplification saldırılarını önler).
+	recursion no;
+	allow-recursion { none; };
+
+	// Bizim zone'larımıza herkes sorabilir.
+	allow-query { any; };
+
+	// Zone transferini kısıtla (secondary yoksa kimseye verme).
+	allow-transfer { none; };
+
+	// Sürüm bilgisini gizle.
+	version "DNS";
+
+	// Dinlenecek adresler (systemd-resolved 127.0.0.53 ile çakışmasın diye
+	// 0.0.0.0/any yerine açık adresler).
+	listen-on { 127.0.0.1; 91.99.186.98; };
+	listen-on-v6 { ::1; 2a01:4f8:c010:86ec::1; };
+
+	dnssec-validation no;
+};

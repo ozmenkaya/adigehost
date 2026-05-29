@@ -13,6 +13,8 @@ apt-get install -y ufw fail2ban
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
+ufw allow 53/tcp   # DNS (self-hosted BIND9 — ns1/ns2.adigehost.tr)
+ufw allow 53/udp   # DNS
 ufw --force enable
 systemctl enable --now fail2ban
 

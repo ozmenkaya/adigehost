@@ -1,0 +1,29 @@
+$TTL    300
+@       IN      SOA     ns1.adigehost.tr. hostmaster.adigehost.tr. (
+                        2026052901      ; Serial (YYYYMMDDnn) — her değişiklikte ARTIR
+                        3600            ; Refresh
+                        900             ; Retry
+                        1209600         ; Expire (14 gün)
+                        300 )           ; Negative cache TTL
+
+; --- Nameserver kayıtları ---
+@       IN      NS      ns1.adigehost.tr.
+@       IN      NS      ns2.adigehost.tr.
+
+; --- Nameserver A/AAAA (glue) ---
+ns1     IN      A       91.99.186.98
+ns2     IN      A       91.99.186.98
+ns1     IN      AAAA    2a01:4f8:c010:86ec::1
+ns2     IN      AAAA    2a01:4f8:c010:86ec::1
+
+; --- Web / panel ---
+@       IN      A       91.99.186.98
+@       IN      AAAA    2a01:4f8:c010:86ec::1
+www     IN      A       91.99.186.98
+www     IN      AAAA    2a01:4f8:c010:86ec::1
+panel   IN      A       91.99.186.98
+panel   IN      AAAA    2a01:4f8:c010:86ec::1
+
+; --- Posta (ileride) ---
+;@      IN      MX      10 mail.adigehost.tr.
+;mail   IN      A       91.99.186.98
