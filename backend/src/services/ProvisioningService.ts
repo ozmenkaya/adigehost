@@ -3,9 +3,11 @@ import { Service } from '../models/Service';
 import { Server } from '../models/Server';
 import { Product } from '../models/Product';
 import { WHMService } from './WHMService';
+import { HetznerService } from './HetznerService';
 import { ServerManager } from './ServerManager';
 import { ApiError } from '../utils/ApiError';
 import { logger } from '../config/logger';
+import { slugify } from '../utils/helpers';
 
 /** Alan adından geçerli cPanel kullanıcı adı üretir (≤16, harfle başlar, [a-z0-9]). */
 export function generateCpanelUser(domain: string): string {
@@ -70,5 +72,43 @@ export class ProvisioningService {
       cpanelUser,
     });
     return { cpanelUser, password, cpanelUrl: `https://${server.whmHost}:2083` };
+  }
+
+  /**
+   * Bir VPS servisini Hetzner'da oluşturur.
+   * serverType/location/image bilgisi ürünün specs alanından okunur.
+   */
+  static async provisionVps(
+    service: Service,
+  ): Promise<{ ip: string | null; rootPassword: string | null }> {
+    if (service.type !== 'vps') throw ApiError.badRequest('Servis VPS türünde değil');
+    const product = service.productId ? await Product.findByPk(service.productId) : null;
+    const specs = (product?.specs ?? {}) as {
+      serverType?: string;
+      location?: string;
+      image?: string;
+    };
+    if (!specs.serverType) throw ApiError.badRequest('Ürün VPS yapılandırması (serverType) eksik');
+
+    const name = `${slugify(service.name)}-${Date.now().toString(36)}`;
+    const { server, rootPassword } = await HetznerService.createServer({
+      name,
+      serverType: specs.serverType,
+      image: specs.image ?? 'ubuntu-22.04',
+      location: specs.location ?? 'nbg1',
+      startAfterCreate: true,
+    });
+
+    service.status = 'active';
+    service.hetznerId = server.id;
+    service.hetznerIp = server.public_net?.ipv4?.ip ?? null;
+    service.hetznerIpv6 = server.public_net?.ipv6?.ip ?? null;
+    service.hetznerPlan = specs.serverType;
+    service.hetznerLocation = specs.location ?? null;
+    service.hetznerOs = specs.image ?? 'ubuntu-22.04';
+    await service.save();
+
+    logger.info('VPS provision edildi', { service: service.id, hetznerId: server.id });
+    return { ip: service.hetznerIp, rootPassword };
   }
 }

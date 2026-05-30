@@ -196,11 +196,9 @@ servicesRouter.delete(
 const orderSchema = z.object({
   body: z.object({
     productId: z.string().uuid(),
-    domain: z
-      .string()
-      .min(3)
-      .max(253)
-      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'Geçerli bir alan adı girin'),
+    // Hosting için alan adı; VPS için sunucu adı/etiketi.
+    domain: z.string().max(253).optional(),
+    name: z.string().max(100).optional(),
     billingCycle: z.enum(['monthly', 'quarterly', 'annually']).default('monthly'),
   }),
 });
@@ -209,13 +207,22 @@ servicesRouter.post(
   '/order',
   validate(orderSchema),
   asyncHandler(async (req, res) => {
-    const { productId, domain, billingCycle } = req.body as {
+    const { productId, billingCycle } = req.body as {
       productId: string;
-      domain: string;
       billingCycle: 'monthly' | 'quarterly' | 'annually';
     };
+    const domain = (req.body.domain as string | undefined)?.toLowerCase().trim();
     const product = await Product.findByPk(productId);
     if (!product || !product.isActive) throw ApiError.badRequest('Geçersiz veya pasif ürün');
+
+    // Hosting için alan adı zorunlu; VPS için ad (yoksa ürün adı kullanılır).
+    if (product.type === 'hosting') {
+      if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
+        throw ApiError.badRequest('Hosting için geçerli bir alan adı girin');
+      }
+    }
+    const serviceName =
+      product.type === 'hosting' ? domain! : (req.body.name as string) || product.name;
 
     // Bekleyen servis (henüz provision edilmez — ödeme onayında açılır).
     const service = await Service.create({
@@ -223,8 +230,8 @@ servicesRouter.post(
       type: product.type,
       productId: product.id,
       serverId: product.serverId,
-      name: domain,
-      domain,
+      name: serviceName,
+      domain: product.type === 'hosting' ? domain : null,
       status: 'pending',
       price: Number(product.priceMonthly),
       billingCycle,

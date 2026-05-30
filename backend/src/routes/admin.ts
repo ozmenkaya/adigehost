@@ -321,15 +321,19 @@ adminRouter.post(
     invoice.paymentMethod = 'bank_transfer';
     await invoice.save();
 
-    // Faturaya bağlı bekleyen hosting servislerini provision et.
+    // Faturaya bağlı bekleyen servisleri provision et (hosting → cPanel, vps → Hetzner).
     const items = (invoice.get('items') as InvoiceItem[]) ?? [];
-    const provisioned: Array<{ serviceId: string; cpanelUser: string; password: string }> = [];
+    const provisioned: Array<Record<string, unknown>> = [];
     for (const item of items) {
       if (!item.serviceId) continue;
       const service = await Service.findByPk(item.serviceId);
-      if (service && service.type === 'hosting' && service.status === 'pending') {
+      if (!service || service.status !== 'pending') continue;
+      if (service.type === 'hosting') {
         const result = await ProvisioningService.provisionHosting(service);
-        provisioned.push({ serviceId: service.id, ...result });
+        provisioned.push({ serviceId: service.id, type: 'hosting', ...result });
+      } else if (service.type === 'vps') {
+        const result = await ProvisioningService.provisionVps(service);
+        provisioned.push({ serviceId: service.id, type: 'vps', ...result });
       }
     }
 

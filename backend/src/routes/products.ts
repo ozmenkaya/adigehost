@@ -11,9 +11,9 @@ export const productsRouter = Router();
 productsRouter.get(
   '/',
   asyncHandler(async (req, res) => {
-    const type = (req.query.type as string) || 'hosting';
+    const type = req.query.type as string | undefined;
     const products = await Product.findAll({
-      where: { isActive: true, type },
+      where: { isActive: true, ...(type ? { type } : {}) },
       attributes: [
         'id',
         'name',
@@ -25,6 +25,7 @@ productsRouter.get(
         'description',
       ],
       order: [
+        ['type', 'ASC'],
         ['sortOrder', 'ASC'],
         ['priceMonthly', 'ASC'],
       ],

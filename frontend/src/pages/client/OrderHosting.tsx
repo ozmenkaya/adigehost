@@ -5,6 +5,7 @@ import { api, getApiErrorMessage } from '../../utils/api';
 interface Product {
   id: string;
   name: string;
+  type: string;
   priceMonthly: number;
   priceAnnually: number | null;
   description: string | null;
@@ -19,6 +20,7 @@ export default function OrderHosting() {
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Product | null>(null);
   const [domain, setDomain] = useState('');
+  const [vpsName, setVpsName] = useState('');
   const [cycle, setCycle] = useState<'monthly' | 'annually'>('monthly');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,15 +33,18 @@ export default function OrderHosting() {
       .catch((e) => setError(getApiErrorMessage(e)));
   }, []);
 
+  const isHosting = selected?.type === 'hosting';
+  const canSubmit = selected && (isHosting ? !!domain : true);
+
   const submit = async () => {
-    if (!selected || !domain) return;
+    if (!selected || !canSubmit) return;
     setLoading(true);
     setError('');
     try {
       const r = await api.post('/services/order', {
         productId: selected.id,
-        domain,
         billingCycle: cycle,
+        ...(isHosting ? { domain } : { name: vpsName || selected.name }),
       });
       setOrder(r.data.data);
     } catch (e) {
@@ -87,7 +92,7 @@ export default function OrderHosting() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <h1 className="text-2xl font-bold text-slate-900">Hosting Paketleri</h1>
+      <h1 className="text-2xl font-bold text-slate-900">Paketler</h1>
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       {products.length === 0 ? (
@@ -106,6 +111,13 @@ export default function OrderHosting() {
                   : 'border-slate-200 hover:border-brand-300'
               }`}
             >
+              <span
+                className={`mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                  p.type === 'vps' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+                }`}
+              >
+                {p.type === 'vps' ? 'VPS' : 'HOSTING'}
+              </span>
               <div className="font-semibold text-slate-800">{p.name}</div>
               <div className="mt-2 text-2xl font-bold text-brand-700">
                 {p.priceMonthly} <span className="text-sm font-normal text-slate-500">TL/ay</span>
@@ -122,15 +134,27 @@ export default function OrderHosting() {
       {selected && (
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="font-semibold text-slate-800">Sipariş: {selected.name}</h2>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Alan adı</label>
-            <input
-              value={domain}
-              onChange={(e) => setDomain(e.target.value.toLowerCase().trim())}
-              placeholder="orneksite.com"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
-            />
-          </div>
+          {isHosting ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Alan adı</label>
+              <input
+                value={domain}
+                onChange={(e) => setDomain(e.target.value.toLowerCase().trim())}
+                placeholder="orneksite.com"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Sunucu adı</label>
+              <input
+                value={vpsName}
+                onChange={(e) => setVpsName(e.target.value)}
+                placeholder="web-sunucum (opsiyonel)"
+                className="w-full rounded-lg border border-slate-300 px-3 py-2 outline-none focus:border-brand-500"
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Faturalama</label>
             <select
@@ -145,7 +169,7 @@ export default function OrderHosting() {
             </select>
           </div>
           <button
-            disabled={loading || !domain}
+            disabled={loading || !canSubmit}
             onClick={submit}
             className="w-full rounded-lg bg-brand-600 py-2.5 font-medium text-white hover:bg-brand-700 disabled:opacity-60"
           >
