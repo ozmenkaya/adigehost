@@ -34,7 +34,7 @@ function xmlEscape(v: string): string {
 }
 
 /** REQUEST_HEADER (zorunlu alanlar: ACTION_DATE; oturum için SESSION_ID). */
-function requestHeader(sessionId = '', reason = 'AdigeHost'): string {
+function requestHeader(sessionId = '', reason = 'AdigeHost', simulation = false): string {
   const now = new Date().toISOString().replace(/\.\d+Z$/, '');
   return (
     '<REQUEST_HEADER>' +
@@ -45,6 +45,7 @@ function requestHeader(sessionId = '', reason = 'AdigeHost'): string {
     '<APPLICATION_NAME>AdigeHost</APPLICATION_NAME>' +
     '<HOSTNAME>adigehost.tr</HOSTNAME>' +
     '<CHANNEL_NAME>AdigeHost</CHANNEL_NAME>' +
+    `<SIMULATION_FLAG>${simulation ? 'Y' : 'N'}</SIMULATION_FLAG>` +
     '<COMPRESSED>N</COMPRESSED>' +
     '</REQUEST_HEADER>'
   );
@@ -56,13 +57,14 @@ export async function edmCall(
   operation: string,
   sessionId: string,
   innerXml: string,
+  simulation = false,
 ): Promise<string> {
   const action = `${operation}Request`;
   const envelope =
     '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="http://tempuri.org/">' +
     '<soap:Body>' +
     `<tns:${action}>` +
-    requestHeader(sessionId, operation) +
+    requestHeader(sessionId, operation, simulation) +
     innerXml +
     `</tns:${action}>` +
     '</soap:Body></soap:Envelope>';

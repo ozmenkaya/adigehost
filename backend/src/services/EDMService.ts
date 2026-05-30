@@ -79,6 +79,7 @@ export class EDMService {
     alias: string,
     ublXml: string,
     fileName: string,
+    simulation = false,
   ): Promise<Record<string, unknown>> {
     const creds = await getCreds();
     const sessionId = await this.login();
@@ -89,7 +90,7 @@ export class EDMService {
       `<CONTENT>${content}</CONTENT>` +
       `<FILENAME>${fileName}</FILENAME>` +
       '</INVOICE>';
-    const xml = await edmCall(creds, 'SendInvoice', sessionId, inner);
+    const xml = await edmCall(creds, 'SendInvoice', sessionId, inner, simulation);
     return { uuids: extractAll(xml, 'UUID'), raw: xml.slice(0, 500) };
   }
 
@@ -100,6 +101,7 @@ export class EDMService {
     senderVkn: string,
     ublXml: string,
     fileName: string,
+    simulation = false,
   ): Promise<Record<string, unknown>> {
     const creds = await getCreds();
     const sessionId = await this.login();
@@ -110,7 +112,7 @@ export class EDMService {
       `<CONTENT>${content}</CONTENT>` +
       `<FILENAME>${fileName}</FILENAME>` +
       '</INVOICE>';
-    const xml = await edmCall(creds, 'ArchiveInvoice', sessionId, inner);
+    const xml = await edmCall(creds, 'ArchiveInvoice', sessionId, inner, simulation);
     return { uuids: extractAll(xml, 'UUID'), raw: xml.slice(0, 500) };
   }
 }
