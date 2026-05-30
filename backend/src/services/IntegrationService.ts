@@ -193,6 +193,16 @@ async function runProviderTest(provider: string, values: Creds): Promise<boolean
       });
       return r.status === 200 && Boolean(r.data?.resellerId);
     }
+    case 'edm': {
+      const { edmLogin } = await import('./edmTransport');
+      const id = await edmLogin({
+        username: String(values.username),
+        password: String(values.password),
+        wsdlUrl: values.wsdlUrl ? String(values.wsdlUrl) : undefined,
+        testMode: Boolean(values.testMode),
+      });
+      return Boolean(id);
+    }
     default:
       logger.info(`Test desteklenmeyen sağlayıcı: ${provider}`);
       return false;
