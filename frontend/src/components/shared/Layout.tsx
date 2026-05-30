@@ -14,6 +14,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/admin/products', label: 'Ürünler', icon: '📦' },
   { to: '/admin/invoices', label: 'Faturalar', icon: '🧾' },
   { to: '/admin/servers', label: 'Sunucular', icon: '🗄️' },
+  { to: '/admin/integrations', label: 'Entegrasyonlar', icon: '🔌' },
   { to: '/admin/settings', label: 'Ayarlar', icon: '⚙️' },
   { to: '/admin/logs', label: 'Loglar', icon: '📜' },
 ];

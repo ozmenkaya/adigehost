@@ -10,6 +10,7 @@ import { Consent } from './Consent';
 import { ActivityLog } from './ActivityLog';
 import { Setting } from './Setting';
 import { Product } from './Product';
+import { Integration } from './Integration';
 
 /**
  * Model ilişkileri (associations).
@@ -74,6 +75,7 @@ export {
   ActivityLog,
   Setting,
   Product,
+  Integration,
 };
 
 /** Tüm modellerin kaydı (migrate/sync için). */
@@ -92,4 +94,5 @@ export const models = {
   ActivityLog,
   Setting,
   Product,
+  Integration,
 };

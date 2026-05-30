@@ -9,6 +9,7 @@ import AdminServices from './pages/admin/Services';
 import Products from './pages/admin/Products';
 import Invoices from './pages/admin/Invoices';
 import Servers from './pages/admin/Servers';
+import Integrations from './pages/admin/Integrations';
 import Settings from './pages/admin/Settings';
 import Logs from './pages/admin/Logs';
 // Client
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="products" element={<Products />} />
         <Route path="invoices" element={<Invoices />} />
         <Route path="servers" element={<Servers />} />
+        <Route path="integrations" element={<Integrations />} />
         <Route path="settings" element={<Settings />} />
         <Route path="logs" element={<Logs />} />
       </Route>

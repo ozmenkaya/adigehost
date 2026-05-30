@@ -2,6 +2,7 @@ import axios, { type AxiosInstance, isAxiosError } from 'axios';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { ApiError } from '../utils/ApiError';
+import { IntegrationService } from './IntegrationService';
 
 /**
  * Hetzner Cloud API istemcisi (https://docs.hetzner.cloud).
@@ -36,15 +37,23 @@ export interface HetznerCreateOptions {
 }
 
 let client: AxiosInstance | null = null;
+let clientToken: string | null = null;
 
-function getClient(): AxiosInstance {
-  if (client) return client;
-  if (!env.HETZNER_API_TOKEN) {
-    throw ApiError.internal('Hetzner API token yapılandırılmamış (HETZNER_API_TOKEN)');
+/**
+ * Token önceliği: varsayılan 'hetzner' entegrasyonu → env (geriye uyumluluk).
+ * Token değişirse istemci yeniden kurulur.
+ */
+async function getClient(): Promise<AxiosInstance> {
+  const creds = await IntegrationService.getCredentials('hetzner');
+  const token = (creds?.apiToken as string | undefined) || env.HETZNER_API_TOKEN;
+  if (!token) {
+    throw ApiError.internal('Hetzner API token yapılandırılmamış (Entegrasyonlar veya .env)');
   }
+  if (client && clientToken === token) return client;
+  clientToken = token;
   client = axios.create({
     baseURL: 'https://api.hetzner.cloud/v1',
-    headers: { Authorization: `Bearer ${env.HETZNER_API_TOKEN}` },
+    headers: { Authorization: `Bearer ${token}` },
     timeout: 30000,
   });
   return client;
@@ -69,7 +78,9 @@ export class HetznerService {
   // --- Katalog ---
   static async listServerTypes(): Promise<HetznerServerType[]> {
     try {
-      const { data } = await getClient().get('/server_types', { params: { per_page: 100 } });
+      const { data } = await (
+        await getClient()
+      ).get('/server_types', { params: { per_page: 100 } });
       return (data.server_types as HetznerServerType[]).filter((t) => !t.deprecated);
     } catch (err) {
       throw toApiError(err, 'listServerTypes');
@@ -78,7 +89,7 @@ export class HetznerService {
 
   static async listLocations(): Promise<unknown[]> {
     try {
-      const { data } = await getClient().get('/locations');
+      const { data } = await (await getClient()).get('/locations');
       return data.locations;
     } catch (err) {
       throw toApiError(err, 'listLocations');
@@ -87,7 +98,9 @@ export class HetznerService {
 
   static async listImages(): Promise<unknown[]> {
     try {
-      const { data } = await getClient().get('/images', {
+      const { data } = await (
+        await getClient()
+      ).get('/images', {
         params: { type: 'system', per_page: 100, status: 'available' },
       });
       return data.images;
@@ -99,7 +112,9 @@ export class HetznerService {
   // --- Provisioning ---
   static async createServer(opts: HetznerCreateOptions) {
     try {
-      const { data } = await getClient().post('/servers', {
+      const { data } = await (
+        await getClient()
+      ).post('/servers', {
         name: opts.name,
         server_type: opts.serverType,
         image: opts.image,
@@ -124,7 +139,7 @@ export class HetznerService {
 
   static async getServer(serverId: number) {
     try {
-      const { data } = await getClient().get(`/servers/${serverId}`);
+      const { data } = await (await getClient()).get(`/servers/${serverId}`);
       return data.server;
     } catch (err) {
       throw toApiError(err, 'getServer');
@@ -133,7 +148,7 @@ export class HetznerService {
 
   static async deleteServer(serverId: number) {
     try {
-      const { data } = await getClient().delete(`/servers/${serverId}`);
+      const { data } = await (await getClient()).delete(`/servers/${serverId}`);
       logger.info('Hetzner sunucu silindi', { id: serverId });
       return data.action;
     } catch (err) {
@@ -144,7 +159,9 @@ export class HetznerService {
   // --- Güç aksiyonları ---
   private static async action(serverId: number, name: string, body?: unknown) {
     try {
-      const { data } = await getClient().post(`/servers/${serverId}/actions/${name}`, body ?? {});
+      const { data } = await (
+        await getClient()
+      ).post(`/servers/${serverId}/actions/${name}`, body ?? {});
       return data;
     } catch (err) {
       throw toApiError(err, `action:${name}`);
@@ -184,7 +201,9 @@ export class HetznerService {
   // --- Snapshot (image) ---
   static async createSnapshot(serverId: number, description: string) {
     try {
-      const { data } = await getClient().post(`/servers/${serverId}/actions/create_image`, {
+      const { data } = await (
+        await getClient()
+      ).post(`/servers/${serverId}/actions/create_image`, {
         type: 'snapshot',
         description,
       });
@@ -196,7 +215,9 @@ export class HetznerService {
 
   static async listSnapshots() {
     try {
-      const { data } = await getClient().get('/images', {
+      const { data } = await (
+        await getClient()
+      ).get('/images', {
         params: { type: 'snapshot', per_page: 100 },
       });
       return data.images;
@@ -207,7 +228,7 @@ export class HetznerService {
 
   static async deleteImage(imageId: number) {
     try {
-      await getClient().delete(`/images/${imageId}`);
+      await (await getClient()).delete(`/images/${imageId}`);
       return true;
     } catch (err) {
       throw toApiError(err, 'deleteImage');
@@ -219,7 +240,9 @@ export class HetznerService {
     try {
       const end = new Date();
       const start = new Date(end.getTime() - 60 * 60 * 1000); // son 1 saat
-      const { data } = await getClient().get(`/servers/${serverId}/metrics`, {
+      const { data } = await (
+        await getClient()
+      ).get(`/servers/${serverId}/metrics`, {
         params: { type, start: start.toISOString(), end: end.toISOString(), step: 60 },
       });
       return data.metrics;
@@ -230,7 +253,7 @@ export class HetznerService {
 
   static async healthcheck(): Promise<boolean> {
     try {
-      await getClient().get('/locations');
+      await (await getClient()).get('/locations');
       return true;
     } catch {
       return false;

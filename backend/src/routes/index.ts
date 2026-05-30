@@ -12,6 +12,7 @@ import { hetznerRouter } from './hetzner';
 import { whmRouter } from './whm';
 import { serversRouter } from './servers';
 import { adminRouter } from './admin';
+import { integrationsRouter } from './integrations';
 import { webhooksRouter } from './webhooks';
 
 export const router = Router();
@@ -35,4 +36,5 @@ router.use('/whm', authenticate, whmRouter);
 
 // Admin uçları
 router.use('/servers', authenticate, requireAdmin, serversRouter);
+router.use('/admin/integrations', authenticate, requireAdmin, integrationsRouter);
 router.use('/admin', authenticate, requireAdmin, adminRouter);
