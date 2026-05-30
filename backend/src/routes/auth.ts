@@ -9,12 +9,18 @@ import {
   revokeRefreshToken,
   signAccessToken,
   parseDurationToSeconds,
+  issueOneTimeToken,
+  consumeOneTimeToken,
 } from '../security/tokens';
 import { validate } from '../middleware/validate';
 import { authLimiter } from '../middleware/rateLimiter';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
+import { NotificationService } from '../services/NotificationService';
+
+const VERIFY_TTL = 24 * 60 * 60; // 24 saat
+const RESET_TTL = 60 * 60; // 1 saat
 
 export const authRouter = Router();
 
@@ -79,6 +85,10 @@ authRouter.post(
       status: 'pending',
     });
 
+    // E-posta doğrulama linki gönder (SMTP yoksa log'a yazılır).
+    const verifyToken = await issueOneTimeToken('verify', user.id, VERIFY_TTL);
+    await NotificationService.sendEmailVerification(user.email, verifyToken);
+
     await logActivity({
       userId: user.id,
       action: 'auth.register',
@@ -90,7 +100,7 @@ authRouter.post(
     res.status(201).json({
       success: true,
       data: { id: user.id, email: user.email },
-      message: 'Kayıt başarılı. E-posta doğrulaması bekleniyor.',
+      message: 'Kayıt başarılı. E-posta adresinize doğrulama linki gönderildi.',
     });
   }),
 );
@@ -174,4 +184,89 @@ authRouter.post(
   }),
 );
 
-// TODO (kodlama fazı): forgot-password, reset-password, verify-email
+// --- POST /auth/verify-email ---
+const verifyEmailSchema = z.object({ body: z.object({ token: z.string().min(10) }) });
+
+authRouter.post(
+  '/verify-email',
+  validate(verifyEmailSchema),
+  asyncHandler(async (req, res) => {
+    const userId = await consumeOneTimeToken('verify', req.body.token);
+    if (!userId) throw ApiError.badRequest('Geçersiz veya süresi dolmuş doğrulama linki');
+
+    const user = await User.findByPk(userId);
+    if (!user) throw ApiError.notFound('Kullanıcı bulunamadı');
+
+    user.emailVerified = true;
+    if (user.status === 'pending') user.status = 'active';
+    await user.save();
+    await logActivity({
+      userId: user.id,
+      action: 'auth.email_verified',
+      resource: 'user',
+      resourceId: user.id,
+      ip: req.ip,
+    });
+    res.json({ success: true, message: 'E-posta adresiniz doğrulandı' });
+  }),
+);
+
+// --- POST /auth/forgot-password ---
+const forgotSchema = z.object({ body: z.object({ email: z.string().email() }) });
+
+authRouter.post(
+  '/forgot-password',
+  authLimiter,
+  validate(forgotSchema),
+  asyncHandler(async (req, res) => {
+    const user = await User.findOne({ where: { email: req.body.email } });
+    // E-posta varlığını sızdırmamak için her durumda aynı yanıt döner.
+    if (user && user.status !== 'suspended') {
+      const token = await issueOneTimeToken('reset', user.id, RESET_TTL);
+      await NotificationService.sendPasswordReset(user.email, token);
+      await logActivity({
+        userId: user.id,
+        action: 'auth.password_reset_requested',
+        resource: 'user',
+        resourceId: user.id,
+        ip: req.ip,
+      });
+    }
+    res.json({
+      success: true,
+      message: 'E-posta adresiniz kayıtlıysa şifre sıfırlama linki gönderildi.',
+    });
+  }),
+);
+
+// --- POST /auth/reset-password ---
+const resetSchema = z.object({
+  body: z.object({ token: z.string().min(10), password: z.string().min(8).max(128) }),
+});
+
+authRouter.post(
+  '/reset-password',
+  authLimiter,
+  validate(resetSchema),
+  asyncHandler(async (req, res) => {
+    const userId = await consumeOneTimeToken('reset', req.body.token);
+    if (!userId) throw ApiError.badRequest('Geçersiz veya süresi dolmuş sıfırlama linki');
+
+    const user = await User.scope('withSecret').findByPk(userId);
+    if (!user) throw ApiError.notFound('Kullanıcı bulunamadı');
+
+    user.password = await hashPassword(req.body.password);
+    await user.save();
+    await logActivity({
+      userId: user.id,
+      action: 'auth.password_reset',
+      resource: 'user',
+      resourceId: user.id,
+      ip: req.ip,
+    });
+    res.json({
+      success: true,
+      message: 'Şifreniz güncellendi. Yeni şifrenizle giriş yapabilirsiniz.',
+    });
+  }),
+);

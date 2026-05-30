@@ -31,6 +31,11 @@ export interface MailOptions {
 }
 
 export class EmailService {
+  /** SMTP yapılandırılmış mı? (gönderim denemeden önce kontrol için) */
+  static isConfigured(): boolean {
+    return Boolean(env.SMTP_HOST);
+  }
+
   static async send(options: MailOptions): Promise<void> {
     const tx = getTransporter();
     const info = await tx.sendMail({ from: env.SMTP_FROM, ...options });

@@ -46,6 +46,29 @@ export async function revokeRefreshToken(token: string): Promise<void> {
   await redis.del(`${REFRESH_PREFIX}${token}`);
 }
 
+/**
+ * Tek-kullanımlık opak token (şifre sıfırlama, e-posta doğrulama).
+ * Redis'te `<purpose>:<token>` → userId olarak TTL ile saklanır.
+ */
+export async function issueOneTimeToken(
+  purpose: string,
+  userId: string,
+  ttlSeconds: number,
+): Promise<string> {
+  const token = crypto.randomBytes(32).toString('hex');
+  await redis.set(`ot:${purpose}:${token}`, userId, 'EX', ttlSeconds);
+  return token;
+}
+
+/** Token'ı doğrular ve TÜKETİR (tek kullanım). Geçerliyse userId döner. */
+export async function consumeOneTimeToken(purpose: string, token: string): Promise<string | null> {
+  const key = `ot:${purpose}:${token}`;
+  const userId = await redis.get(key);
+  if (!userId) return null;
+  await redis.del(key);
+  return userId;
+}
+
 /** "15m", "7d", "3600s" gibi süreleri saniyeye çevirir. */
 export function parseDurationToSeconds(duration: string): number {
   const match = /^(\d+)([smhd])$/.exec(duration.trim());
