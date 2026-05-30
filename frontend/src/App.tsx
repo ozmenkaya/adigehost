@@ -6,7 +6,10 @@ import Login from './pages/auth/Login';
 import AdminDashboard from './pages/admin/Dashboard';
 import Clients from './pages/admin/Clients';
 import AdminServices from './pages/admin/Services';
+import Products from './pages/admin/Products';
+import Invoices from './pages/admin/Invoices';
 import Servers from './pages/admin/Servers';
+import Settings from './pages/admin/Settings';
 import Logs from './pages/admin/Logs';
 // Client
 import ClientDashboard from './pages/client/Dashboard';
@@ -46,7 +49,10 @@ export default function App() {
         <Route index element={<AdminDashboard />} />
         <Route path="clients" element={<Clients />} />
         <Route path="services" element={<AdminServices />} />
+        <Route path="products" element={<Products />} />
+        <Route path="invoices" element={<Invoices />} />
         <Route path="servers" element={<Servers />} />
+        <Route path="settings" element={<Settings />} />
         <Route path="logs" element={<Logs />} />
       </Route>
 
