@@ -177,19 +177,24 @@ async function runProviderTest(provider: string, values: Creds): Promise<boolean
       return r.status > 0;
     }
     case 'domainnameapi': {
-      const axios = (await import('axios')).default;
-      const base = values.testMode
-        ? 'https://rest-test.domainnameapi.com'
-        : 'https://rest.domainnameapi.com';
-      // Erişilebilirlik testi. TLS reset → sunucu IP'si whitelist'te değil demektir.
-      try {
-        const r = await axios.get(base, { timeout: 12000, validateStatus: () => true });
-        return r.status > 0;
-      } catch (err) {
-        throw new Error(
-          `Bağlanılamadı (sunucu IP whitelist gerekebilir): ${(err as Error).message}`,
-        );
+      // SOAP GetResellerDetails ile gerçek kimlik doğrulama.
+      const soap = await import('soap');
+      const client = await soap.createClientAsync(
+        'https://whmcs.domainnameapi.com/DomainApi.svc?singlewsdl',
+        { disableCache: true },
+      );
+      const method = (client as unknown as Record<string, (a: unknown) => Promise<unknown[]>>)
+        .GetResellerDetailsAsync;
+      const [result] = await method({
+        request: { UserName: values.username, Password: values.password, CurrencyId: 2 },
+      });
+      const r = (result as Record<string, unknown>).GetResellerDetailsResult as
+        | Record<string, unknown>
+        | undefined;
+      if (r?.OperationResult !== 'SUCCESS') {
+        throw new Error(String(r?.OperationMessage ?? 'Kimlik doğrulama başarısız'));
       }
+      return true;
     }
     default:
       logger.info(`Test desteklenmeyen sağlayıcı: ${provider}`);
