@@ -111,13 +111,14 @@ export class EDMService {
     const sessionId = await this.login();
     void senderVkn; // e-arşivde gönderici oturumdan belirlenir
     const content = Buffer.from(ublXml, 'utf8').toString('base64');
-    // Doğru yapı: <ARCHIVE value="ARCHIVE"><INVOICE><CONTENT>...</CONTENT></INVOICE></ARCHIVE>
+    // E-arşiv kesimi: SetArchiveInvoice → <INVOICE><CONTENT>...</CONTENT><FILENAME>...</FILENAME></INVOICE>
+    // (ArchiveInvoice ARCHIVE/DEARCHIVE = var olan faturayı arşivler, kesmez.)
     const inner =
-      '<ARCHIVE value="ARCHIVE"><INVOICE>' +
+      '<INVOICE>' +
       `<CONTENT>${content}</CONTENT>` +
       `<FILENAME>${fileName}</FILENAME>` +
-      '</INVOICE></ARCHIVE>';
-    const xml = await edmCall(creds, 'ArchiveInvoice', sessionId, inner, simulation);
+      '</INVOICE>';
+    const xml = await edmCall(creds, 'SetArchiveInvoice', sessionId, inner, simulation);
     return {
       uuids: extractAll(xml, 'UUID'),
       uuid: extractAll(xml, 'UUID')[0],

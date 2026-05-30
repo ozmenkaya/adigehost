@@ -94,13 +94,16 @@ export class EInvoiceService {
       });
     }
 
-    // GİB fatura no (3 harf + yıl + 9 hane).
+    // GİB fatura no: 3 harf + yıl + 9 hane. Sıralı ve boşluksuz (VUK) →
+    // ayar tabanlı sayaç (edm_invoice_counter) ile üretilir.
     const prefix = (await SettingsService.get('efatura_prefix', 'FAT'))
       .toUpperCase()
       .slice(0, 3)
       .padEnd(3, 'X');
-    const seq = (invoice.invoiceNum.match(/(\d+)$/)?.[1] ?? '1').padStart(9, '0').slice(-9);
-    const gibId = `${prefix}${new Date().getFullYear()}${seq}`;
+    const year = new Date().getFullYear();
+    const counter = Number(await SettingsService.get('edm_invoice_counter', '0')) + 1;
+    const seq = String(counter).padStart(9, '0').slice(-9);
+    const gibId = `${prefix}${year}${seq}`;
 
     const { xml, uuid } = buildInvoiceUBL({
       gibId,
@@ -119,6 +122,8 @@ export class EInvoiceService {
       await EDMService.archiveInvoice(supplier.vknTckn, xml, fileName);
     }
 
+    // Başarılı → sayacı ilerlet (gapless).
+    await SettingsService.set('edm_invoice_counter', String(counter), 'billing');
     invoice.edmInvoiceUuid = uuid;
     invoice.edmInvoiceId = gibId;
     invoice.edmType = isEfatura ? 'efatura' : 'earsiv';
