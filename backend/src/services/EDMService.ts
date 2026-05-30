@@ -91,7 +91,11 @@ export class EDMService {
       `<FILENAME>${fileName}</FILENAME>` +
       '</INVOICE>';
     const xml = await edmCall(creds, 'SendInvoice', sessionId, inner, simulation);
-    return { uuids: extractAll(xml, 'UUID'), raw: xml.slice(0, 500) };
+    return {
+      uuids: extractAll(xml, 'UUID'),
+      uuid: extractAll(xml, 'UUID')[0],
+      raw: xml.slice(0, 500),
+    };
   }
 
   /**
@@ -105,14 +109,19 @@ export class EDMService {
   ): Promise<Record<string, unknown>> {
     const creds = await getCreds();
     const sessionId = await this.login();
+    void senderVkn; // e-arşivde gönderici oturumdan belirlenir
     const content = Buffer.from(ublXml, 'utf8').toString('base64');
+    // Doğru yapı: <ARCHIVE value="ARCHIVE"><INVOICE><CONTENT>...</CONTENT></INVOICE></ARCHIVE>
     const inner =
-      `<SENDER vkn="${senderVkn}"/>` +
-      '<INVOICE>' +
+      '<ARCHIVE value="ARCHIVE"><INVOICE>' +
       `<CONTENT>${content}</CONTENT>` +
       `<FILENAME>${fileName}</FILENAME>` +
-      '</INVOICE>';
+      '</INVOICE></ARCHIVE>';
     const xml = await edmCall(creds, 'ArchiveInvoice', sessionId, inner, simulation);
-    return { uuids: extractAll(xml, 'UUID'), raw: xml.slice(0, 500) };
+    return {
+      uuids: extractAll(xml, 'UUID'),
+      uuid: extractAll(xml, 'UUID')[0],
+      raw: xml.slice(0, 500),
+    };
   }
 }
