@@ -176,6 +176,21 @@ async function runProviderTest(provider: string, values: Creds): Promise<boolean
       });
       return r.status > 0;
     }
+    case 'domainnameapi': {
+      const axios = (await import('axios')).default;
+      const base = values.testMode
+        ? 'https://rest-test.domainnameapi.com'
+        : 'https://rest.domainnameapi.com';
+      // Erişilebilirlik testi. TLS reset → sunucu IP'si whitelist'te değil demektir.
+      try {
+        const r = await axios.get(base, { timeout: 12000, validateStatus: () => true });
+        return r.status > 0;
+      } catch (err) {
+        throw new Error(
+          `Bağlanılamadı (sunucu IP whitelist gerekebilir): ${(err as Error).message}`,
+        );
+      }
+    }
     default:
       logger.info(`Test desteklenmeyen sağlayıcı: ${provider}`);
       return false;
