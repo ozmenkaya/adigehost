@@ -5,6 +5,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
 import { HetznerService } from '../services/HetznerService';
+import { PricingService } from '../services/PricingService';
 import { validate } from '../middleware/validate';
 import { slugify } from '../utils/helpers';
 
@@ -84,8 +85,6 @@ const createVpsSchema = z.object({
   }),
 });
 
-const MARKUP = 1.6; // TR satış fiyatı çarpanı (ileride settings'ten okunacak)
-
 servicesRouter.post(
   '/vps',
   validate(createVpsSchema),
@@ -104,7 +103,8 @@ servicesRouter.post(
     if (!type) throw ApiError.badRequest(`Geçersiz sunucu tipi: ${serverType}`);
     const priceRow = type.prices.find((p) => p.location === location) ?? type.prices[0];
     if (!priceRow) throw ApiError.badRequest('Bu konum için fiyat bulunamadı');
-    const price = Math.round(Number(priceRow.price_monthly.gross) * MARKUP * 100) / 100;
+    // Fiyat sunucu tarafında: Hetzner EUR fiyatı → canlı kur × markup → TRY.
+    const price = await PricingService.eurToSalePriceTRY(Number(priceRow.price_monthly.gross));
 
     // 2) Hetzner'da sunucuyu oluştur. Benzersiz ad (Hetzner ad çakışmasını önle).
     const hetznerName = `${slugify(name)}-${Date.now().toString(36)}`;

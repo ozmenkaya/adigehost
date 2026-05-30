@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import type { Request } from 'express';
 import { Service } from '../models';
-import { HetznerService, type HetznerServerType } from '../services/HetznerService';
+import { HetznerService } from '../services/HetznerService';
+import { PricingService } from '../services/PricingService';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
@@ -38,24 +39,24 @@ async function audit(req: Request, action: string, serviceId: string) {
 
 // ============ Katalog (provisioning için) ============
 
-/** TR fiyatı: Hetzner brüt aylık fiyat × markup (varsayılan 1.6). */
-function priceFor(type: HetznerServerType, location: string, markup = 1.6): number | null {
-  const p = type.prices.find((x) => x.location === location) ?? type.prices[0];
-  if (!p) return null;
-  return Math.round(Number(p.price_monthly.gross) * markup * 100) / 100;
-}
-
 hetznerRouter.get(
   '/catalog/server-types',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    const location = (req.query.location as string) || 'nbg1';
     const types = await HetznerService.listServerTypes();
-    const data = types.map((t) => ({
-      name: t.name,
-      cores: t.cores,
-      memory: t.memory,
-      disk: t.disk,
-      priceMonthlyTRY: priceFor(t, 'nbg1'),
-    }));
+    const data = await Promise.all(
+      types.map(async (t) => {
+        const price = t.prices.find((p) => p.location === location) ?? t.prices[0];
+        const eurMonthly = price ? Number(price.price_monthly.gross) : 0;
+        return {
+          name: t.name,
+          cores: t.cores,
+          memory: t.memory,
+          disk: t.disk,
+          priceMonthlyTRY: price ? await PricingService.eurToSalePriceTRY(eurMonthly) : null,
+        };
+      }),
+    );
     res.json({ success: true, data });
   }),
 );
