@@ -334,6 +334,9 @@ adminRouter.post(
       } else if (service.type === 'vps') {
         const result = await ProvisioningService.provisionVps(service);
         provisioned.push({ serviceId: service.id, type: 'vps', ...result });
+      } else if (service.type === 'domain') {
+        const result = await ProvisioningService.provisionDomain(service);
+        provisioned.push({ serviceId: service.id, type: 'domain', ...result });
       }
     }
 

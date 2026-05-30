@@ -38,12 +38,12 @@ export const PROVIDERS: ProviderDef[] = [
     key: 'domainnameapi',
     label: 'DomainNameAPI (Atak Domain)',
     category: 'domain',
-    description: 'Domain kayıt, yenileme, DNS (SOAP API — panel kullanıcı/şifre)',
+    description: 'Domain kayıt, yenileme, DNS (REST API — api.domainresellerapi.com)',
     testable: true,
     fields: [
-      { key: 'username', label: 'Kullanıcı Adı (panel)', type: 'text', required: true },
-      { key: 'password', label: 'Şifre (panel)', type: 'password', secret: true, required: true },
-      { key: 'testMode', label: 'Test Modu', type: 'boolean' },
+      { key: 'resellerId', label: 'Bayi ID', type: 'text', required: true },
+      { key: 'apiKey', label: 'API Anahtarı', type: 'password', secret: true, required: true },
+      { key: 'testMode', label: 'Test Modu (OTE)', type: 'boolean' },
     ],
   },
   {

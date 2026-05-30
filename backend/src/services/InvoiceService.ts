@@ -18,6 +18,37 @@ export class InvoiceService {
     return formatInvoiceNumber(prefix, count + 1, year);
   }
 
+  /** Serbest tutarlı ödenmemiş fatura (domain vb. ürün-dışı kalemler için). */
+  static async createForAmount(
+    userId: string,
+    serviceId: string,
+    description: string,
+    amount: number,
+  ): Promise<Invoice> {
+    const vatRate = Number(await SettingsService.get('vat_rate', String(env.VAT_RATE)));
+    const { subtotal, tax, total } = calculateTotals(amount, vatRate);
+    const dueDays = Number(await SettingsService.get('payment_due_days', '7'));
+    const invoice = await Invoice.create({
+      userId,
+      invoiceNum: await this.nextInvoiceNumber(),
+      status: 'unpaid',
+      subtotal,
+      tax,
+      total,
+      dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
+      notes: description,
+    });
+    await InvoiceItem.create({
+      invoiceId: invoice.id,
+      serviceId,
+      description,
+      quantity: 1,
+      unitPrice: amount,
+      total: amount,
+    });
+    return invoice;
+  }
+
   /**
    * Bir hosting siparişi için ödenmemiş fatura oluşturur.
    * Dönem (billingCycle) ay sayısıyla çarpılır.

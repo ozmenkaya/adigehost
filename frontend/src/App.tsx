@@ -17,6 +17,7 @@ import ClientDashboard from './pages/client/Dashboard';
 import ClientServices from './pages/client/Services';
 import OrderHosting from './pages/client/OrderHosting';
 import HostingDetail from './pages/client/HostingDetail';
+import Domains from './pages/client/Domains';
 import Profile from './pages/client/Profile';
 
 function ProtectedRoute({ role, children }: { role?: 'admin'; children: React.ReactNode }) {
@@ -71,6 +72,7 @@ export default function App() {
         <Route path="services" element={<ClientServices />} />
         <Route path="services/:id" element={<HostingDetail />} />
         <Route path="order/hosting" element={<OrderHosting />} />
+        <Route path="domains" element={<Domains />} />
         <Route path="profile" element={<Profile />} />
       </Route>
 

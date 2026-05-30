@@ -177,24 +177,20 @@ async function runProviderTest(provider: string, values: Creds): Promise<boolean
       return r.status > 0;
     }
     case 'domainnameapi': {
-      // SOAP GetResellerDetails ile gerçek kimlik doğrulama.
-      const soap = await import('soap');
-      const client = await soap.createClientAsync(
-        'https://whmcs.domainnameapi.com/DomainApi.svc?singlewsdl',
-        { disableCache: true },
-      );
-      const method = (client as unknown as Record<string, (a: unknown) => Promise<unknown[]>>)
-        .GetResellerDetailsAsync;
-      const [result] = await method({
-        request: { UserName: values.username, Password: values.password, CurrencyId: 2 },
+      // REST: bakiye endpoint'i ile kimlik doğrulama.
+      const axios = (await import('axios')).default;
+      const base = values.testMode
+        ? 'https://ote.domainresellerapi.com/api/v1'
+        : 'https://api.domainresellerapi.com/api/v1';
+      const r = await axios.get(`${base}/deposit/accounts/me`, {
+        headers: {
+          'X-API-KEY': String(values.apiKey),
+          __reseller: String(values.resellerId),
+          Accept: 'application/json',
+        },
+        timeout: 15000,
       });
-      const r = (result as Record<string, unknown>).GetResellerDetailsResult as
-        | Record<string, unknown>
-        | undefined;
-      if (r?.OperationResult !== 'SUCCESS') {
-        throw new Error(String(r?.OperationMessage ?? 'Kimlik doğrulama başarısız'));
-      }
-      return true;
+      return r.status === 200 && Boolean(r.data?.resellerId);
     }
     default:
       logger.info(`Test desteklenmeyen sağlayıcı: ${provider}`);

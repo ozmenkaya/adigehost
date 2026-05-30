@@ -4,7 +4,9 @@ import { Server } from '../models/Server';
 import { Product } from '../models/Product';
 import { WHMService } from './WHMService';
 import { HetznerService } from './HetznerService';
+import { DomainService, type DomainContact } from './DomainService';
 import { ServerManager } from './ServerManager';
+import { User } from '../models/User';
 import { ApiError } from '../utils/ApiError';
 import { logger } from '../config/logger';
 import { slugify } from '../utils/helpers';
@@ -110,5 +112,44 @@ export class ProvisioningService {
 
     logger.info('VPS provision edildi', { service: service.id, hetznerId: server.id });
     return { ip: service.hetznerIp, rootPassword };
+  }
+
+  /**
+   * Bir domain servisini DomainNameAPI üzerinden kaydeder.
+   * İletişim bilgisi müşteri profilinden kurulur (eksikse hata).
+   */
+  static async provisionDomain(service: Service): Promise<{ domain: string }> {
+    if (service.type !== 'domain' || !service.domain) {
+      throw ApiError.badRequest('Geçersiz domain servisi');
+    }
+    const user = await User.findByPk(service.userId);
+    if (!user) throw ApiError.notFound('Müşteri bulunamadı');
+    if (!user.address || !user.city || !user.phone) {
+      throw ApiError.badRequest(
+        'Domain kaydı için müşteri profili eksik (adres, şehir, telefon gerekli)',
+      );
+    }
+
+    const phoneDigits = user.phone.replace(/\D/g, '').replace(/^90/, '').replace(/^0/, '');
+    const contact: DomainContact = {
+      contactType: 'Registrant',
+      firstName: user.firstName,
+      lastName: user.lastName,
+      companyName: user.company ?? '',
+      eMail: user.email,
+      address: user.address,
+      city: user.city,
+      country: 'TR',
+      phoneCountryCode: '90',
+      phone: phoneDigits,
+    };
+
+    const period = Number((service.config as { period?: number } | null)?.period ?? 1);
+    await DomainService.register(service.domain, period, contact);
+
+    service.status = 'active';
+    await service.save();
+    logger.info('Domain provision edildi', { service: service.id, domain: service.domain });
+    return { domain: service.domain };
   }
 }

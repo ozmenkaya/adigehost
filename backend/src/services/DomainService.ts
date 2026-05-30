@@ -1,168 +1,194 @@
-import * as soap from 'soap';
+import axios, { type AxiosInstance, isAxiosError } from 'axios';
 import { logger } from '../config/logger';
 import { ApiError } from '../utils/ApiError';
 import { IntegrationService } from './IntegrationService';
 
 /**
- * DomainNameAPI (Atak Domain) SOAP entegrasyonu.
- * WSDL: https://whmcs.domainnameapi.com/DomainApi.svc?singlewsdl
- * Kimlik doğrulama: her istekte UserName + Password (panel kimlik bilgileri).
+ * DomainNameAPI (Atak Domain) REST entegrasyonu.
+ * Base: https://api.domainresellerapi.com/api/v1  (test: ote.domainresellerapi.com)
+ * Auth header'ları: X-API-KEY: <apiKey>, __reseller: <resellerId>
  * Kimlik bilgileri Entegrasyonlar'dan (provider: domainnameapi) okunur.
  *
- * Resmî SDK referansı: github.com/domainreseller/nodejs-dna
+ * Resmî SDK referansı: github.com/domainreseller/php-dna (DNARest.php)
  */
-const WSDL_PROD = 'https://whmcs.domainnameapi.com/DomainApi.svc?singlewsdl';
+const URL_PROD = 'https://api.domainresellerapi.com/api/v1';
+const URL_OTE = 'https://ote.domainresellerapi.com/api/v1';
 
 interface DnaCreds {
-  username: string;
-  password: string;
+  resellerId: string;
+  apiKey: string;
   testMode?: boolean;
 }
 
-let cachedClient: soap.Client | null = null;
+let client: AxiosInstance | null = null;
+let clientKey: string | null = null;
 
-async function getClient(): Promise<{ client: soap.Client; creds: DnaCreds }> {
+async function getClient(): Promise<AxiosInstance> {
   const raw = await IntegrationService.getCredentials('domainnameapi');
-  if (!raw?.username || !raw?.password) {
+  if (!raw?.resellerId || !raw?.apiKey) {
     throw ApiError.internal('DomainNameAPI yapılandırılmamış (Entegrasyonlar → DomainNameAPI)');
   }
   const creds = raw as unknown as DnaCreds;
-  if (!cachedClient) {
-    cachedClient = await soap.createClientAsync(WSDL_PROD, { disableCache: true });
-  }
-  return { client: cachedClient, creds };
+  const cacheKey = `${creds.resellerId}:${creds.testMode ? 'ote' : 'prod'}`;
+  if (client && clientKey === cacheKey) return client;
+  clientKey = cacheKey;
+  client = axios.create({
+    baseURL: creds.testMode ? URL_OTE : URL_PROD,
+    headers: {
+      'X-API-KEY': creds.apiKey,
+      __reseller: creds.resellerId,
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    timeout: 30000,
+  });
+  return client;
 }
 
-/** SOAP fonksiyonunu çağırır, <Fn>Result'ı çözer ve OperationResult'ı kontrol eder. */
-async function call<T = Record<string, unknown>>(
-  fn: string,
-  request: Record<string, unknown>,
-): Promise<T> {
-  const { client } = await getClient();
-  const method = (client as unknown as Record<string, (a: unknown) => Promise<unknown[]>>)[
-    `${fn}Async`
-  ];
-  if (!method) throw ApiError.internal(`DomainNameAPI: bilinmeyen işlem ${fn}`);
-  try {
-    const [result] = (await method({ request })) as [Record<string, unknown>];
-    const key = `${fn}Result`;
-    let data = (result?.[key] ?? null) as Record<string, unknown> | null;
-    if (!data) {
-      const first = result ? Object.values(result)[0] : null;
-      if (first && typeof first === 'object' && key in (first as object)) {
-        data = (first as Record<string, unknown>)[key] as Record<string, unknown>;
-      }
-    }
-    if (!data || typeof data !== 'object') {
-      throw new ApiError(502, 'DomainNameAPI: yanıt alınamadı', 'DNA_ERROR');
-    }
-    if (data.OperationResult !== 'SUCCESS') {
-      const msg = String(data.OperationMessage ?? 'işlem başarısız');
-      throw new ApiError(502, `DomainNameAPI: ${msg}`, 'DNA_ERROR');
-    }
-    return data as T;
-  } catch (err) {
-    if (err instanceof ApiError) throw err;
-    logger.error(`DomainNameAPI hatası (${fn})`, { error: (err as Error).message });
-    throw new ApiError(502, `DomainNameAPI servis hatası (${fn})`, 'DNA_ERROR');
+function toApiError(err: unknown, ctx: string): ApiError {
+  if (isAxiosError(err)) {
+    const status = err.response?.status ?? 502;
+    const apiErr = err.response?.data?.error as { message?: string; details?: string } | undefined;
+    const message = apiErr?.message ?? err.message;
+    logger.error(`DomainNameAPI hatası (${ctx})`, { status, message, details: apiErr?.details });
+    if (status === 400 || status === 422) return ApiError.badRequest(`Domain: ${message}`);
+    return new ApiError(502, `DomainNameAPI servis hatası: ${message}`, 'DNA_ERROR');
   }
+  logger.error(`DomainNameAPI beklenmeyen hata (${ctx})`, { error: String(err) });
+  return ApiError.internal('DomainNameAPI işlemi başarısız');
 }
 
 export interface DomainAvailability {
-  domain: string;
-  tld: string;
+  domain: string; // tam alan adı (orneksite.com)
+  sld: string; // orneksite
+  tld: string; // com
   available: boolean;
   status: string;
-  classicPrice?: number;
-  currency?: string;
-  period?: number;
+  priceUsd: number | null;
+  currency: string;
+  period: number;
+  isPremium: boolean;
+  reason?: string | null;
 }
 
+export interface DomainContact {
+  contactType: 'Registrant' | 'Admin' | 'Tech' | 'Billing';
+  firstName: string;
+  lastName: string;
+  companyName?: string;
+  eMail: string;
+  address: string;
+  city: string;
+  state?: string;
+  country: string; // ISO-2 (TR)
+  postalCode?: string;
+  phoneCountryCode: string; // "90"
+  phone: string;
+}
+
+const DEFAULT_NS = ['dns.domainnameapi.com', 'web.domainnameapi.com'];
+
 export class DomainService {
-  /** Auth + UserName/Password ile ortak request gövdesi. */
-  private static async auth(): Promise<{ UserName: string; Password: string }> {
-    const { creds } = await getClient();
-    return { UserName: creds.username, Password: creds.password };
+  /** Bayi bakiyesi (bağlantı testi + kontrol için). */
+  static async getBalance(): Promise<{
+    tryBalance: number;
+    usdBalance: number;
+    resellerName: string;
+  }> {
+    try {
+      const { data } = await (await getClient()).get('/deposit/accounts/me');
+      return {
+        tryBalance: Number(data.tryBalance ?? 0),
+        usdBalance: Number(data.usdBalance ?? 0),
+        resellerName: String(data.resellerName ?? ''),
+      };
+    } catch (err) {
+      throw toApiError(err, 'getBalance');
+    }
   }
 
-  /** Domain müsaitlik sorgusu. domains: SLD listesi, tlds: uzantı listesi. */
-  static async checkAvailability(
-    domains: string[],
-    tlds: string[],
-    period = 1,
-  ): Promise<DomainAvailability[]> {
-    const auth = await this.auth();
-    const data = await call('CheckAvailability', {
-      ...auth,
-      DomainNameList: { string: domains },
-      TldList: { string: tlds },
-      Period: period,
-      Commad: 'create',
-    });
-    const list = (data.DomainAvailabilityInfoList as { DomainAvailabilityInfo?: unknown }) ?? {};
-    let infos = list.DomainAvailabilityInfo;
-    if (!infos) return [];
-    if (!Array.isArray(infos)) infos = [infos];
-    return (infos as Array<Record<string, unknown>>).map((i) => ({
-      domain: `${i.DomainName}`,
-      tld: `${i.Tld}`,
-      available: i.Status === 'available',
-      status: `${i.Status}`,
-      classicPrice: i.Price ? Number(i.Price) : undefined,
-      currency: i.Currency ? `${i.Currency}` : undefined,
-      period: i.Period ? Number(i.Period) : undefined,
-    }));
-  }
-
-  /** Desteklenen TLD'ler ve fiyatları. */
-  static async getTldList(count = 100): Promise<unknown[]> {
-    const auth = await this.auth();
-    const data = await call('GetTldList', { ...auth, Count: count });
-    const list = (data.TldInfoList as { TldInfo?: unknown }) ?? {};
-    const infos = list.TldInfo;
-    if (!infos) return [];
-    return Array.isArray(infos) ? infos : [infos];
-  }
-
-  /** Bayi detayları (bağlantı testi + bakiye için). */
-  static async getResellerDetails(): Promise<Record<string, unknown>> {
-    const auth = await this.auth();
-    const data = await call('GetResellerDetails', { ...auth, CurrencyId: 2 });
-    return (data.ResellerInfo as Record<string, unknown>) ?? {};
+  /** Domain müsaitlik + fiyat sorgusu. sld'ler × tld'ler. */
+  static async checkAvailability(slds: string[], tlds: string[]): Promise<DomainAvailability[]> {
+    const body = slds.flatMap((sld) =>
+      tlds.map((tld) => ({ domainName: `${sld}.${tld.replace(/^\./, '')}` })),
+    );
+    if (body.length === 0) return [];
+    try {
+      const { data } = await (await getClient()).post('/domains/bulk-search', body);
+      const infos = (data.infos ?? data) as Array<Record<string, unknown>>;
+      if (!Array.isArray(infos)) return [];
+      return infos.map((i) => {
+        const domain = String(i.domainName ?? '');
+        const tld = String(i.tld ?? domain.split('.').slice(1).join('.')).toLowerCase();
+        const sld = domain.toLowerCase().replace(`.${tld}`, '');
+        const status = String(i.status ?? '').toLowerCase();
+        return {
+          domain,
+          sld,
+          tld,
+          available: status === 'available',
+          status,
+          priceUsd: i.price != null ? Number(i.price) : null,
+          currency: String(i.currency ?? 'USD'),
+          period: Number(i.period ?? 1),
+          isPremium: Boolean(i.isPremium),
+          reason: (i.reason as string) ?? null,
+        };
+      });
+    } catch (err) {
+      throw toApiError(err, 'checkAvailability');
+    }
   }
 
   /** Domain detayları. */
   static async getDetails(domainName: string): Promise<Record<string, unknown>> {
-    const auth = await this.auth();
-    return call('GetDetails', { ...auth, DomainName: domainName });
+    try {
+      const { data } = await (await getClient()).get('/domains/info', { params: { domainName } });
+      return data;
+    } catch (err) {
+      throw toApiError(err, 'getDetails');
+    }
   }
 
-  /**
-   * Domain kaydı (iletişim bilgileriyle).
-   * contacts: { Administrative, Billing, Technical, Registrant } her biri kişi nesnesi.
-   */
+  /** Domain kaydı (iletişim bilgileriyle). */
   static async register(
     domainName: string,
     period: number,
-    contacts: Record<string, unknown>,
-    nameServers: string[] = ['dns.domainnameapi.com', 'web.domainnameapi.com'],
+    contact: DomainContact,
+    nameServers: string[] = DEFAULT_NS,
   ): Promise<Record<string, unknown>> {
-    const auth = await this.auth();
-    return call('RegisterWithContactInfo', {
-      ...auth,
-      DomainName: domainName,
-      Period: period,
-      Contacts: contacts,
-      NameServerList: { string: nameServers },
-      LockStatus: true,
-      PrivacyProtectionStatus: false,
-    });
+    // Tüm roller için aynı kişi (registrant) kullanılır.
+    const contacts = (['Registrant', 'Admin', 'Tech', 'Billing'] as const).map((t) => ({
+      ...contact,
+      contactType: t,
+    }));
+    try {
+      const { data } = await (
+        await getClient()
+      ).post('/domains/register-with-contacts', {
+        domainName,
+        period,
+        nameServers,
+        isLocked: true,
+        privacyEnabled: false,
+        contacts,
+        additionalAttributes: {},
+      });
+      logger.info('Domain kaydedildi', { domainName, period });
+      return data;
+    } catch (err) {
+      throw toApiError(err, 'register');
+    }
   }
 
   /** Domain yenileme. */
   static async renew(domainName: string, period: number): Promise<Record<string, unknown>> {
-    const auth = await this.auth();
-    return call('Renew', { ...auth, DomainName: domainName, Period: period });
+    try {
+      const { data } = await (await getClient()).post('/domains/renew', { domainName, period });
+      return data;
+    } catch (err) {
+      throw toApiError(err, 'renew');
+    }
   }
 
   /** Nameserver güncelleme. */
@@ -170,17 +196,22 @@ export class DomainService {
     domainName: string,
     nameServers: string[],
   ): Promise<Record<string, unknown>> {
-    const auth = await this.auth();
-    return call('ModifyNameServer', {
-      ...auth,
-      DomainName: domainName,
-      NameServerList: { string: nameServers },
-    });
+    try {
+      const { data } = await (
+        await getClient()
+      ).put('/domains/dns/name-server', {
+        domainName,
+        nameServers,
+      });
+      return data;
+    } catch (err) {
+      throw toApiError(err, 'modifyNameServers');
+    }
   }
 
   static async healthcheck(): Promise<boolean> {
     try {
-      await this.getResellerDetails();
+      await this.getBalance();
       return true;
     } catch {
       return false;
