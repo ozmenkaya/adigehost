@@ -163,9 +163,17 @@ servicesRouter.delete(
   asyncHandler(async (req, res) => {
     const service = await getOwnedService(req.params.id, req.user!.sub, req.user!.role === 'admin');
 
-    // VPS ise Hetzner'daki sunucuyu da kalıcı sil.
+    // VPS ise Hetzner sunucusunu, hosting ise WHM cPanel hesabını kalıcı sil.
     if (service.type === 'vps' && service.hetznerId) {
       await HetznerService.deleteServer(service.hetznerId);
+    } else if (service.type === 'hosting' && service.serverId) {
+      const cpanelUser = (service.config as { cpanelUser?: string } | null)?.cpanelUser;
+      const server = await Server.findByPk(service.serverId);
+      if (cpanelUser && server) {
+        await WHMService.forServer(server).terminateAccount(cpanelUser);
+        server.accountCount = Math.max(0, server.accountCount - 1);
+        await server.save();
+      }
     }
     service.status = 'terminated';
     await service.save();
