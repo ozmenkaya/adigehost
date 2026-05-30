@@ -15,6 +15,7 @@ export class Service extends Model<InferAttributes<Service>, InferCreationAttrib
   declare id: CreationOptional<string>;
   declare userId: string;
   declare serverId: CreationOptional<string | null>;
+  declare productId: CreationOptional<string | null>;
   declare type: ServiceType;
   declare name: string;
   declare status: CreationOptional<ServiceStatus>;
@@ -38,6 +39,7 @@ Service.init(
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     userId: { type: DataTypes.UUID, allowNull: false },
     serverId: { type: DataTypes.UUID, allowNull: true },
+    productId: { type: DataTypes.UUID, allowNull: true },
     type: { type: DataTypes.ENUM('vps', 'hosting', 'domain'), allowNull: false },
     name: { type: DataTypes.STRING(100), allowNull: false },
     status: {

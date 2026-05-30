@@ -9,6 +9,7 @@ import { Domain } from './Domain';
 import { Consent } from './Consent';
 import { ActivityLog } from './ActivityLog';
 import { Setting } from './Setting';
+import { Product } from './Product';
 
 /**
  * Model ilişkileri (associations).
@@ -21,6 +22,9 @@ Service.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
 Server.hasMany(Service, { foreignKey: 'serverId', as: 'services' });
 Service.belongsTo(Server, { foreignKey: 'serverId', as: 'server' });
+
+Product.belongsTo(Server, { foreignKey: 'serverId', as: 'server' });
+Service.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
 
 User.hasMany(Invoice, { foreignKey: 'userId', as: 'invoices' });
 Invoice.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -69,6 +73,7 @@ export {
   Consent,
   ActivityLog,
   Setting,
+  Product,
 };
 
 /** Tüm modellerin kaydı (migrate/sync için). */
@@ -86,4 +91,5 @@ export const models = {
   Consent,
   ActivityLog,
   Setting,
+  Product,
 };

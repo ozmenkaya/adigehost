@@ -129,6 +129,17 @@ serversRouter.post(
   }),
 );
 
+// --- GET /servers/:id/packages — WHM paketlerini çek ---
+serversRouter.get(
+  '/:id/packages',
+  asyncHandler(async (req, res) => {
+    const server = await Server.findByPk(req.params.id);
+    if (!server) throw ApiError.notFound('Sunucu bulunamadı');
+    const packages = await WHMService.forServer(server).listPackages();
+    res.json({ success: true, data: packages });
+  }),
+);
+
 // --- POST /servers/:id/test — WHM bağlantı testi ---
 serversRouter.post(
   '/:id/test',

@@ -1,11 +1,22 @@
 import { Router } from 'express';
 import { Op, fn, col } from 'sequelize';
 import { z } from 'zod';
-import { User, Service, Invoice, Ticket, Server, ActivityLog } from '../models';
+import {
+  User,
+  Service,
+  Invoice,
+  InvoiceItem,
+  Ticket,
+  Server,
+  ActivityLog,
+  Product,
+} from '../models';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
+import { SettingsService, BANK_KEYS } from '../services/SettingsService';
+import { ProvisioningService } from '../services/ProvisioningService';
 
 /**
  * Admin paneli uçları (routes/index.ts'te requireAdmin ile korunur).
@@ -192,6 +203,152 @@ adminRouter.get(
       include: [{ model: User, as: 'user', attributes: ['id', 'email'] }],
     });
     res.json({ success: true, data: logs });
+  }),
+);
+
+// ============ Ürünler / Paketler ============
+
+// --- GET /admin/products — tüm ürünler (pasif dahil) ---
+adminRouter.get(
+  '/products',
+  asyncHandler(async (_req, res) => {
+    const products = await Product.findAll({
+      include: [{ model: Server, as: 'server', attributes: ['id', 'name'] }],
+      order: [
+        ['type', 'ASC'],
+        ['sortOrder', 'ASC'],
+      ],
+    });
+    res.json({ success: true, data: products });
+  }),
+);
+
+const productSchema = z.object({
+  name: z.string().min(2).max(120),
+  type: z.enum(['hosting', 'vps']).default('hosting'),
+  whmPackage: z.string().max(120).optional(),
+  serverId: z.string().uuid().nullable().optional(),
+  priceMonthly: z.number().nonnegative(),
+  priceAnnually: z.number().nonnegative().nullable().optional(),
+  setupFee: z.number().nonnegative().default(0),
+  specs: z.record(z.unknown()).nullable().optional(),
+  description: z.string().max(2000).nullable().optional(),
+  isActive: z.boolean().default(false),
+  sortOrder: z.number().int().default(0),
+});
+
+adminRouter.post(
+  '/products',
+  validate(z.object({ body: productSchema })),
+  asyncHandler(async (req, res) => {
+    const product = await Product.create(req.body);
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.product_create',
+      resource: 'product',
+      resourceId: product.id,
+      ip: req.ip,
+    });
+    res.status(201).json({ success: true, data: product });
+  }),
+);
+
+adminRouter.put(
+  '/products/:id',
+  validate(z.object({ body: productSchema.partial() })),
+  asyncHandler(async (req, res) => {
+    const product = await Product.findByPk(req.params.id);
+    if (!product) throw ApiError.notFound('Ürün bulunamadı');
+    product.set(req.body);
+    await product.save();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.product_update',
+      resource: 'product',
+      resourceId: product.id,
+      ip: req.ip,
+    });
+    res.json({ success: true, data: product });
+  }),
+);
+
+adminRouter.delete(
+  '/products/:id',
+  asyncHandler(async (req, res) => {
+    const product = await Product.findByPk(req.params.id);
+    if (!product) throw ApiError.notFound('Ürün bulunamadı');
+    await product.destroy();
+    res.json({ success: true, message: 'Ürün silindi' });
+  }),
+);
+
+// ============ Ayarlar (banka/havale dahil) ============
+adminRouter.get(
+  '/settings',
+  asyncHandler(async (_req, res) => {
+    const bank = await SettingsService.getMany(BANK_KEYS);
+    res.json({ success: true, data: { bank } });
+  }),
+);
+
+const settingsSchema = z.object({
+  body: z.object({ bank: z.record(z.string()).optional() }),
+});
+adminRouter.put(
+  '/settings',
+  validate(settingsSchema),
+  asyncHandler(async (req, res) => {
+    const { bank } = req.body as { bank?: Record<string, string> };
+    if (bank) await SettingsService.setMany(bank, 'payment');
+    await logActivity({ userId: req.user!.sub, action: 'admin.settings_update', ip: req.ip });
+    res.json({ success: true, message: 'Ayarlar kaydedildi' });
+  }),
+);
+
+// ============ Fatura onayı + provisioning (havale/EFT) ============
+adminRouter.post(
+  '/invoices/:id/approve',
+  asyncHandler(async (req, res) => {
+    const invoice = await Invoice.findByPk(req.params.id, {
+      include: [{ model: InvoiceItem, as: 'items' }],
+    });
+    if (!invoice) throw ApiError.notFound('Fatura bulunamadı');
+    if (invoice.status === 'paid') throw ApiError.conflict('Fatura zaten ödenmiş');
+
+    // Faturayı ödendi işaretle (havale/EFT).
+    invoice.status = 'paid';
+    invoice.paidAt = new Date();
+    invoice.paymentMethod = 'bank_transfer';
+    await invoice.save();
+
+    // Faturaya bağlı bekleyen hosting servislerini provision et.
+    const items = (invoice.get('items') as InvoiceItem[]) ?? [];
+    const provisioned: Array<{ serviceId: string; cpanelUser: string; password: string }> = [];
+    for (const item of items) {
+      if (!item.serviceId) continue;
+      const service = await Service.findByPk(item.serviceId);
+      if (service && service.type === 'hosting' && service.status === 'pending') {
+        const result = await ProvisioningService.provisionHosting(service);
+        provisioned.push({ serviceId: service.id, ...result });
+      }
+    }
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.invoice_approve',
+      resource: 'invoice',
+      resourceId: invoice.id,
+      details: { provisioned: provisioned.length },
+      ip: req.ip,
+    });
+
+    // TODO (e-posta): müşteriye "hosting hazır" + cPanel bilgileri (servis_hazir şablonu).
+
+    res.json({
+      success: true,
+      message: 'Fatura onaylandı ve servisler aktive edildi',
+      data: { provisioned },
+    });
   }),
 );
 

@@ -5,10 +5,13 @@ import { Service, Server } from '../models';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
+import { Product } from '../models';
 import { HetznerService } from '../services/HetznerService';
 import { PricingService } from '../services/PricingService';
 import { WHMService } from '../services/WHMService';
 import { ServerManager } from '../services/ServerManager';
+import { InvoiceService } from '../services/InvoiceService';
+import { SettingsService, BANK_KEYS } from '../services/SettingsService';
 import { validate } from '../middleware/validate';
 import { slugify } from '../utils/helpers';
 
@@ -186,6 +189,65 @@ servicesRouter.delete(
       ip: req.ip,
     });
     res.json({ success: true, message: 'Servis sonlandırıldı' });
+  }),
+);
+
+// --- POST /services/order — paket sipariş (havale/EFT akışı) ---
+const orderSchema = z.object({
+  body: z.object({
+    productId: z.string().uuid(),
+    domain: z
+      .string()
+      .min(3)
+      .max(253)
+      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'Geçerli bir alan adı girin'),
+    billingCycle: z.enum(['monthly', 'quarterly', 'annually']).default('monthly'),
+  }),
+});
+
+servicesRouter.post(
+  '/order',
+  validate(orderSchema),
+  asyncHandler(async (req, res) => {
+    const { productId, domain, billingCycle } = req.body as {
+      productId: string;
+      domain: string;
+      billingCycle: 'monthly' | 'quarterly' | 'annually';
+    };
+    const product = await Product.findByPk(productId);
+    if (!product || !product.isActive) throw ApiError.badRequest('Geçersiz veya pasif ürün');
+
+    // Bekleyen servis (henüz provision edilmez — ödeme onayında açılır).
+    const service = await Service.create({
+      userId: req.user!.sub,
+      type: product.type,
+      productId: product.id,
+      serverId: product.serverId,
+      name: domain,
+      domain,
+      status: 'pending',
+      price: Number(product.priceMonthly),
+      billingCycle,
+      nextDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    });
+
+    const invoice = await InvoiceService.createForOrder(service, product, billingCycle);
+    const bank = await SettingsService.getMany(BANK_KEYS);
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'service.order',
+      resource: 'service',
+      resourceId: service.id,
+      details: { productId, invoiceId: invoice.id },
+      ip: req.ip,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: { service, invoice, bank },
+      message: 'Siparişiniz alındı. Havale/EFT ile ödeme sonrası hesabınız aktive edilecektir.',
+    });
   }),
 );
 

@@ -141,6 +141,15 @@ export class WHMService {
     return this.call('listaccts');
   }
 
+  /** WHM hosting paketlerini (package/plan) listeler. */
+  async listPackages(): Promise<
+    Array<{ name: string; QUOTA?: string; BWLIMIT?: string; MAXADDON?: string; MAXSQL?: string }>
+  > {
+    const data = (await this.call('listpkgs')) as { pkg?: unknown } | unknown;
+    const pkgs = (data as { pkg?: unknown[] })?.pkg ?? data;
+    return Array.isArray(pkgs) ? (pkgs as Array<{ name: string }>) : [];
+  }
+
   /** Sunucu yük/disk bilgisi (kapasite senkronu için). */
   systemLoad() {
     return this.call('systemloadavg');

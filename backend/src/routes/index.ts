@@ -4,6 +4,7 @@ import { healthRouter } from './health';
 import { authRouter } from './auth';
 import { usersRouter } from './users';
 import { servicesRouter } from './services';
+import { productsRouter } from './products';
 import { domainsRouter } from './domains';
 import { invoicesRouter } from './invoices';
 import { ticketsRouter } from './tickets';
@@ -25,6 +26,7 @@ router.use('/webhooks', webhooksRouter);
 // Kimlik doğrulama gerektiren müşteri uçları
 router.use('/users', authenticate, usersRouter);
 router.use('/services', authenticate, servicesRouter);
+router.use('/products', authenticate, productsRouter);
 router.use('/domains', authenticate, domainsRouter);
 router.use('/invoices', authenticate, invoicesRouter);
 router.use('/tickets', authenticate, ticketsRouter);
