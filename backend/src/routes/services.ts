@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { randomBytes } from 'node:crypto';
 import { Service, Server } from '../models';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
 import { HetznerService } from '../services/HetznerService';
 import { PricingService } from '../services/PricingService';
+import { WHMService } from '../services/WHMService';
+import { ServerManager } from '../services/ServerManager';
 import { validate } from '../middleware/validate';
 import { slugify } from '../utils/helpers';
 
@@ -178,13 +181,94 @@ servicesRouter.delete(
   }),
 );
 
-// --- POST /services/hosting — Faz 2 (provisioning) ---
-servicesRouter.post('/hosting', (_req, res) => {
-  res.status(501).json({
-    success: false,
-    error: {
-      code: 'NOT_IMPLEMENTED',
-      message: 'Hosting oluşturma Faz 2 (WHM provisioning) ile aktif olacak',
-    },
-  });
+// --- POST /services/hosting — WHM/cPanel hosting provisioning ---
+const createHostingSchema = z.object({
+  body: z.object({
+    domain: z
+      .string()
+      .min(3)
+      .max(253)
+      .regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'Geçerli bir alan adı girin'),
+    plan: z.string().max(64).optional(),
+    password: z.string().min(8).max(128).optional(),
+    billingCycle: z.enum(['monthly', 'quarterly', 'annually']).default('monthly'),
+    price: z.number().nonnegative().optional(), // admin override; aksi halde 0 (Faz 2 katalog)
+  }),
 });
+
+/** Alan adından geçerli cPanel kullanıcı adı üretir (≤16, harfle başlar, [a-z0-9]). */
+function generateCpanelUser(domain: string): string {
+  const base = domain
+    .split('.')[0]
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 8);
+  const prefix = /^[a-z]/.test(base) ? base : `h${base}`;
+  const suffix = randomBytes(2).toString('hex'); // 4 karakter
+  return `${prefix}${suffix}`.slice(0, 16);
+}
+
+servicesRouter.post(
+  '/hosting',
+  validate(createHostingSchema),
+  asyncHandler(async (req, res) => {
+    const { domain, plan, billingCycle } = req.body as {
+      domain: string;
+      plan?: string;
+      billingCycle: 'monthly' | 'quarterly' | 'annually';
+      price?: number;
+    };
+    const isAdmin = req.user!.role === 'admin';
+    const price = isAdmin && typeof req.body.price === 'number' ? req.body.price : 0;
+    const password = req.body.password ?? randomBytes(12).toString('base64url');
+
+    // 1) Uygun sunucuyu seç.
+    const server = await ServerManager.getAvailableServer();
+
+    // 2) cPanel hesabı oluştur.
+    const cpanelUser = generateCpanelUser(domain);
+    const whm = WHMService.forServer(server);
+    await whm.createAccount({
+      username: cpanelUser,
+      domain,
+      password,
+      plan,
+      contactemail: req.user!.email,
+    });
+
+    // 3) Servis kaydı + kapasite güncelle.
+    const service = await Service.create({
+      userId: req.user!.sub,
+      serverId: server.id,
+      type: 'hosting',
+      name: domain,
+      status: 'active',
+      domain,
+      price,
+      billingCycle,
+      nextDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      config: { cpanelUser, plan: plan ?? null },
+    });
+    server.accountCount += 1;
+    await server.save();
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'service.hosting_create',
+      resource: 'service',
+      resourceId: service.id,
+      details: { serverId: server.id, domain, cpanelUser },
+      ip: req.ip,
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        service,
+        // cPanel giriş bilgileri YALNIZCA burada bir kez döner.
+        cpanel: { username: cpanelUser, password, url: `https://${server.whmHost}:2083` },
+      },
+      message: 'Hosting hesabı oluşturuldu',
+    });
+  }),
+);

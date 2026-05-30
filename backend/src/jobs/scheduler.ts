@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { logger } from '../config/logger';
+import { ServerManager } from '../services/ServerManager';
 
 /**
  * Zamanlanmış görevler (node-cron). index.ts içinde startScheduler() ile başlatılır.
@@ -19,9 +20,10 @@ export function startScheduler(): void {
     logger.info('[cron] Aylık tahsilat tetiklendi (iskelet)');
   });
 
-  // Sunucu kapasite senkronu: her gece 03:00 — TODO: ServerManager.syncServerStats()
+  // Sunucu kapasite senkronu: her gece 03:00
   cron.schedule('0 3 * * *', () => {
-    logger.info('[cron] Sunucu kapasite senkronu tetiklendi (iskelet)');
+    logger.info('[cron] Sunucu kapasite senkronu başladı');
+    void ServerManager.syncAll();
   });
 
   // Domain bitiş hatırlatma: her gün 09:00 — TODO: domain_yaklasan e-postaları

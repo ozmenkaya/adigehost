@@ -3,6 +3,7 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { connectDatabase, closeDatabase } from './config/database';
 import { connectRedis, redis } from './config/redis';
+import { startScheduler } from './jobs/scheduler';
 import './models'; // modelleri ve ilişkileri kaydet
 
 async function bootstrap(): Promise<void> {
@@ -18,6 +19,9 @@ async function bootstrap(): Promise<void> {
       url: env.APP_URL,
     });
   });
+
+  // Zamanlanmış görevler (yalnızca cluster'da tek instance çalıştırır).
+  startScheduler();
 
   // Düzgün kapanış (PM2 reload / SIGTERM)
   const shutdown = async (signal: string): Promise<void> => {
