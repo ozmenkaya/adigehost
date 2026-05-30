@@ -17,6 +17,8 @@ import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
 import { SettingsService, BANK_KEYS } from '../services/SettingsService';
 import { ProvisioningService } from '../services/ProvisioningService';
+import { hashPassword } from '../security/password';
+import { randomBytes } from 'node:crypto';
 
 /**
  * Admin paneli uçları (routes/index.ts'te requireAdmin ile korunur).
@@ -108,6 +110,68 @@ adminRouter.get(
       success: true,
       data: rows,
       meta: { total: count, page, limit, pages: Math.ceil(count / limit) },
+    });
+  }),
+);
+
+// --- POST /admin/clients — yeni müşteri oluştur ---
+const createClientSchema = z.object({
+  body: z.object({
+    firstName: z.string().min(2).max(100),
+    lastName: z.string().min(2).max(100),
+    email: z.string().email(),
+    password: z.string().min(8).max(128).optional(),
+    phone: z.string().max(30).optional(),
+    identityType: z.enum(['individual', 'corporate']).default('individual'),
+    taxNumber: z.string().max(20).optional(),
+    taxOffice: z.string().max(100).optional(),
+    company: z.string().max(150).optional(),
+    address: z.string().max(500).optional(),
+    city: z.string().max(100).optional(),
+    district: z.string().max(100).optional(),
+    postalCode: z.string().max(20).optional(),
+  }),
+});
+
+adminRouter.post(
+  '/clients',
+  validate(createClientSchema),
+  asyncHandler(async (req, res) => {
+    const b = req.body as z.infer<typeof createClientSchema>['body'];
+    const existing = await User.findOne({ where: { email: b.email } });
+    if (existing) throw ApiError.conflict('Bu e-posta zaten kayıtlı');
+
+    const plainPassword = b.password ?? randomBytes(9).toString('base64url');
+    const user = await User.create({
+      firstName: b.firstName,
+      lastName: b.lastName,
+      email: b.email,
+      password: await hashPassword(plainPassword),
+      phone: b.phone ?? null,
+      identityType: b.identityType,
+      taxNumber: b.taxNumber ?? null,
+      taxOffice: b.taxOffice ?? null,
+      company: b.company ?? null,
+      address: b.address ?? null,
+      city: b.city ?? null,
+      district: b.district ?? null,
+      postalCode: b.postalCode ?? null,
+      role: 'client',
+      status: 'active',
+      emailVerified: true,
+    });
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.client_create',
+      resource: 'user',
+      resourceId: user.id,
+      ip: req.ip,
+    });
+    res.status(201).json({
+      success: true,
+      data: { id: user.id, email: user.email },
+      // Şifre admin tarafından belirlenmediyse bir kez gösterilir.
+      ...(b.password ? {} : { generatedPassword: plainPassword }),
     });
   }),
 );

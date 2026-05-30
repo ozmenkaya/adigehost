@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { getApiErrorMessage } from '../../utils/api';
 
@@ -65,6 +65,13 @@ export default function Login() {
             {loading ? 'Giriş yapılıyor...' : 'Giriş Yap'}
           </button>
         </form>
+
+        <p className="mt-4 text-center text-sm text-slate-500">
+          Hesabınız yok mu?{' '}
+          <Link to="/register" className="font-medium text-brand-600 hover:underline">
+            Kayıt olun
+          </Link>
+        </p>
       </div>
     </div>
   );

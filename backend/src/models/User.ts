@@ -9,6 +9,7 @@ import { sequelize } from '../config/database';
 
 export type UserRole = 'admin' | 'client';
 export type UserStatus = 'active' | 'suspended' | 'pending';
+export type IdentityType = 'individual' | 'corporate';
 
 export class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
   declare id: CreationOptional<string>;
@@ -20,8 +21,12 @@ export class User extends Model<InferAttributes<User>, InferCreationAttributes<U
   declare company: CreationOptional<string | null>;
   declare address: CreationOptional<string | null>;
   declare city: CreationOptional<string | null>;
+  declare district: CreationOptional<string | null>; // ilçe
+  declare postalCode: CreationOptional<string | null>;
   declare country: CreationOptional<string | null>;
-  declare taxNumber: CreationOptional<string | null>; // VKN/TCKN — e-fatura için
+  declare identityType: CreationOptional<IdentityType>; // bireysel / kurumsal
+  declare taxNumber: CreationOptional<string | null>; // VKN (kurumsal) / TCKN (bireysel)
+  declare taxOffice: CreationOptional<string | null>; // vergi dairesi (kurumsal)
   declare role: CreationOptional<UserRole>;
   declare status: CreationOptional<UserStatus>;
   declare emailVerified: CreationOptional<boolean>;
@@ -49,8 +54,16 @@ User.init(
     company: { type: DataTypes.STRING(150), allowNull: true },
     address: { type: DataTypes.TEXT, allowNull: true },
     city: { type: DataTypes.STRING(100), allowNull: true },
+    district: { type: DataTypes.STRING(100), allowNull: true },
+    postalCode: { type: DataTypes.STRING(20), allowNull: true },
     country: { type: DataTypes.STRING(100), allowNull: true, defaultValue: 'Türkiye' },
+    identityType: {
+      type: DataTypes.ENUM('individual', 'corporate'),
+      allowNull: false,
+      defaultValue: 'individual',
+    },
     taxNumber: { type: DataTypes.STRING(20), allowNull: true },
+    taxOffice: { type: DataTypes.STRING(100), allowNull: true },
     role: { type: DataTypes.ENUM('admin', 'client'), allowNull: false, defaultValue: 'client' },
     status: {
       type: DataTypes.ENUM('active', 'suspended', 'pending'),

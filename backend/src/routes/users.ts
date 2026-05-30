@@ -34,8 +34,12 @@ const updateProfileSchema = z.object({
     company: z.string().max(150).nullable().optional(),
     address: z.string().max(500).nullable().optional(),
     city: z.string().max(100).nullable().optional(),
+    district: z.string().max(100).nullable().optional(),
+    postalCode: z.string().max(20).nullable().optional(),
     country: z.string().max(100).nullable().optional(),
+    identityType: z.enum(['individual', 'corporate']).optional(),
     taxNumber: z.string().max(20).nullable().optional(),
+    taxOffice: z.string().max(100).nullable().optional(),
   }),
 });
 
@@ -54,8 +58,12 @@ usersRouter.put(
       'company',
       'address',
       'city',
+      'district',
+      'postalCode',
       'country',
+      'identityType',
       'taxNumber',
+      'taxOffice',
     ] as const;
     for (const key of allowed) {
       if (key in req.body) user.set(key, req.body[key]);

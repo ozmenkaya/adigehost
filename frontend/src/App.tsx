@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Layout from './components/shared/Layout';
 import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
 // Admin
 import AdminDashboard from './pages/admin/Dashboard';
 import Clients from './pages/admin/Clients';
@@ -38,6 +39,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
 
       {/* Admin paneli */}
       <Route

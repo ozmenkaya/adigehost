@@ -17,11 +17,29 @@ const STATUS_BADGE: Record<Client['status'], string> = {
   pending: 'bg-amber-100 text-amber-700',
 };
 
+const EMPTY_CLIENT = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  identityType: 'individual' as 'individual' | 'corporate',
+  company: '',
+  taxNumber: '',
+  taxOffice: '',
+  address: '',
+  city: '',
+  district: '',
+  postalCode: '',
+};
+
 export default function Clients() {
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ ...EMPTY_CLIENT });
+  const [msg, setMsg] = useState('');
 
   const load = (q = '') => {
     setLoading(true);
@@ -44,28 +62,161 @@ export default function Clients() {
     }
   };
 
+  const createClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMsg('');
+    try {
+      const res = await api.post('/admin/clients', form);
+      const pw = res.data.generatedPassword;
+      setMsg(pw ? `Müşteri eklendi. Geçici şifre: ${pw}` : 'Müşteri eklendi.');
+      setForm({ ...EMPTY_CLIENT });
+      setShowAdd(false);
+      load();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    }
+  };
+
+  const sf = (k: keyof typeof form, v: string) => setForm((s) => ({ ...s, [k]: v }));
+  const corp = form.identityType === 'corporate';
+  const inp = 'rounded-lg border border-slate-300 px-3 py-2 text-sm';
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">Müşteriler</h1>
+        <div className="flex gap-2">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              load(search);
+            }}
+            className="flex gap-2"
+          >
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Ara: ad, e-posta, firma"
+              className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500"
+            />
+            <button className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
+              Ara
+            </button>
+          </form>
+          <button
+            onClick={() => setShowAdd((v) => !v)}
+            className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white hover:bg-brand-700"
+          >
+            {showAdd ? 'Kapat' : '+ Müşteri Ekle'}
+          </button>
+        </div>
+      </div>
+
+      {msg && <div className="rounded-lg bg-green-50 p-3 text-sm text-green-700">{msg}</div>}
+
+      {showAdd && (
         <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            load(search);
-          }}
-          className="flex gap-2"
+          onSubmit={createClient}
+          className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
         >
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              required
+              placeholder="Ad"
+              value={form.firstName}
+              onChange={(e) => sf('firstName', e.target.value)}
+              className={inp}
+            />
+            <input
+              required
+              placeholder="Soyad"
+              value={form.lastName}
+              onChange={(e) => sf('lastName', e.target.value)}
+              className={inp}
+            />
+            <input
+              required
+              type="email"
+              placeholder="E-posta"
+              value={form.email}
+              onChange={(e) => sf('email', e.target.value)}
+              className={inp}
+            />
+            <input
+              placeholder="Telefon"
+              value={form.phone}
+              onChange={(e) => sf('phone', e.target.value)}
+              className={inp}
+            />
+          </div>
+          <div className="flex gap-4 text-sm">
+            {(['individual', 'corporate'] as const).map((t) => (
+              <label key={t} className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  checked={form.identityType === t}
+                  onChange={() => sf('identityType', t)}
+                />
+                {t === 'individual' ? 'Bireysel' : 'Kurumsal'}
+              </label>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {corp && (
+              <input
+                placeholder="Firma Ünvanı"
+                value={form.company}
+                onChange={(e) => sf('company', e.target.value)}
+                className={inp}
+              />
+            )}
+            <input
+              placeholder={corp ? 'VKN' : 'TCKN'}
+              value={form.taxNumber}
+              onChange={(e) => sf('taxNumber', e.target.value.replace(/\D/g, ''))}
+              className={inp}
+            />
+            {corp && (
+              <input
+                placeholder="Vergi Dairesi"
+                value={form.taxOffice}
+                onChange={(e) => sf('taxOffice', e.target.value)}
+                className={inp}
+              />
+            )}
+          </div>
           <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ara: ad, e-posta, firma"
-            className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm outline-none focus:border-brand-500"
+            placeholder="Adres"
+            value={form.address}
+            onChange={(e) => sf('address', e.target.value)}
+            className={`w-full ${inp}`}
           />
-          <button className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white hover:bg-brand-700">
-            Ara
+          <div className="grid grid-cols-3 gap-3">
+            <input
+              placeholder="İl"
+              value={form.city}
+              onChange={(e) => sf('city', e.target.value)}
+              className={inp}
+            />
+            <input
+              placeholder="İlçe"
+              value={form.district}
+              onChange={(e) => sf('district', e.target.value)}
+              className={inp}
+            />
+            <input
+              placeholder="Posta Kodu"
+              value={form.postalCode}
+              onChange={(e) => sf('postalCode', e.target.value)}
+              className={inp}
+            />
+          </div>
+          <button className="w-full rounded-lg bg-brand-600 py-2 text-sm font-medium text-white hover:bg-brand-700">
+            Kaydet (geçici şifre üretilir)
           </button>
         </form>
-      </div>
+      )}
 
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 

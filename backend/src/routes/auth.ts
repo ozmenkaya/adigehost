@@ -61,7 +61,15 @@ const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8).max(128),
     phone: z.string().max(30).optional(),
-    company: z.string().max(150).optional(),
+    // Fatura / KVKK bilgileri
+    identityType: z.enum(['individual', 'corporate']).default('individual'),
+    taxNumber: z.string().max(20).optional(), // VKN (kurumsal) / TCKN (bireysel)
+    taxOffice: z.string().max(100).optional(), // vergi dairesi (kurumsal)
+    company: z.string().max(150).optional(), // ünvan (kurumsal)
+    address: z.string().max(500).optional(),
+    city: z.string().max(100).optional(),
+    district: z.string().max(100).optional(),
+    postalCode: z.string().max(20).optional(),
   }),
 });
 
@@ -70,17 +78,24 @@ authRouter.post(
   authLimiter,
   validate(registerSchema),
   asyncHandler(async (req, res) => {
-    const { firstName, lastName, email, password, phone, company } = req.body;
-    const existing = await User.findOne({ where: { email } });
+    const b = req.body;
+    const existing = await User.findOne({ where: { email: b.email } });
     if (existing) throw ApiError.conflict('Bu e-posta zaten kayıtlı');
 
     const user = await User.create({
-      firstName,
-      lastName,
-      email,
-      password: await hashPassword(password),
-      phone,
-      company,
+      firstName: b.firstName,
+      lastName: b.lastName,
+      email: b.email,
+      password: await hashPassword(b.password),
+      phone: b.phone,
+      identityType: b.identityType ?? 'individual',
+      taxNumber: b.taxNumber ?? null,
+      taxOffice: b.taxOffice ?? null,
+      company: b.company ?? null,
+      address: b.address ?? null,
+      city: b.city ?? null,
+      district: b.district ?? null,
+      postalCode: b.postalCode ?? null,
       role: 'client',
       status: 'pending',
     });
