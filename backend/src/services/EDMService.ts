@@ -70,5 +70,47 @@ export class EDMService {
     }
   }
 
-  // TODO (sonraki adım): SendInvoice / ArchiveInvoice — UBL-TR 1.2 XML üretimi + gönderim.
+  /**
+   * E-fatura gönderir (SendInvoice). content = UBL-TR XML (base64'lenir).
+   * senderVkn/alias: satıcının VKN'si ve GB/PK etiketi.
+   */
+  static async sendInvoice(
+    senderVkn: string,
+    alias: string,
+    ublXml: string,
+    fileName: string,
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const sessionId = await this.login();
+    const content = Buffer.from(ublXml, 'utf8').toString('base64');
+    const inner =
+      `<SENDER vkn="${senderVkn}" alias="${alias}"/>` +
+      '<INVOICE>' +
+      `<CONTENT>${content}</CONTENT>` +
+      `<FILENAME>${fileName}</FILENAME>` +
+      '</INVOICE>';
+    const xml = await edmCall(creds, 'SendInvoice', sessionId, inner);
+    return { uuids: extractAll(xml, 'UUID'), raw: xml.slice(0, 500) };
+  }
+
+  /**
+   * E-arşiv faturası gönderir (ArchiveInvoice). content = UBL-TR XML.
+   */
+  static async archiveInvoice(
+    senderVkn: string,
+    ublXml: string,
+    fileName: string,
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const sessionId = await this.login();
+    const content = Buffer.from(ublXml, 'utf8').toString('base64');
+    const inner =
+      `<SENDER vkn="${senderVkn}"/>` +
+      '<INVOICE>' +
+      `<CONTENT>${content}</CONTENT>` +
+      `<FILENAME>${fileName}</FILENAME>` +
+      '</INVOICE>';
+    const xml = await edmCall(creds, 'ArchiveInvoice', sessionId, inner);
+    return { uuids: extractAll(xml, 'UUID'), raw: xml.slice(0, 500) };
+  }
 }

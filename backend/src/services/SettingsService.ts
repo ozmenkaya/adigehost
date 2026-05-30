@@ -35,3 +35,17 @@ export class SettingsService {
 
 /** Banka/havale bilgisi anahtarları (group: payment). */
 export const BANK_KEYS = ['bank_name', 'bank_iban', 'bank_account_holder', 'bank_branch'];
+
+/** Satıcı (şirket) bilgisi anahtarları (group: company) — e-fatura "satıcı" alanları. */
+export const COMPANY_KEYS = [
+  'company_title', // ünvan
+  'company_vkn', // VKN
+  'company_tax_office', // vergi dairesi
+  'company_address',
+  'company_city',
+  'company_district',
+  'company_postal_code',
+  'company_email',
+  'company_phone',
+  'company_alias', // EDM GB/PK etiketi (gönderici alias)
+];

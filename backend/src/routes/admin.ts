@@ -14,9 +14,11 @@ import {
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
+import { logger } from '../config/logger';
 import { logActivity } from '../services/AuditService';
-import { SettingsService, BANK_KEYS } from '../services/SettingsService';
+import { SettingsService, BANK_KEYS, COMPANY_KEYS } from '../services/SettingsService';
 import { ProvisioningService } from '../services/ProvisioningService';
+import { EInvoiceService } from '../services/EInvoiceService';
 import { hashPassword } from '../security/password';
 import { randomBytes } from 'node:crypto';
 
@@ -350,20 +352,30 @@ adminRouter.delete(
 adminRouter.get(
   '/settings',
   asyncHandler(async (_req, res) => {
-    const bank = await SettingsService.getMany(BANK_KEYS);
-    res.json({ success: true, data: { bank } });
+    const [bank, company] = await Promise.all([
+      SettingsService.getMany(BANK_KEYS),
+      SettingsService.getMany(COMPANY_KEYS),
+    ]);
+    res.json({ success: true, data: { bank, company } });
   }),
 );
 
 const settingsSchema = z.object({
-  body: z.object({ bank: z.record(z.string()).optional() }),
+  body: z.object({
+    bank: z.record(z.string()).optional(),
+    company: z.record(z.string()).optional(),
+  }),
 });
 adminRouter.put(
   '/settings',
   validate(settingsSchema),
   asyncHandler(async (req, res) => {
-    const { bank } = req.body as { bank?: Record<string, string> };
+    const { bank, company } = req.body as {
+      bank?: Record<string, string>;
+      company?: Record<string, string>;
+    };
     if (bank) await SettingsService.setMany(bank, 'payment');
+    if (company) await SettingsService.setMany(company, 'company');
     await logActivity({ userId: req.user!.sub, action: 'admin.settings_update', ip: req.ip });
     res.json({ success: true, message: 'Ayarlar kaydedildi' });
   }),
@@ -413,12 +425,21 @@ adminRouter.post(
       ip: req.ip,
     });
 
-    // TODO (e-posta): müşteriye "hosting hazır" + cPanel bilgileri (servis_hazir şablonu).
+    // E-belge kesimi (e-fatura/e-arşiv) — başarısızlık onayı/provisioning'i bozmaz.
+    let einvoice: { type: string; uuid?: string } | { error: string } | null = null;
+    try {
+      einvoice = await EInvoiceService.issueForInvoice(invoice.id);
+    } catch (err) {
+      einvoice = { error: (err as Error).message };
+      logger.error('E-belge kesilemedi', { invoice: invoice.id, error: (err as Error).message });
+    }
+
+    // TODO (e-posta): müşteriye "hosting hazır" + cPanel/fatura bilgileri.
 
     res.json({
       success: true,
       message: 'Fatura onaylandı ve servisler aktive edildi',
-      data: { provisioned },
+      data: { provisioned, einvoice },
     });
   }),
 );
