@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
 
 interface Service {
@@ -33,7 +34,15 @@ export default function Services() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold text-slate-900">Servislerim</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-slate-900">Servislerim</h1>
+        <Link
+          to="/app/order/hosting"
+          className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700"
+        >
+          + Hosting Sipariş Et
+        </Link>
+      </div>
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
       {services.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-400">
@@ -42,7 +51,11 @@ export default function Services() {
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {services.map((s) => (
-            <div key={s.id} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <Link
+              key={s.id}
+              to={`/app/services/${s.id}`}
+              className="block rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-brand-400"
+            >
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-slate-800">{s.name}</span>
                 <span
@@ -62,7 +75,7 @@ export default function Services() {
                   <div>Sonraki ödeme: {new Date(s.nextDue).toLocaleDateString('tr-TR')}</div>
                 )}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}
