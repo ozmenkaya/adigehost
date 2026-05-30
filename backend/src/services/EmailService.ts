@@ -1,25 +1,65 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
+import { IntegrationService } from './IntegrationService';
 
 /**
  * SMTP e-posta gönderimi (Nodemailer).
- * Şablonlar (hosgeldin, fatura, ödeme vb.) kodlama fazında templates/ altına eklenir.
+ * Yapılandırma önceliği: Entegrasyonlar (provider: smtp) → .env (geriye uyumluluk).
  */
-let transporter: Transporter | null = null;
+interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user?: string;
+  pass?: string;
+  from: string;
+}
 
-function getTransporter(): Transporter {
-  if (transporter) return transporter;
-  if (!env.SMTP_HOST) {
-    throw new Error('SMTP yapılandırılmamış (SMTP_HOST boş)');
+let transporter: Transporter | null = null;
+let transporterKey: string | null = null;
+
+/** Aktif SMTP yapılandırmasını (entegrasyon ya da env) döndürür. */
+async function resolveConfig(): Promise<SmtpConfig | null> {
+  const integ = await IntegrationService.getCredentials('smtp');
+  if (integ?.host) {
+    return {
+      host: String(integ.host),
+      port: Number(integ.port) || 587,
+      secure: Boolean(integ.secure),
+      user: integ.user ? String(integ.user) : undefined,
+      pass: integ.pass ? String(integ.pass) : undefined,
+      from: String(integ.from || env.SMTP_FROM),
+    };
   }
-  transporter = nodemailer.createTransport({
-    host: env.SMTP_HOST,
-    port: env.SMTP_PORT,
-    secure: env.SMTP_SECURE,
-    auth: env.SMTP_USER ? { user: env.SMTP_USER, pass: env.SMTP_PASS } : undefined,
-  });
-  return transporter;
+  if (env.SMTP_HOST) {
+    return {
+      host: env.SMTP_HOST,
+      port: env.SMTP_PORT,
+      secure: env.SMTP_SECURE,
+      user: env.SMTP_USER,
+      pass: env.SMTP_PASS,
+      from: env.SMTP_FROM,
+    };
+  }
+  return null;
+}
+
+async function getTransporter(): Promise<{ tx: Transporter; from: string }> {
+  const cfg = await resolveConfig();
+  if (!cfg) throw new Error('SMTP yapılandırılmamış (Entegrasyonlar → SMTP veya .env)');
+  const key = `${cfg.host}:${cfg.port}:${cfg.user ?? ''}`;
+  if (!transporter || transporterKey !== key) {
+    transporterKey = key;
+    transporter = nodemailer.createTransport({
+      host: cfg.host,
+      port: cfg.port,
+      secure: cfg.secure,
+      auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+      tls: { rejectUnauthorized: false }, // yerel/self-signed relay için
+    });
+  }
+  return { tx: transporter, from: cfg.from };
 }
 
 export interface MailOptions {
@@ -31,14 +71,14 @@ export interface MailOptions {
 }
 
 export class EmailService {
-  /** SMTP yapılandırılmış mı? (gönderim denemeden önce kontrol için) */
-  static isConfigured(): boolean {
-    return Boolean(env.SMTP_HOST);
+  /** SMTP yapılandırılmış mı? (entegrasyon ya da env) */
+  static async isConfigured(): Promise<boolean> {
+    return (await resolveConfig()) !== null;
   }
 
   static async send(options: MailOptions): Promise<void> {
-    const tx = getTransporter();
-    const info = await tx.sendMail({ from: env.SMTP_FROM, ...options });
+    const { tx, from } = await getTransporter();
+    const info = await tx.sendMail({ from, ...options });
     logger.info('E-posta gönderildi', {
       to: options.to,
       subject: options.subject,
@@ -48,7 +88,8 @@ export class EmailService {
 
   static async verify(): Promise<boolean> {
     try {
-      await getTransporter().verify();
+      const { tx } = await getTransporter();
+      await tx.verify();
       return true;
     } catch (err) {
       logger.error('SMTP doğrulama hatası', { error: (err as Error).message });

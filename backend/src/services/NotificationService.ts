@@ -25,7 +25,7 @@ function wrapHtml(title: string, body: string, cta?: { label: string; url: strin
 }
 
 async function deliver(to: string, subject: string, html: string, devNote: string): Promise<void> {
-  if (!EmailService.isConfigured()) {
+  if (!(await EmailService.isConfigured())) {
     logger.warn(`[SMTP yapılandırılmamış] ${subject} → ${to} | ${devNote}`);
     return;
   }

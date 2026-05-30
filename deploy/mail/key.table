@@ -1,0 +1,1 @@
+mail._domainkey.adigehost.tr adigehost.tr:mail:/etc/opendkim/keys/adigehost.tr/mail.private

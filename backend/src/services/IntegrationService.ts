@@ -163,6 +163,7 @@ async function runProviderTest(provider: string, values: Creds): Promise<boolean
         port: Number(values.port) || 587,
         secure: Boolean(values.secure),
         auth: values.user ? { user: String(values.user), pass: String(values.pass) } : undefined,
+        tls: { rejectUnauthorized: false }, // yerel/self-signed relay için
       });
       await tx.verify();
       return true;

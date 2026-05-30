@@ -1,6 +1,6 @@
 $TTL    300
 @       IN      SOA     ns1.adigehost.tr. hostmaster.adigehost.tr. (
-                        2026052901      ; Serial (YYYYMMDDnn) — her değişiklikte ARTIR
+                        2026053001      ; Serial (YYYYMMDDnn) — her değişiklikte ARTIR
                         3600            ; Refresh
                         900             ; Retry
                         1209600         ; Expire (14 gün)
@@ -24,6 +24,18 @@ www     IN      AAAA    2a01:4f8:c010:86ec::1
 panel   IN      A       91.99.186.98
 panel   IN      AAAA    2a01:4f8:c010:86ec::1
 
-; --- Posta (ileride) ---
-;@      IN      MX      10 mail.adigehost.tr.
-;mail   IN      A       91.99.186.98
+; --- Posta ---
+mail    IN      A       91.99.186.98
+mail    IN      AAAA    2a01:4f8:c010:86ec::1
+@       IN      MX      10 mail.adigehost.tr.
+
+; SPF — yalnızca bu sunucu adigehost.tr adına mail gönderebilir
+@       IN      TXT     "v=spf1 a mx ip4:91.99.186.98 ip6:2a01:4f8:c010:86ec::1 ~all"
+
+; DMARC
+_dmarc  IN      TXT     "v=DMARC1; p=none; rua=mailto:postmaster@adigehost.tr; aspf=r; adkim=r"
+
+; DKIM (selector: mail)
+mail._domainkey IN TXT ( "v=DKIM1; h=sha256; k=rsa; "
+	  "p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArZxW5ZhufpZTxqT+6JaicWLPBOxuMtYQZsfmzuH4qIzPW3UX5QPcnhIWuJGArF04H/EH+5KnVsflmlrPt8uulVMC/6Z7UFRXx4WN3LVmTNSFpXuqiBLk95Ce6+Nd0LzUW5V5vohMJAPbblPjD18TWlrHhowsg+FX1Pap1GoDR4CbBSDDCkTuRz/hbRdbWsi9v8DpcGNHBm3ncs"
+	  "aCp8LuvlspYw5XRpv1FF3G/QUZgX7WWQF8pLkIbRK3ZRFAsfG1vovW1gTAs9N0mB32+2Zovfp3sJJPobm8cazF3lyvjRDqOdr36hnYyPkI/+oVrWJxUkjP1z7eIn6iJkdtp9OOQQIDAQAB" )  ; DKIM key mail for adigehost.tr
