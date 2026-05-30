@@ -61,9 +61,10 @@ export class EInvoiceService {
       phone: user.phone ?? undefined,
     };
 
-    // Profil kararı.
+    // Profil kararı: e-fatura yalnızca satıcının GB etiketi varsa (e-fatura mükellefiyse)
+    // VE müşteri kurumsal + VKN + e-fatura mükellefiyse; aksi halde e-arşiv.
     let isEfatura = false;
-    if (isCorporate && vknTckn.length === 10) {
+    if (c.company_alias && isCorporate && vknTckn.length === 10) {
       try {
         const chk = await EDMService.checkUser(vknTckn);
         isEfatura = chk.registered;
