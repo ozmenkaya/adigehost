@@ -352,42 +352,49 @@ export default function Sync() {
                 <tr>
                   <th className="px-4 py-3">Domain</th>
                   <th className="px-4 py-3">Müşteri</th>
-                  <th className="px-4 py-3">Registrycode</th>
-                  <th className="px-4 py-3">Son. Tarihi</th>
+                  <th className="px-4 py-3">RC</th>
+                  <th className="px-4 py-3">Son Kullanma</th>
                   <th className="px-4 py-3">Durum</th>
-                  <th className="px-4 py-3"></th>
+                  <th className="px-4 py-3 text-right">İşlemler</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {alLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
-                      Yükleniyor…
-                    </td>
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">Yükleniyor…</td>
                   </tr>
                 ) : alDomains.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
-                      Henüz domain yok. Yukarıdan ekleyin.
-                    </td>
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">Henüz domain yok.</td>
                   </tr>
                 ) : (
-                  alDomains.map((d) => (
-                    <tr key={d.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-medium text-slate-800">
-                        {d.domain ?? d.name}
-                      </td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {d.user ? `${d.user.firstName} ${d.user.lastName}` : '—'}
-                        {d.user?.email && (
-                          <div className="text-xs text-slate-400">{d.user.email}</div>
+                  alDomains.map((d) => {
+                    const expiry = d.nextDue ? new Date(d.nextDue) : null;
+                    const daysLeft = expiry ? Math.ceil((expiry.getTime() - Date.now()) / 86400000) : null;
+                    const isExpiring = daysLeft !== null && daysLeft < 30;
+                    return (
+                    <tr key={d.id} className={`hover:bg-slate-50 ${isExpiring ? 'bg-red-50' : ''}`}>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-slate-800">{d.domain ?? d.name}</div>
+                        {isExpiring && (
+                          <div className="text-xs text-red-600 font-medium">
+                            ⚠️ {daysLeft! < 0 ? 'Süresi doldu!' : `${daysLeft} gün kaldı`}
+                          </div>
                         )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <DomainAssign
+                          id={d.id}
+                          currentUser={d.user}
+                          clients={clients}
+                          onAssigned={() => void loadAlantron()}
+                        />
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-500">
                         {d.config?.registrycode ?? '—'}
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-400">
-                        {d.nextDue ? new Date(d.nextDue).toLocaleDateString('tr-TR') : '—'}
+                      <td className="px-4 py-3 text-xs text-slate-500">
+                        {expiry ? expiry.toLocaleDateString('tr-TR') : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -413,13 +420,154 @@ export default function Sync() {
                         >
                           Sil
                         </button>
+                        {d.config?.registrycode && (
+                          <DomainActions
+                            id={d.id}
+                            domain={d.domain ?? d.name}
+                            registrycode={d.config.registrycode}
+                            onRenewed={() => void loadAlantron()}
+                          />
+                        )}
                       </td>
                     </tr>
-                  ))
+                  );})
                 )}
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Müşteri atama satır bileşeni ─────────────────────────────────────────────
+function DomainAssign({
+  id, currentUser, clients, onAssigned,
+}: {
+  id: string;
+  currentUser?: { firstName: string; lastName: string; email: string } | null;
+  clients: Client[];
+  onAssigned: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [userId, setUserId] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  if (!editing) {
+    return (
+      <div
+        className="cursor-pointer group"
+        onClick={() => setEditing(true)}
+        title="Müşteri ata"
+      >
+        {currentUser ? (
+          <div>
+            <div className="text-slate-700 group-hover:text-brand-600 text-sm">
+              {currentUser.firstName} {currentUser.lastName}
+            </div>
+            <div className="text-xs text-slate-400">{currentUser.email}</div>
+          </div>
+        ) : (
+          <span className="text-xs text-brand-500 hover:text-brand-700">+ Müşteri ata</span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex gap-1 items-center">
+      <select
+        autoFocus
+        value={userId}
+        onChange={(e) => setUserId(e.target.value)}
+        className="rounded border border-slate-300 px-1.5 py-1 text-xs flex-1"
+      >
+        <option value="">— Seçin —</option>
+        {clients.map((c) => (
+          <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
+        ))}
+      </select>
+      <button
+        disabled={!userId || saving}
+        onClick={async () => {
+          setSaving(true);
+          await api.put(`/admin/sync/alantron/${id}/assign`, { userId }).catch(() => {});
+          setSaving(false);
+          setEditing(false);
+          onAssigned();
+        }}
+        className="rounded bg-brand-600 px-2 py-1 text-xs text-white disabled:opacity-40"
+      >
+        {saving ? '…' : '✓'}
+      </button>
+      <button onClick={() => setEditing(false)} className="text-xs text-slate-400 hover:text-slate-600">✕</button>
+    </div>
+  );
+}
+
+// ── Domain operasyon butonları ────────────────────────────────────────────────
+function DomainActions({
+  id, domain, onRenewed,
+}: {
+  id: string;
+  domain: string;
+  registrycode?: number;
+  onRenewed: () => void;
+}) {
+  const [renewing, setRenewing] = useState(false);
+  const [info, setInfo] = useState<Record<string, unknown> | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  const renew = async () => {
+    if (!confirm(`${domain} 1 yıl yenilensin mi? (Alantron bakiyenizden düşer)`)) return;
+    setRenewing(true);
+    try {
+      const r = await api.post(`/admin/sync/alantron/${id}/renew`, { year: 1 });
+      setMsg(r.data.message);
+      onRenewed();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e));
+    } finally {
+      setRenewing(false);
+    }
+  };
+
+  const fetchInfo = async () => {
+    if (showInfo) { setShowInfo(false); return; }
+    try {
+      const r = await api.get(`/admin/sync/alantron/${id}/info`);
+      setInfo(r.data.data);
+      setShowInfo(true);
+    } catch (e) {
+      setMsg(getApiErrorMessage(e));
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1 items-end">
+      {msg && <div className="text-xs text-green-600">{msg}</div>}
+      <div className="flex gap-1">
+        <button
+          onClick={renew}
+          disabled={renewing}
+          className="rounded border border-blue-300 px-2 py-0.5 text-xs text-blue-600 hover:bg-blue-50 disabled:opacity-40"
+        >
+          {renewing ? '…' : '↻ Yenile'}
+        </button>
+        <button
+          onClick={fetchInfo}
+          className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-50"
+        >
+          {showInfo ? 'Kapat' : 'Bilgi'}
+        </button>
+      </div>
+      {showInfo && info && (
+        <div className="mt-1 text-left rounded bg-slate-50 border border-slate-200 p-2 text-xs text-slate-600 w-56">
+          {Object.entries(info).filter(([,v])=>v&&String(v).length<50).slice(0,8).map(([k,v])=>(
+            <div key={k}><b>{k}:</b> {String(v)}</div>
+          ))}
         </div>
       )}
     </div>

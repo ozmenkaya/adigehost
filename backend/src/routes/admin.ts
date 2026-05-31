@@ -1001,3 +1001,74 @@ adminRouter.delete(
     res.json({ success: true, message: 'Domain silindi' });
   }),
 );
+
+// ── Domain operasyonları ──────────────────────────────────────────────────────
+
+/**
+ * PUT /admin/sync/alantron/:id/assign
+ * Domaini bir müşteriye ata (userId güncelle).
+ */
+adminRouter.put(
+  '/sync/alantron/:id/assign',
+  validate(z.object({ body: z.object({ userId: z.string().uuid() }) })),
+  asyncHandler(async (req, res) => {
+    const service = await Service.findByPk(req.params.id);
+    if (!service || service.type !== 'domain') throw ApiError.notFound('Domain bulunamadı');
+    const user = await User.findByPk(req.body.userId);
+    if (!user) throw ApiError.notFound('Müşteri bulunamadı');
+    service.userId = req.body.userId;
+    await service.save();
+    await logActivity({ userId: req.user!.sub, action: 'admin.domain_assign', resource: 'service', resourceId: service.id, ip: req.ip });
+    res.json({ success: true, message: `${service.domain} → ${user.firstName} ${user.lastName}` });
+  }),
+);
+
+/**
+ * POST /admin/sync/alantron/:id/renew
+ * Alantron API üzerinden domain yenile.
+ */
+adminRouter.post(
+  '/sync/alantron/:id/renew',
+  validate(z.object({ body: z.object({ year: z.coerce.number().int().min(1).max(10).default(1) }) })),
+  asyncHandler(async (req, res) => {
+    const service = await Service.findByPk(req.params.id);
+    if (!service || service.type !== 'domain') throw ApiError.notFound('Domain bulunamadı');
+    const cfg = service.config as { registrycode?: number; provider?: string } | null;
+    if (!cfg?.registrycode) throw ApiError.badRequest('Bu domain için registrycode kaydedilmemiş');
+    if (cfg.provider !== 'alantron') throw ApiError.badRequest('Bu domain Alantron üzerinde değil');
+
+    // Mevcut son kullanma tarihi → expepoch
+    const expiryDate = service.nextDue ?? new Date();
+    const expEpoch = Math.floor(expiryDate.getTime() / 1000);
+
+    const { AlantronService } = await import('../services/AlantronService');
+    const result = await AlantronService.renew(cfg.registrycode, req.body.year, expEpoch);
+
+    // Yeni bitiş tarihini güncelle
+    const newExpiry = new Date(expiryDate);
+    newExpiry.setFullYear(newExpiry.getFullYear() + req.body.year);
+    service.nextDue = newExpiry;
+    await service.save();
+
+    await logActivity({ userId: req.user!.sub, action: 'admin.domain_renew', resource: 'service', resourceId: service.id, details: { year: req.body.year }, ip: req.ip });
+    res.json({ success: true, message: `${service.domain} ${req.body.year} yıl yenilendi`, data: result });
+  }),
+);
+
+/**
+ * GET /admin/sync/alantron/:id/info
+ * Alantron API'den domain güncel bilgilerini çek.
+ */
+adminRouter.get(
+  '/sync/alantron/:id/info',
+  asyncHandler(async (req, res) => {
+    const service = await Service.findByPk(req.params.id);
+    if (!service || service.type !== 'domain') throw ApiError.notFound('Domain bulunamadı');
+    const cfg = service.config as { registrycode?: number } | null;
+    if (!cfg?.registrycode) throw ApiError.badRequest('Registrycode eksik');
+
+    const { AlantronService } = await import('../services/AlantronService');
+    const data = await AlantronService.getDomain(cfg.registrycode, 'all');
+    res.json({ success: true, data });
+  }),
+);
