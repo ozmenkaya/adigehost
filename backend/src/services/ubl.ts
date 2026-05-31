@@ -50,12 +50,20 @@ const f2 = (n: number) => round2(n).toFixed(2);
 
 function partyXml(tag: string, p: UblParty, isCustomer: boolean): string {
   const scheme = p.vknTckn.length === 11 ? 'TCKN' : 'VKN';
-  const personName =
-    scheme === 'TCKN' && p.firstName
-      ? `<cac:Person><cbc:FirstName>${esc(p.firstName)}</cbc:FirstName><cbc:FamilyName>${esc(
-          p.lastName ?? '',
-        )}</cbc:FamilyName></cac:Person>`
-      : '';
+  // GİB Schematron: schemeID="TCKN" ise cac:Person zorunlu. Ad/soyad yoksa ünvandan türet.
+  let personName = '';
+  if (scheme === 'TCKN') {
+    let fn = p.firstName ?? '';
+    let ln = p.lastName ?? '';
+    if (!fn) {
+      const parts = (p.title || '').trim().split(/\s+/);
+      ln = parts.length > 1 ? parts.pop()! : '';
+      fn = parts.join(' ') || (p.title ?? '');
+    }
+    personName =
+      `<cac:Person><cbc:FirstName>${esc(fn)}</cbc:FirstName>` +
+      `<cbc:FamilyName>${esc(ln || fn)}</cbc:FamilyName></cac:Person>`;
+  }
   return (
     `<${tag}><cac:Party>` +
     `<cbc:WebsiteURI/>` +
@@ -122,11 +130,15 @@ export function buildInvoiceUBL(input: UblInvoiceInput): { xml: string; uuid: st
     `<?xml version="1.0" encoding="UTF-8"?>` +
     `<Invoice xmlns="urn:oasis:names:specification:ubl:schema:xsd:Invoice-2" ` +
     `xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" ` +
-    `xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">` +
+    `xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2" ` +
+    `xmlns:ext="urn:oasis:names:specification:ubl:schema:xsd:CommonExtensionComponents-2">` +
+    // E-fatura UBL-TR zorunlu: imza için UBLExtensions (EDM sunucu tarafında imzalar).
+    `<ext:UBLExtensions><ext:UBLExtension><ext:ExtensionContent/></ext:UBLExtension></ext:UBLExtensions>` +
     `<cbc:UBLVersionID>2.1</cbc:UBLVersionID>` +
     `<cbc:CustomizationID>TR1.2</cbc:CustomizationID>` +
     `<cbc:ProfileID>${input.profileId}</cbc:ProfileID>` +
     `<cbc:ID>${esc(input.gibId)}</cbc:ID>` +
+    `<cbc:CopyIndicator>false</cbc:CopyIndicator>` +
     `<cbc:UUID>${uuid}</cbc:UUID>` +
     `<cbc:IssueDate>${issueDate}</cbc:IssueDate>` +
     `<cbc:IssueTime>${issueTime}</cbc:IssueTime>` +
@@ -134,6 +146,15 @@ export function buildInvoiceUBL(input: UblInvoiceInput): { xml: string; uuid: st
     (input.note ? `<cbc:Note>${esc(input.note)}</cbc:Note>` : '') +
     `<cbc:DocumentCurrencyCode>${cur}</cbc:DocumentCurrencyCode>` +
     `<cbc:LineCountNumeric>${input.lines.length}</cbc:LineCountNumeric>` +
+    // UBL-TR zorunlu imza referansı (mali mühür EDM tarafından eklenir).
+    `<cac:Signature>` +
+    `<cbc:ID schemeID="VKN_TCKN">${esc(input.supplier.vknTckn)}</cbc:ID>` +
+    `<cac:SignatoryParty>` +
+    `<cac:PartyIdentification><cbc:ID schemeID="${input.supplier.vknTckn.length === 11 ? 'TCKN' : 'VKN'}">${esc(input.supplier.vknTckn)}</cbc:ID></cac:PartyIdentification>` +
+    `<cac:PostalAddress><cbc:CitySubdivisionName>${esc(input.supplier.district ?? '')}</cbc:CitySubdivisionName><cbc:CityName>${esc(input.supplier.city)}</cbc:CityName><cac:Country><cbc:Name>Türkiye</cbc:Name></cac:Country></cac:PostalAddress>` +
+    `</cac:SignatoryParty>` +
+    `<cac:DigitalSignatureAttachment><cac:ExternalReference><cbc:URI>#Signature</cbc:URI></cac:ExternalReference></cac:DigitalSignatureAttachment>` +
+    `</cac:Signature>` +
     partyXml('cac:AccountingSupplierParty', input.supplier, false) +
     partyXml('cac:AccountingCustomerParty', input.customer, true) +
     `<cac:TaxTotal><cbc:TaxAmount currencyID="${cur}">${f2(taxTotal)}</cbc:TaxAmount>` +

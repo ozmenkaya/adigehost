@@ -64,10 +64,12 @@ export class EInvoiceService {
     // Profil kararı: e-fatura yalnızca satıcının GB etiketi varsa (e-fatura mükellefiyse)
     // VE müşteri kurumsal + VKN + e-fatura mükellefiyse; aksi halde e-arşiv.
     let isEfatura = false;
+    let receiverAlias = '';
     if (c.company_alias && isCorporate && vknTckn.length === 10) {
       try {
         const chk = await EDMService.checkUser(vknTckn);
         isEfatura = chk.registered;
+        receiverAlias = chk.pkAlias ?? '';
       } catch (err) {
         logger.warn('EDM CheckUser başarısız, e-arşive düşülüyor', {
           error: (err as Error).message,
@@ -115,16 +117,26 @@ export class EInvoiceService {
     });
     const fileName = `${gibId}.xml`;
 
-    // Gönder.
+    // Gönder. EDM kendi UUID'sini atar (e-faturada); durum sorgusu için onu saklarız.
+    let edmUuid = uuid;
     if (isEfatura) {
-      await EDMService.sendInvoice(supplier.vknTckn, c.company_alias || '', xml, fileName);
+      const res = await EDMService.sendInvoice(
+        supplier.vknTckn,
+        c.company_alias || '',
+        vknTckn,
+        receiverAlias,
+        xml,
+        fileName,
+      );
+      if (typeof res.uuid === 'string' && res.uuid) edmUuid = res.uuid;
     } else {
-      await EDMService.archiveInvoice(supplier.vknTckn, xml, fileName);
+      const res = await EDMService.archiveInvoice(supplier.vknTckn, xml, fileName);
+      if (typeof res.uuid === 'string' && res.uuid) edmUuid = res.uuid;
     }
 
     // Başarılı → sayacı ilerlet (gapless).
     await SettingsService.set('edm_invoice_counter', String(counter), 'billing');
-    invoice.edmInvoiceUuid = uuid;
+    invoice.edmInvoiceUuid = edmUuid;
     invoice.edmInvoiceId = gibId;
     invoice.edmType = isEfatura ? 'efatura' : 'earsiv';
     await invoice.save();

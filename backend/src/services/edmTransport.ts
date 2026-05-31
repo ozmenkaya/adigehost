@@ -105,3 +105,26 @@ export function extractAll(xml: string, tag: string): string[] {
   while ((m = re.exec(xml))) out.push(m[1]);
   return out;
 }
+
+/** Bir element'in attribute değerini çıkarır (örn. <INVOICE UUID="..."> → uuid). */
+export function extractAttr(xml: string, tag: string, attr: string): string | undefined {
+  const m = new RegExp(`<${tag}\\b[^>]*\\b${attr}="([^"]+)"`, 'i').exec(xml);
+  return m?.[1];
+}
+
+/**
+ * EDM iş hatalarını yakalar. SOAP fault olmasa da yanıt ERROR_LONG_DES / RETURN_CODE!=0
+ * içerebilir. Hata varsa Error fırlatır.
+ */
+export function assertEdmOk(xml: string, op: string): void {
+  const err = /<ERROR_LONG_DES[^>]*>([\s\S]*?)<\/ERROR_LONG_DES>/i.exec(xml);
+  if (err && err[1].trim()) {
+    const msg = err[1]
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .trim();
+    logger.error(`EDM iş hatası (${op})`, { error: msg.slice(0, 200) });
+    throw new Error(msg);
+  }
+}

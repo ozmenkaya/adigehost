@@ -1,7 +1,7 @@
 import { logger } from '../config/logger';
 import { ApiError } from '../utils/ApiError';
 import { IntegrationService } from './IntegrationService';
-import { edmCall, edmLogin, extractAll, type EdmCreds } from './edmTransport';
+import { edmCall, edmLogin, extractAll, extractAttr, assertEdmOk, type EdmCreds } from './edmTransport';
 
 /**
  * EDM Bilişim e-Fatura/e-Arşiv entegrasyonu (WCF SOAP, elle zarf — bkz. edmTransport).
@@ -39,19 +39,20 @@ export class EDMService {
   /**
    * VKN/TCKN e-fatura mükellefi mi? registered=true → e-fatura, false → e-arşiv.
    */
-  static async checkUser(identifier: string): Promise<{ registered: boolean; aliases: string[] }> {
+  static async checkUser(
+    identifier: string,
+  ): Promise<{ registered: boolean; aliases: string[]; pkAlias?: string; title?: string }> {
     const creds = await getCreds();
     const sessionId = await this.login();
-    const inner =
-      '<USER>' +
-      `<IDENTIFIER>${identifier}</IDENTIFIER>` +
-      '<DOCUMENTTYPE>INVOICE</DOCUMENTTYPE>' +
-      '</USER>';
+    // DİKKAT: DOCUMENTTYPE gönderilmemeli — gönderilirse EDM boş yanıt döner.
+    const inner = `<USER><IDENTIFIER>${identifier}</IDENTIFIER></USER>`;
     try {
       const xml = await edmCall(creds, 'CheckUser', sessionId, inner);
       const aliases = extractAll(xml, 'ALIAS');
-      // Yanıtta kullanıcı/alias varsa e-fatura mükellefidir.
-      return { registered: aliases.length > 0, aliases };
+      const title = extractAll(xml, 'TITLE')[0];
+      // PK (Posta Kutusu) = alıcının e-fatura gelen-kutusu etiketi.
+      const pkAlias = aliases.find((a) => /pk@/i.test(a)) ?? aliases[0];
+      return { registered: aliases.length > 0, aliases, pkAlias, title };
     } catch (err) {
       throw new ApiError(
         502,
@@ -71,12 +72,16 @@ export class EDMService {
   }
 
   /**
-   * E-fatura gönderir (SendInvoice). content = UBL-TR XML (base64'lenir).
-   * senderVkn/alias: satıcının VKN'si ve GB/PK etiketi.
+   * E-fatura gönderir. İKİ ADIM:
+   *  1) LoadInvoice — UBL'i taslak olarak yükler; EDM bir UUID atar (INVOICE UUID="..." attribute).
+   *  2) SendInvoice — taslağı UUID ile GİB'e gönderir (<INVOICE UUID="..."/>).
+   * senderVkn/senderAlias: satıcı VKN + GB etiketi. receiverVkn/receiverAlias: alıcı VKN + PK etiketi.
    */
   static async sendInvoice(
     senderVkn: string,
-    alias: string,
+    senderAlias: string,
+    receiverVkn: string,
+    receiverAlias: string,
     ublXml: string,
     fileName: string,
     simulation = false,
@@ -84,17 +89,30 @@ export class EDMService {
     const creds = await getCreds();
     const sessionId = await this.login();
     const content = Buffer.from(ublXml, 'utf8').toString('base64');
-    const inner =
-      `<SENDER vkn="${senderVkn}" alias="${alias}"/>` +
+
+    // 1) Taslağı yükle.
+    const loadInner =
       '<INVOICE>' +
       `<CONTENT>${content}</CONTENT>` +
       `<FILENAME>${fileName}</FILENAME>` +
-      '</INVOICE>';
-    const xml = await edmCall(creds, 'SendInvoice', sessionId, inner, simulation);
+      '</INVOICE>' +
+      `<SENDER vkn="${senderVkn}" alias="${senderAlias}"/>` +
+      `<RECEIVER vkn="${receiverVkn}" alias="${receiverAlias}"/>`;
+    const loadXml = await edmCall(creds, 'LoadInvoice', sessionId, loadInner, simulation);
+    assertEdmOk(loadXml, 'LoadInvoice');
+    const uuid = extractAttr(loadXml, 'INVOICE', 'UUID');
+    if (!uuid) throw new ApiError(502, 'EDM LoadInvoice UUID döndürmedi', 'EDM_ERROR');
+
+    // 2) Taslağı gönder (UUID attribute olarak).
+    const sendInner =
+      `<SENDER vkn="${senderVkn}" alias="${senderAlias}"/>` + `<INVOICE UUID="${uuid}"/>`;
+    const sendXml = await edmCall(creds, 'SendInvoice', sessionId, sendInner, simulation);
+    assertEdmOk(sendXml, 'SendInvoice');
+
     return {
-      uuids: extractAll(xml, 'UUID'),
-      uuid: extractAll(xml, 'UUID')[0],
-      raw: xml.slice(0, 500),
+      uuid,
+      status: extractAll(sendXml, 'STATUS')[0],
+      raw: sendXml.slice(0, 500),
     };
   }
 
@@ -119,9 +137,10 @@ export class EDMService {
       `<FILENAME>${fileName}</FILENAME>` +
       '</INVOICE>';
     const xml = await edmCall(creds, 'SetArchiveInvoice', sessionId, inner, simulation);
+    assertEdmOk(xml, 'SetArchiveInvoice');
     return {
-      uuids: extractAll(xml, 'UUID'),
-      uuid: extractAll(xml, 'UUID')[0],
+      uuid: extractAttr(xml, 'INVOICE', 'UUID') ?? extractAll(xml, 'UUID')[0],
+      status: extractAll(xml, 'STATUS')[0],
       raw: xml.slice(0, 500),
     };
   }
