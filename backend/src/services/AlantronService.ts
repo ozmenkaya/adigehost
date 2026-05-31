@@ -112,9 +112,9 @@ export interface AlantronAvailability {
   tld: string;
   available: boolean;
   status: string;
-  priceTry: number | null;    // TRY fiyat (Alantron TRY döndürür)
-  priceUsd: number | null;    // null (DomainNameAPI uyumluluğu için)
-  currency: 'TRY';
+  priceTry: number | null;
+  priceUsd: number | null;   // USD fiyat (Alantron currency=USD döndürür)
+  currency: string;
   period: number;
   isPremium: boolean;
 }
@@ -135,21 +135,13 @@ export interface AlantronContact {
 // ── Service ──────────────────────────────────────────────────────────────────
 
 export class AlantronService {
-  /** Bağlantı testi: Bakiye sorgula. */
-  static async getBalance(): Promise<{ message: string; resellerno: string }> {
-    const creds = await getCreds();
-    const data = await get<Record<string, unknown>>(creds, { type: 'getresellerinfo' });
-    assertOk(data, 'getresellerinfo');
-    return {
-      message: String(data.mesaj ?? data.message ?? 'OK'),
-      resellerno: creds.resellerno,
-    };
-  }
-
-  /** Healthcheck: bağlantı testinin bool versiyonu. */
+  /**
+   * Bağlantı testi: checkavailability ile test sorgulama.
+   * (getresellerinfo metodu Alantron'da mevcut değil; basit availability sorgusu kullanılır.)
+   */
   static async healthcheck(): Promise<boolean> {
     try {
-      await this.getBalance();
+      await this.checkAvailability('testbaglantitest', 'com');
       return true;
     } catch {
       return false;
@@ -160,37 +152,55 @@ export class AlantronService {
    * Alan adı müsaitlik sorgulama.
    * domain: gövde ("adigehost"), tld: uzantı ("com" / "com.tr")
    */
+  /**
+   * Alan adı müsaitlik sorgulama.
+   * Yanıt formatı: { "domain.tld": { "status":"available"|"taken", "currency":"USD", "price":"12.87", "tld":"com" } }
+   */
   static async checkAvailability(
     domain: string,
     tld: string,
   ): Promise<AlantronAvailability> {
     const creds = await getCreds();
     const cleanTld = tld.replace(/^\./, '');
+    const fullDomain = `${domain}.${cleanTld}`;
     const data = await get<Record<string, unknown>>(creds, {
       type: 'checkavailability',
       domain,
       tld: cleanTld,
       extratlds: 'no',
     });
-    assertOk(data, 'checkavailability');
 
-    const details = (data.details as Record<string, unknown>[] | undefined)?.[0] ?? data;
-    const statusRaw = String(
-      details.durum ?? details.status ?? details.available ?? '',
-    ).toLowerCase();
-    const available =
-      statusRaw === 'available' || statusRaw === 'müsait' || statusRaw === '1' || statusRaw === 'true';
-    const price = details.fiyat ?? details.price ?? details.tl_fiyat ?? null;
+    // Alantron yanıt: {"domain.tld": {"status":"available","currency":"USD","price":"12.87"}}
+    // Veya hata: {"status":"hata","description":"..."}
+    const domainInfo = (data[fullDomain] ?? data[domain]) as Record<string, unknown> | undefined;
+    if (!domainInfo) {
+      // Hata yanıtı ya da beklenmedik format
+      const errMsg = String(data.description ?? data.mesaj ?? '');
+      if (errMsg && String(data.status ?? '').toLowerCase() === 'hata') {
+        throw new ApiError(502, `Alantron checkAvailability: ${errMsg}`, 'ALANTRON_ERROR');
+      }
+      // Yanıtta domain bulunamadıysa sorgulanamayanı döndür
+      return {
+        domain: fullDomain, sld: domain, tld: cleanTld,
+        available: false, status: 'unknown',
+        priceTry: null, priceUsd: null, currency: 'USD', period: 1, isPremium: false,
+      };
+    }
+
+    const statusRaw = String(domainInfo.status ?? '').toLowerCase();
+    const available = statusRaw === 'available' || statusRaw === 'müsait';
+    const priceRaw = domainInfo.price != null ? Number(domainInfo.price) : null;
+    const currency = String(domainInfo.currency ?? 'USD');
 
     return {
-      domain: `${domain}.${cleanTld}`,
+      domain: fullDomain,
       sld: domain,
       tld: cleanTld,
       available,
       status: statusRaw,
-      priceTry: price != null ? Number(price) : null,
-      priceUsd: null,
-      currency: 'TRY',
+      priceTry: currency === 'TRY' ? priceRaw : null,
+      priceUsd: currency === 'USD' ? priceRaw : null,
+      currency,
       period: 1,
       isPremium: false,
     };

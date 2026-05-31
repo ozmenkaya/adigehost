@@ -204,19 +204,29 @@ async function runProviderTest(provider: string, values: Creds): Promise<boolean
       return Boolean(id);
     }
     case 'alantron': {
-      // Bağlantı testi: getresellerinfo (bayi bilgisi / bakiye).
+      // Bağlantı testi: checkavailability ile test sorgusu.
+      // getresellerinfo Alantron'da mevcut değil; availability sorgusu
+      // kimlik bilgilerini doğrular (hatalı credentials → status:hata + 4001/4002 kodu).
       const axios = (await import('axios')).default;
       const r = await axios.get('https://api.alantron.com/action.json', {
         params: {
-          type: 'getresellerinfo',
+          type: 'checkavailability',
           resellerno: String(values.resellerno),
           resellerpwd: String(values.resellerpwd),
           lang: 'tr',
           responsetype: 'json',
+          domain: 'testbaglantitest',
+          tld: 'com',
         },
         timeout: 15000,
       });
-      return r.status === 200 && String(r.data?.status ?? '').toLowerCase() !== 'error';
+      if (r.status !== 200) return false;
+      // Başarılı: { "testbaglantitest.com": {...} } veya { status:"hata", description:"domain gerekiyor" }
+      // Başarısız (yanlış şifre): { status:"hata", description:"...yetkisiz..." }
+      const desc = String(r.data?.description ?? '').toLowerCase();
+      const hasResult = typeof r.data === 'object' && 'testbaglantitest.com' in r.data;
+      const isAuthError = desc.includes('yetkisiz') || desc.includes('unauthorized') || desc.includes('password') || desc.includes('resellerno');
+      return hasResult || (!isAuthError && r.data?.status !== undefined);
     }
     default:
       logger.info(`Test desteklenmeyen sağlayıcı: ${provider}`);
