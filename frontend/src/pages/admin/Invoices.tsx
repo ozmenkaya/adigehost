@@ -7,6 +7,8 @@ interface Invoice {
   status: string;
   total: number;
   createdAt: string;
+  edmInvoiceId?: string | null;
+  edmType?: 'efatura' | 'earsiv' | null;
   user?: { firstName: string; lastName: string; email: string };
 }
 
@@ -69,13 +71,14 @@ export default function Invoices() {
               <th className="px-4 py-3">Tarih</th>
               <th className="px-4 py-3">Tutar</th>
               <th className="px-4 py-3">Durum</th>
+              <th className="px-4 py-3">e-Belge</th>
               <th className="px-4 py-3 text-right">İşlem</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {invoices.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-400">
                   Henüz fatura yok.
                 </td>
               </tr>
@@ -96,6 +99,28 @@ export default function Invoices() {
                     >
                       {inv.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {inv.edmType ? (
+                      <span className="flex flex-col">
+                        <span
+                          className={`w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
+                            inv.edmType === 'efatura'
+                              ? 'bg-indigo-100 text-indigo-700'
+                              : 'bg-cyan-100 text-cyan-700'
+                          }`}
+                        >
+                          {inv.edmType === 'efatura' ? 'e-Fatura' : 'e-Arşiv'}
+                        </span>
+                        {inv.edmInvoiceId && (
+                          <span className="mt-0.5 font-mono text-[11px] text-slate-400">
+                            {inv.edmInvoiceId}
+                          </span>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-slate-400">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-right">
                     {inv.status !== 'paid' && inv.status !== 'cancelled' && (
