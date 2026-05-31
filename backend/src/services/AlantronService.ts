@@ -4,13 +4,21 @@ import { ApiError } from '../utils/ApiError';
 import { IntegrationService } from './IntegrationService';
 
 /**
- * Alantron Alan Adı API entegrasyonu.
+ * Alantron Alan Adı API entegrasyonu (v2.16).
  * Base URL : https://api.alantron.com/action.json
- * Auth     : Query param  resellerno + resellerpwd  (her istekte tekrar)
+ * Auth     : Query/body param  resellerno + resellerpwd  (her istekte tekrar)
  * Belge    : https://www.alantron.com/turkce/destek/api/
  *
+ * Desteklenen metodlar (döküman AA-00201 … AA-00227):
+ *   checkavailability, createcontact, deletecontact, getcontact, updatecontact,
+ *   modifycontact, registerdomain, renewdomain, deletedomain, getdomain,
+ *   lockdomain, authcode, addnameserver, deletenameserver, modifynameserver, modifydomain
+ *
+ * ⚠️  Domain listesi API'si YOK (getdomainlist → "method not implemented").
  * ⚠️  Sunucu IP'si (91.99.186.98) Alantron panelinde API IP whitelist'ine eklenmeli.
- *     Aksi halde tüm istekler zaman aşımına uğrar.
+ *
+ * Fiyat formatı: { "domain.tld": { status, currency:"USD", price:"12.87" } }
+ * extratlds=yes ile tek sorguda ~10 TLD birden döner.
  */
 
 const BASE = 'https://api.alantron.com/action.json';
@@ -149,92 +157,84 @@ export class AlantronService {
   }
 
   /**
-   * Alan adı müsaitlik sorgulama.
-   * domain: gövde ("adigehost"), tld: uzantı ("com" / "com.tr")
+   * Alan adı müsaitlik sorgulama (tek TLD).
+   * Yanıt: { "domain.tld": { status, currency:"USD", price:"12.87" } }
    */
-  /**
-   * Alan adı müsaitlik sorgulama.
-   * Yanıt formatı: { "domain.tld": { "status":"available"|"taken", "currency":"USD", "price":"12.87", "tld":"com" } }
-   */
-  static async checkAvailability(
-    domain: string,
-    tld: string,
-  ): Promise<AlantronAvailability> {
-    const creds = await getCreds();
-    const cleanTld = tld.replace(/^\./, '');
-    const fullDomain = `${domain}.${cleanTld}`;
-    const data = await get<Record<string, unknown>>(creds, {
-      type: 'checkavailability',
-      domain,
-      tld: cleanTld,
-      extratlds: 'no',
-    });
-
-    // Alantron yanıt: {"domain.tld": {"status":"available","currency":"USD","price":"12.87"}}
-    // Veya hata: {"status":"hata","description":"..."}
-    const domainInfo = (data[fullDomain] ?? data[domain]) as Record<string, unknown> | undefined;
-    if (!domainInfo) {
-      // Hata yanıtı ya da beklenmedik format
-      const errMsg = String(data.description ?? data.mesaj ?? '');
-      if (errMsg && String(data.status ?? '').toLowerCase() === 'hata') {
-        throw new ApiError(502, `Alantron checkAvailability: ${errMsg}`, 'ALANTRON_ERROR');
-      }
-      // Yanıtta domain bulunamadıysa sorgulanamayanı döndür
-      return {
-        domain: fullDomain, sld: domain, tld: cleanTld,
-        available: false, status: 'unknown',
-        priceTry: null, priceUsd: null, currency: 'USD', period: 1, isPremium: false,
-      };
-    }
-
-    const statusRaw = String(domainInfo.status ?? '').toLowerCase();
-    const available = statusRaw === 'available' || statusRaw === 'müsait';
-    const priceRaw = domainInfo.price != null ? Number(domainInfo.price) : null;
-    const currency = String(domainInfo.currency ?? 'USD');
-
+  static async checkAvailability(domain: string, tld: string): Promise<AlantronAvailability> {
+    const results = await this.checkAvailabilityBulk(domain, [tld.replace(/^\./, '')]);
+    if (results.length > 0) return results[0];
     return {
-      domain: fullDomain,
-      sld: domain,
-      tld: cleanTld,
-      available,
-      status: statusRaw,
-      priceTry: currency === 'TRY' ? priceRaw : null,
-      priceUsd: currency === 'USD' ? priceRaw : null,
-      currency,
-      period: 1,
-      isPremium: false,
+      domain: `${domain}.${tld.replace(/^\./, '')}`, sld: domain, tld: tld.replace(/^\./, ''),
+      available: false, status: 'unknown',
+      priceTry: null, priceUsd: null, currency: 'USD', period: 1, isPremium: false,
     };
   }
 
   /**
-   * Çok TLD'li müsaitlik sorgulama (DomainNameAPI uyumu için).
-   * tlds: ['com', 'net', 'com.tr', ...]
+   * Çok TLD'li müsaitlik sorgulama.
+   * extratlds=yes ile tek API çağrısında ~10 TLD birden gelir — çok daha verimli.
+   * İstenen TLD'ler filtrelenir; yanıtta eksik olanlar atlanır.
    */
-  static async checkAvailabilityBulk(
-    sld: string,
-    tlds: string[],
-  ): Promise<AlantronAvailability[]> {
-    const results = await Promise.allSettled(
-      tlds.map((tld) => this.checkAvailability(sld, tld)),
-    );
-    return results.flatMap((r) => (r.status === 'fulfilled' ? [r.value] : []));
+  static async checkAvailabilityBulk(sld: string, tlds: string[]): Promise<AlantronAvailability[]> {
+    const creds = await getCreds();
+    const cleanTlds = tlds.map((t) => t.replace(/^\./, ''));
+    // İlk TLD'yi tld parametresi, geri kalanları extratlds ile al.
+    const firstTld = cleanTlds[0] ?? 'com';
+    const data = await get<Record<string, unknown>>(creds, {
+      type: 'checkavailability',
+      domain: sld,
+      tld: firstTld,
+      extratlds: 'yes',
+    });
+
+    // Hata kontrolü
+    if (String(data.status ?? '').toLowerCase() === 'hata') {
+      const msg = String(data.description ?? data.mesaj ?? 'Alantron hatası');
+      throw new ApiError(502, `Alantron checkAvailability: ${msg}`, 'ALANTRON_ERROR');
+    }
+
+    const results: AlantronAvailability[] = [];
+    for (const tld of cleanTlds) {
+      const fullDomain = `${sld}.${tld}`;
+      const info = data[fullDomain] as Record<string, unknown> | undefined;
+      if (!info) continue;
+      const statusRaw = String(info.status ?? '').toLowerCase();
+      const available = statusRaw === 'available';
+      const priceRaw = info.price != null ? Number(info.price) : null;
+      const currency = String(info.currency ?? 'USD');
+      results.push({
+        domain: fullDomain, sld, tld,
+        available, status: statusRaw,
+        priceTry: currency === 'TRY' ? priceRaw : null,
+        priceUsd: currency === 'USD' ? priceRaw : null,
+        currency, period: 1, isPremium: false,
+      });
+    }
+    return results;
   }
 
   /**
    * Yetkili (contact) oluşturur → contactid döner.
    * Domain kaydından önce en az bir kez çalıştırılmalıdır.
    */
+  /**
+   * Yetkili (contact) oluşturur → contactid döner.
+   * Domain kaydından önce zorunlu. cusername benzersiz olmalı.
+   */
   static async createContact(contact: AlantronContact): Promise<number> {
     const creds = await getCreds();
+    // cusername: zorunlu, benzersiz, harf+rakam
+    const cusername = `c${Date.now()}`;
     const data = await post<Record<string, unknown>>(creds, {
       type: 'createcontact',
+      cusername,
       name: `${contact.firstName} ${contact.lastName}`.trim(),
-      company: contact.company ?? contact.firstName,
+      company: contact.company ?? `${contact.firstName} ${contact.lastName}`.trim(),
       email: contact.email,
       address: contact.address,
       city: contact.city,
-      country: contact.country,
-      zip: contact.zip,
+      country: contact.country.toLowerCase(),
+      zip: contact.zip || '00000',
       phone: contact.phone,
       fax: contact.fax ?? contact.phone,
     });
@@ -249,31 +249,38 @@ export class AlantronService {
    * registerdomain: domain + tld + year + 4 contactId (owner/admin/tech/billing)
    * nameservers: 2 adet NS adresi
    */
+  /**
+   * Domain kaydı. Döküman parametreleri: ownerid, adminid, billid, techid (contactid değil!).
+   * Başarıda registrycode döner — yenileme ve sorgulama için saklanmalı.
+   */
   static async register(
     domain: string,
     tld: string,
     year: number,
     contactId: number,
-    nameServers: string[] = ['ns1.alantron.com', 'ns2.alantron.com'],
+    nameServers: string[] = ['mptr02.alantron.com', 'mptr04.alantron.com'],
   ): Promise<{ registrycode: number; message: string }> {
     const creds = await getCreds();
     const cleanTld = tld.replace(/^\./, '');
+    // Tek alan adı olarak gönder: domain="adigehost", tld parametresiz de denenebilir
+    // Döküman: domain=alanadim.com (tam ad) ya da domain+tld ayrı
     const data = await post<Record<string, unknown>>(creds, {
       type: 'registerdomain',
-      domain,
-      tld: cleanTld,
+      domain: `${domain}.${cleanTld}`,   // tam alan adı
       year,
-      ownercontactid: contactId,
-      admincontactid: contactId,
-      techcontactid: contactId,
-      billingcontactid: contactId,
+      ownerid: contactId,
+      adminid: contactId,
+      billid: contactId,
+      techid: contactId,
       pdns: nameServers[0],
       sdns: nameServers[1] ?? nameServers[0],
+      privacy: 'no',
     });
     assertOk(data, 'registerdomain');
-    logger.info('Alantron: domain kaydedildi', { domain: `${domain}.${cleanTld}`, year });
+    const rc = Number(data.registrycode ?? data.registry_code ?? data.id ?? 0);
+    logger.info('Alantron: domain kaydedildi', { domain: `${domain}.${cleanTld}`, year, registrycode: rc });
     return {
-      registrycode: Number(data.registrycode ?? data.id ?? 0),
+      registrycode: rc,
       message: String(data.mesaj ?? data.message ?? 'OK'),
     };
   }
@@ -299,27 +306,40 @@ export class AlantronService {
     return data;
   }
 
-  /** Kayıtlı domain listesi. */
-  static async getDomainList(page = 1): Promise<Record<string, unknown>[]> {
-    const creds = await getCreds();
-    const data = await get<Record<string, unknown>>(creds, {
-      type: 'getdomainlist',
-      pagesize: 100,
-      currpage: page,
-    });
-    assertOk(data, 'getdomainlist');
-    const list = data.domainlist ?? data.list ?? data.details ?? [];
-    return Array.isArray(list) ? list : [];
-  }
-
-  /** Domain bilgisi (registrycode ile). */
-  static async getDomain(registrycode: number): Promise<Record<string, unknown>> {
+  /**
+   * Domain bilgisi (registrycode ile).
+   * subtype: 'all' (varsayılan), 'ns', 'dns', 'lock', 'regepoch', 'expepoch'
+   * ⚠️  Domain listesi API'si YOK — getdomainlist "method not implemented".
+   */
+  static async getDomain(
+    registrycode: number,
+    subtype: 'all' | 'ns' | 'dns' | 'lock' | 'regepoch' | 'expepoch' = 'all',
+  ): Promise<Record<string, unknown>> {
     const creds = await getCreds();
     const data = await get<Record<string, unknown>>(creds, {
       type: 'getdomain',
       registrycode,
+      subtype,
     });
-    assertOk(data, 'getdomain');
+    // "Alan adi sizin tarafinizdan yonetilemez" → normal hata, fırlat
+    if (String(data.status ?? '').toLowerCase() === 'hata') {
+      throw new ApiError(404, String(data.description ?? 'Domain bulunamadı'), 'ALANTRON_NOT_FOUND');
+    }
     return data;
+  }
+
+  /**
+   * Domain son kullanma tarihini epoch olarak döndürür.
+   * getdomain subtype=expepoch → { expepoch: 1234567890 }
+   */
+  static async getDomainExpiry(registrycode: number): Promise<Date | null> {
+    try {
+      const data = await this.getDomain(registrycode, 'expepoch');
+      const epoch = data.expepoch ?? data.exp_epoch;
+      if (epoch) return new Date(Number(epoch) * 1000);
+      return null;
+    } catch {
+      return null;
+    }
   }
 }
