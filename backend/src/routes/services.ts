@@ -12,6 +12,8 @@ import { WHMService } from '../services/WHMService';
 import { ServerManager } from '../services/ServerManager';
 import { InvoiceService } from '../services/InvoiceService';
 import { SettingsService, BANK_KEYS } from '../services/SettingsService';
+import { NotificationService } from '../services/NotificationService';
+import { User } from '../models';
 import { validate } from '../middleware/validate';
 import { slugify } from '../utils/helpers';
 
@@ -248,6 +250,19 @@ servicesRouter.post(
       resourceId: service.id,
       details: { productId, invoiceId: invoice.id },
       ip: req.ip,
+    });
+
+    // Sipariş bildirimi — arka planda.
+    void User.findByPk(req.user!.sub).then((u) => {
+      if (!u) return;
+      return NotificationService.sendOrderReceived({
+        to: u.email,
+        firstName: u.firstName,
+        invoiceNum: invoice.invoiceNum,
+        description: `${product.name} (${billingCycle === 'annually' ? 'Yıllık' : billingCycle === 'quarterly' ? '3 Aylık' : 'Aylık'})`,
+        total: Number(invoice.total),
+        dueDate: new Date(invoice.dueDate),
+      }).catch(() => {});
     });
 
     res.status(201).json({

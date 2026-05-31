@@ -10,6 +10,8 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
 import { round2 } from '../utils/helpers';
+import { NotificationService } from '../services/NotificationService';
+import { User } from '../models';
 
 /**
  * Domain arama + sipariş (havale/EFT akışı). `authenticate` ile korunur.
@@ -117,6 +119,19 @@ domainsRouter.post(
       resourceId: service.id,
       details: { domain, period },
       ip: req.ip,
+    });
+
+    // Sipariş bildirimi — arka planda, hata ana yanıtı bozmaz.
+    void User.findByPk(req.user!.sub).then((u) => {
+      if (!u) return;
+      return NotificationService.sendOrderReceived({
+        to: u.email,
+        firstName: u.firstName,
+        invoiceNum: invoice.invoiceNum,
+        description: `Domain kaydı: ${domain} (${period} yıl)`,
+        total: Number(invoice.total),
+        dueDate: new Date(invoice.dueDate),
+      }).catch(() => {});
     });
 
     res.status(201).json({

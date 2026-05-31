@@ -20,6 +20,7 @@ import { SettingsService, BANK_KEYS, COMPANY_KEYS } from '../services/SettingsSe
 import { ProvisioningService } from '../services/ProvisioningService';
 import { EInvoiceService } from '../services/EInvoiceService';
 import { InvoiceService } from '../services/InvoiceService';
+import { NotificationService } from '../services/NotificationService';
 import { hashPassword } from '../security/password';
 import { randomBytes } from 'node:crypto';
 
@@ -394,6 +395,34 @@ adminRouter.post(
       details: { userId: b.userId, total: invoice.total },
       ip: req.ip,
     });
+
+    // Müşteriye "fatura oluşturuldu, ödeme bekleniyor" bildirimi — arka planda.
+    void (async () => {
+      try {
+        const invoiceWithItems = await Invoice.findByPk(invoice.id, {
+          include: [{ model: InvoiceItem, as: 'items' }],
+        });
+        const items = ((invoiceWithItems?.get('items') as InvoiceItem[]) ?? []).map((it) => ({
+          description: it.description,
+          quantity: it.quantity ?? 1,
+          unitPrice: Number(it.unitPrice),
+          total: Number(it.total),
+        }));
+        await NotificationService.sendInvoiceCreated({
+          to: user.email,
+          firstName: user.firstName,
+          invoiceNum: invoice.invoiceNum,
+          items,
+          subtotal: Number(invoice.subtotal),
+          tax: Number(invoice.tax),
+          total: Number(invoice.total),
+          dueDate: new Date(invoice.dueDate),
+        });
+      } catch (err) {
+        logger.error('Fatura bildirimi gönderilemedi', { error: (err as Error).message });
+      }
+    })();
+
     res.status(201).json({ success: true, data: invoice });
   }),
 );
@@ -589,7 +618,45 @@ adminRouter.post(
       logger.error('E-belge kesilemedi', { invoice: invoice.id, error: (err as Error).message });
     }
 
-    // TODO (e-posta): müşteriye "hosting hazır" + cPanel/fatura bilgileri.
+    // ── E-posta bildirimi: ödeme onaylandı + servis + e-belge ──────────────
+    void (async () => {
+      try {
+        const user = await User.findByPk(invoice.userId);
+        if (!user) return;
+        const invoiceWithItems = await Invoice.findByPk(invoice.id, {
+          include: [{ model: InvoiceItem, as: 'items' }],
+        });
+        const items = ((invoiceWithItems?.get('items') as InvoiceItem[]) ?? []).map((it) => ({
+          description: it.description,
+          quantity: it.quantity ?? 1,
+          unitPrice: Number(it.unitPrice),
+          total: Number(it.total),
+        }));
+        await NotificationService.sendInvoicePaid({
+          to: user.email,
+          firstName: user.firstName,
+          invoiceNum: invoice.invoiceNum,
+          items,
+          subtotal: Number(invoice.subtotal),
+          tax: Number(invoice.tax),
+          total: Number(invoice.total),
+          paidAt: invoice.paidAt ?? new Date(),
+          einvoice:
+            einvoice && 'type' in einvoice
+              ? { type: einvoice.type as 'efatura' | 'earsiv', id: invoice.edmInvoiceId ?? undefined }
+              : null,
+          provisioned: provisioned.map((p) => ({
+            type: String(p.type ?? ''),
+            domain: p.domain ? String(p.domain) : undefined,
+            cpanelUser: p.cpanelUser ? String(p.cpanelUser) : undefined,
+            cpanelUrl: p.cpanelUrl ? String(p.cpanelUrl) : undefined,
+            ipAddress: p.ipAddress ? String(p.ipAddress) : undefined,
+          })),
+        });
+      } catch (err) {
+        logger.error('Ödeme bildirimi gönderilemedi', { error: (err as Error).message });
+      }
+    })();
 
     res.json({
       success: true,

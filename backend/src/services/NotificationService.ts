@@ -1,38 +1,107 @@
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { EmailService } from './EmailService';
+import { SettingsService, BANK_KEYS } from './SettingsService';
 
 /**
- * Uygulama bildirim e-postaları (doğrulama, şifre sıfırlama vb.).
- * SMTP yapılandırılmamışsa hata fırlatmaz — linki log'a yazar (geliştirme/test
- * sırasında akışın çalışmaya devam etmesi için). Production'da SMTP zorunlu.
- *
- * NOT: Zengin HTML şablonlar Faz 3'te templates/ altına taşınacak.
+ * Uygulama bildirim e-postaları.
+ * SMTP yapılandırılmamışsa hata fırlatmaz — linki/konuyu log'a yazar.
  */
+
+function esc(s: string): string {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function tr(n: number): string {
+  return Number(n).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 function wrapHtml(title: string, body: string, cta?: { label: string; url: string }): string {
   const button = cta
-    ? `<p style="margin:24px 0"><a href="${cta.url}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">${cta.label}</a></p>
-       <p style="color:#64748b;font-size:13px">Buton çalışmazsa bu adresi tarayıcıya yapıştırın:<br>${cta.url}</p>`
+    ? `<p style="margin:24px 0"><a href="${esc(cta.url)}" style="background:#2563eb;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">${esc(cta.label)}</a></p>
+       <p style="color:#64748b;font-size:12px">Buton çalışmazsa tarayıcıya yapıştırın:<br><a href="${esc(cta.url)}">${esc(cta.url)}</a></p>`
     : '';
-  return `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
-    <h2 style="color:#1d4ed8">${env.APP_NAME}</h2>
-    <h3>${title}</h3>
-    ${body}
-    ${button}
-    <hr style="border:none;border-top:1px solid #e2e8f0;margin:24px 0">
-    <p style="color:#94a3b8;font-size:12px">Bu e-postayı beklemiyorsanız dikkate almayın.</p>
-  </div>`;
+  return `<!DOCTYPE html><html lang="tr"><body>
+<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;background:#fff">
+  <div style="border-bottom:2px solid #2563eb;padding-bottom:12px;margin-bottom:20px">
+    <span style="font-size:20px;font-weight:700;color:#2563eb">${esc(env.APP_NAME)}</span>
+  </div>
+  <h2 style="margin-top:0;color:#0f172a;font-size:18px">${title}</h2>
+  ${body}
+  ${button}
+  <hr style="border:none;border-top:1px solid #e2e8f0;margin:28px 0">
+  <p style="color:#94a3b8;font-size:11px;margin:0">${esc(env.APP_NAME)} · panel.adigehost.tr<br>
+  Bu iletiyi beklemiyor iseniz görmezden gelebilirsiniz.</p>
+</div></body></html>`;
 }
 
-async function deliver(to: string, subject: string, html: string, devNote: string): Promise<void> {
+async function deliver(to: string, subject: string, html: string, devNote?: string): Promise<void> {
   if (!(await EmailService.isConfigured())) {
-    logger.warn(`[SMTP yapılandırılmamış] ${subject} → ${to} | ${devNote}`);
+    logger.warn(`[SMTP yapılandırılmamış] "${subject}" → ${to}${devNote ? ' | ' + devNote : ''}`);
     return;
   }
-  await EmailService.send({ to, subject, html });
+  try {
+    await EmailService.send({ to, subject, html });
+  } catch (err) {
+    // Bildirim hatası kritik değil — ana işlem bozulmasın.
+    logger.error('Bildirim e-postası gönderilemedi', {
+      to,
+      subject,
+      error: (err as Error).message,
+    });
+  }
 }
 
+// ─── Banka bilgilerini satır satır getir ────────────────────────────────────
+async function bankHtml(): Promise<string> {
+  const b = await SettingsService.getMany(BANK_KEYS);
+  if (!b.bank_iban) return '<p style="color:#ef4444">Banka bilgileri henüz girilmemiş.</p>';
+  return `<table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0">
+    ${b.bank_name ? `<tr><td style="padding:4px 8px;color:#64748b">Banka</td><td style="padding:4px 8px;font-weight:500">${esc(b.bank_name)}</td></tr>` : ''}
+    ${b.bank_account_holder ? `<tr><td style="padding:4px 8px;color:#64748b">Hesap Sahibi</td><td style="padding:4px 8px;font-weight:500">${esc(b.bank_account_holder)}</td></tr>` : ''}
+    <tr><td style="padding:4px 8px;color:#64748b">IBAN</td><td style="padding:4px 8px;font-weight:600;letter-spacing:.04em">${esc(b.bank_iban)}</td></tr>
+    ${b.bank_branch ? `<tr><td style="padding:4px 8px;color:#64748b">Şube</td><td style="padding:4px 8px">${esc(b.bank_branch)}</td></tr>` : ''}
+  </table>`;
+}
+
+// ─── Kalem tablosu ──────────────────────────────────────────────────────────
+function itemsHtml(
+  items: Array<{ description: string; quantity: number; unitPrice: number; total: number }>,
+  subtotal: number,
+  tax: number,
+  total: number,
+): string {
+  const rows = items
+    .map(
+      (it) =>
+        `<tr>
+      <td style="padding:8px;border-bottom:1px solid #f1f5f9">${esc(it.description)}</td>
+      <td style="padding:8px;border-bottom:1px solid #f1f5f9;text-align:center">${it.quantity}</td>
+      <td style="padding:8px;border-bottom:1px solid #f1f5f9;text-align:right">${tr(it.unitPrice)} ₺</td>
+      <td style="padding:8px;border-bottom:1px solid #f1f5f9;text-align:right;font-weight:500">${tr(it.total)} ₺</td>
+    </tr>`,
+    )
+    .join('');
+  return `<table style="border-collapse:collapse;width:100%;font-size:13px;margin:12px 0">
+    <thead><tr style="background:#f8fafc;color:#64748b;font-size:11px;text-transform:uppercase">
+      <th style="padding:8px;text-align:left">Açıklama</th>
+      <th style="padding:8px;text-align:center">Adet</th>
+      <th style="padding:8px;text-align:right">Birim Fiyat</th>
+      <th style="padding:8px;text-align:right">Tutar</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+    <tfoot>
+      <tr><td colspan="3" style="padding:6px 8px;text-align:right;color:#64748b">Ara Toplam</td><td style="padding:6px 8px;text-align:right">${tr(subtotal)} ₺</td></tr>
+      <tr><td colspan="3" style="padding:6px 8px;text-align:right;color:#64748b">KDV (%20)</td><td style="padding:6px 8px;text-align:right">${tr(tax)} ₺</td></tr>
+      <tr style="background:#eff6ff"><td colspan="3" style="padding:8px;text-align:right;font-weight:700">Genel Toplam</td><td style="padding:8px;text-align:right;font-weight:700;color:#2563eb">${tr(total)} ₺</td></tr>
+    </tfoot>
+  </table>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
 export class NotificationService {
+  // ── Auth ──────────────────────────────────────────────────────────────────
+
   /** E-posta doğrulama linki gönderir. */
   static async sendEmailVerification(to: string, token: string): Promise<void> {
     const url = `${env.FRONTEND_URL}/verify-email?token=${token}`;
@@ -41,7 +110,7 @@ export class NotificationService {
       '<p>Hesabınızı etkinleştirmek için aşağıdaki butona tıklayın. Link 24 saat geçerlidir.</p>',
       { label: 'E-postamı Doğrula', url },
     );
-    await deliver(to, 'E-posta Doğrulama', html, `verify-url: ${url}`);
+    await deliver(to, 'E-posta Doğrulama — ' + env.APP_NAME, html, `verify: ${url}`);
   }
 
   /** Şifre sıfırlama linki gönderir. */
@@ -49,9 +118,167 @@ export class NotificationService {
     const url = `${env.FRONTEND_URL}/reset-password?token=${token}`;
     const html = wrapHtml(
       'Şifre Sıfırlama',
-      '<p>Şifrenizi sıfırlamak için aşağıdaki butona tıklayın. Link 1 saat geçerlidir. Bu isteği siz yapmadıysanız şifreniz değişmez.</p>',
+      '<p>Şifrenizi sıfırlamak için aşağıdaki butona tıklayın. Link 1 saat geçerlidir.<br>Bu isteği siz yapmadıysanız hiçbir şey değişmez.</p>',
       { label: 'Şifremi Sıfırla', url },
     );
-    await deliver(to, 'Şifre Sıfırlama', html, `reset-url: ${url}`);
+    await deliver(to, 'Şifre Sıfırlama — ' + env.APP_NAME, html, `reset: ${url}`);
+  }
+
+  // ── Fatura Oluşturuldu (ödeme bekleniyor) ────────────────────────────────
+
+  static async sendInvoiceCreated(opts: {
+    to: string;
+    firstName: string;
+    invoiceNum: string;
+    items: Array<{ description: string; quantity: number; unitPrice: number; total: number }>;
+    subtotal: number;
+    tax: number;
+    total: number;
+    dueDate: Date;
+  }): Promise<void> {
+    const due = opts.dueDate.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const bank = await bankHtml();
+    const items = itemsHtml(opts.items, opts.subtotal, opts.tax, opts.total);
+    const panelUrl = `${env.FRONTEND_URL}/invoices`;
+
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <p>Aşağıdaki fatura hesabınıza tanımlandı. Son ödeme tarihi: <strong>${esc(due)}</strong>.</p>
+      ${items}
+      <div style="background:#fefce8;border:1px solid #fde047;border-radius:8px;padding:16px;margin:16px 0">
+        <p style="margin:0 0 8px;font-weight:600;color:#854d0e">💳 Havale / EFT Bilgileri</p>
+        <p style="margin:0 0 4px;font-size:13px;color:#78350f">Açıklama kısmına <strong>${esc(opts.invoiceNum)}</strong> fatura numarasını yazın.</p>
+        ${bank}
+      </div>
+      <p style="font-size:13px;color:#64748b">Ödemeniz sistemimize ulaştığında hizmetiniz otomatik olarak aktive edilecek ve e-posta ile bilgilendirileceksiniz.</p>`;
+
+    const html = wrapHtml(`Fatura ${esc(opts.invoiceNum)} — Ödeme Bekleniyor`, body, {
+      label: 'Panele Git',
+      url: panelUrl,
+    });
+    await deliver(
+      opts.to,
+      `Fatura ${opts.invoiceNum} — ${tr(opts.total)} ₺ ödeme bekleniyor`,
+      html,
+    );
+  }
+
+  // ── Ödeme Onaylandı + Servis Aktive + E-Belge ────────────────────────────
+
+  static async sendInvoicePaid(opts: {
+    to: string;
+    firstName: string;
+    invoiceNum: string;
+    items: Array<{ description: string; quantity: number; unitPrice: number; total: number }>;
+    subtotal: number;
+    tax: number;
+    total: number;
+    paidAt: Date;
+    einvoice?: { type: 'efatura' | 'earsiv'; id?: string } | null;
+    provisioned?: Array<{
+      type: string;
+      domain?: string;
+      cpanelUser?: string;
+      cpanelUrl?: string;
+      ipAddress?: string;
+      password?: string;
+    }>;
+  }): Promise<void> {
+    const paidDate = opts.paidAt.toLocaleString('tr-TR', {
+      day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+    const items = itemsHtml(opts.items, opts.subtotal, opts.tax, opts.total);
+    const panelUrl = `${env.FRONTEND_URL}/services`;
+
+    // E-belge satırı
+    let ebelgeHtml = '';
+    if (opts.einvoice?.type) {
+      const tip = opts.einvoice.type === 'efatura' ? 'e-Fatura' : 'e-Arşiv Fatura';
+      ebelgeHtml = `
+        <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:14px;margin:12px 0">
+          <p style="margin:0;font-size:14px">✅ <strong>${tip}</strong> kesildi${opts.einvoice.id ? ` — <span style="font-family:monospace">${esc(opts.einvoice.id)}</span>` : ''}.<br>
+          <span style="font-size:12px;color:#16a34a">GİB'e iletildi; e-posta kutunuza veya e-Arşiv görüntüleyicisine yüklenecektir.</span></p>
+        </div>`;
+    }
+
+    // Aktive edilen servisler
+    let servicesHtml = '';
+    if (opts.provisioned && opts.provisioned.length > 0) {
+      const rows = opts.provisioned
+        .map((p) => {
+          if (p.type === 'hosting') {
+            return `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px;margin:8px 0">
+              <p style="margin:0 0 6px;font-weight:600">🌐 Hosting Hesabı — ${esc(p.domain ?? '')}</p>
+              ${p.cpanelUser ? `<p style="margin:2px 0;font-size:13px">Kullanıcı: <code>${esc(p.cpanelUser)}</code></p>` : ''}
+              ${p.cpanelUrl ? `<p style="margin:2px 0;font-size:13px">cPanel: <a href="${esc(p.cpanelUrl)}">${esc(p.cpanelUrl)}</a></p>` : ''}
+            </div>`;
+          }
+          if (p.type === 'vps') {
+            return `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px;margin:8px 0">
+              <p style="margin:0 0 6px;font-weight:600">🖥 VPS Sunucu</p>
+              ${p.ipAddress ? `<p style="margin:2px 0;font-size:13px">IP: <code>${esc(p.ipAddress)}</code></p>` : ''}
+            </div>`;
+          }
+          if (p.type === 'domain') {
+            return `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px;margin:8px 0">
+              <p style="margin:0;font-weight:600">🔗 Domain Kaydedildi — ${esc(p.domain ?? '')}</p>
+            </div>`;
+          }
+          return '';
+        })
+        .join('');
+      servicesHtml = `<p style="font-weight:600;margin:16px 0 4px">Aktive Edilen Hizmetler</p>${rows}`;
+    }
+
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <p>✅ <strong>${esc(opts.invoiceNum)}</strong> numaralı faturanızın ödemesi <strong>${esc(paidDate)}</strong> tarihinde alındı. Teşekkür ederiz.</p>
+      ${items}
+      ${ebelgeHtml}
+      ${servicesHtml}
+      <p style="font-size:13px;color:#64748b">Tüm faturalarınızı ve hizmetlerinizi müşteri panelinden takip edebilirsiniz.</p>`;
+
+    const html = wrapHtml(`Ödeme Alındı — ${esc(opts.invoiceNum)}`, body, {
+      label: 'Panelime Git',
+      url: panelUrl,
+    });
+    await deliver(
+      opts.to,
+      `Ödeme Alındı — ${opts.invoiceNum} (${tr(opts.total)} ₺)`,
+      html,
+    );
+  }
+
+  // ── Yeni Sipariş Alındı (self-servis) ────────────────────────────────────
+
+  static async sendOrderReceived(opts: {
+    to: string;
+    firstName: string;
+    invoiceNum: string;
+    description: string;
+    total: number;
+    dueDate: Date;
+  }): Promise<void> {
+    const due = opts.dueDate.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const bank = await bankHtml();
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <p>Siparişiniz alındı: <strong>${esc(opts.description)}</strong></p>
+      <p>Fatura tutarı: <strong>${tr(opts.total)} ₺</strong> — Son ödeme: <strong>${esc(due)}</strong></p>
+      <div style="background:#fefce8;border:1px solid #fde047;border-radius:8px;padding:16px;margin:16px 0">
+        <p style="margin:0 0 8px;font-weight:600;color:#854d0e">💳 Havale / EFT Bilgileri</p>
+        <p style="margin:0 0 4px;font-size:13px;color:#78350f">Açıklama: <strong>${esc(opts.invoiceNum)}</strong></p>
+        ${bank}
+      </div>
+      <p style="font-size:13px;color:#64748b">Ödemeniz onaylandığında hizmetiniz aktive edilip e-posta ile bilgilendirileceksiniz.</p>`;
+    const html = wrapHtml('Siparişiniz Alındı', body, {
+      label: 'Panelime Git',
+      url: `${env.FRONTEND_URL}/invoices`,
+    });
+    await deliver(
+      opts.to,
+      `Sipariş Alındı — ${opts.invoiceNum} (${tr(opts.total)} ₺)`,
+      html,
+    );
   }
 }
