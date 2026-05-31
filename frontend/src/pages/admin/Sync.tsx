@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { api, getApiErrorMessage } from '../../utils/api';
 
 interface WhmAccount {
@@ -22,6 +22,7 @@ interface AlantronDomain {
   config: { provider?: string; registrycode?: number } | null;
   user?: { firstName: string; lastName: string; email: string } | null;
   createdAt: string;
+  nextDue?: string | null;
 }
 
 interface Client {
@@ -321,28 +322,50 @@ export default function Sync() {
             </div>
           )}
 
+          {/* Domain ekle formu */}
+          <AlantronAddForm
+            clients={clients}
+            onAdded={() => void loadAlantron()}
+          />
+
+          {/* Kayıtlı domainler */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+              <span className="font-semibold text-slate-800">
+                Kayıtlı Domainler{' '}
+                <span className="ml-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">
+                  {alDomains.length}
+                </span>
+              </span>
+              <button
+                onClick={() => void loadAlantron()}
+                className="text-xs text-brand-600 hover:text-brand-700"
+              >
+                Yenile
+              </button>
+            </div>
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Domain</th>
                   <th className="px-4 py-3">Müşteri</th>
                   <th className="px-4 py-3">Registrycode</th>
+                  <th className="px-4 py-3">Son. Tarihi</th>
                   <th className="px-4 py-3">Durum</th>
-                  <th className="px-4 py-3">Kayıt Tarihi</th>
+                  <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {alLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
                       Yükleniyor…
                     </td>
                   </tr>
                 ) : alDomains.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-slate-400">
-                      Panelde kayıtlı domain yok.
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                      Henüz domain yok. Yukarıdan ekleyin.
                     </td>
                   </tr>
                 ) : (
@@ -352,15 +375,16 @@ export default function Sync() {
                         {d.domain ?? d.name}
                       </td>
                       <td className="px-4 py-3 text-slate-600">
-                        {d.user
-                          ? `${d.user.firstName} ${d.user.lastName}`
-                          : '—'}
+                        {d.user ? `${d.user.firstName} ${d.user.lastName}` : '—'}
                         {d.user?.email && (
                           <div className="text-xs text-slate-400">{d.user.email}</div>
                         )}
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-slate-500">
                         {d.config?.registrycode ?? '—'}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-slate-400">
+                        {d.nextDue ? new Date(d.nextDue).toLocaleDateString('tr-TR') : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span
@@ -375,8 +399,17 @@ export default function Sync() {
                           {d.status}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-slate-400">
-                        {new Date(d.createdAt).toLocaleDateString('tr-TR')}
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={async () => {
+                            if (!confirm(`${d.domain ?? d.name} panelden silinsin mi?`)) return;
+                            await api.delete(`/admin/sync/alantron/${d.id}`).catch(() => {});
+                            void loadAlantron();
+                          }}
+                          className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-500 hover:bg-red-50"
+                        >
+                          Sil
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -385,6 +418,160 @@ export default function Sync() {
             </table>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Alantron domain ekleme formu ────────────────��─────────────────────────────
+function AlantronAddForm({
+  clients,
+  onAdded,
+}: {
+  clients: Client[];
+  onAdded: () => void;
+}) {
+  const [domain, setDomain] = useState('');
+  const [userId, setUserId] = useState('');
+  const [registrycode, setRegistrycode] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  const [status, setStatus] = useState<'active' | 'pending'>('active');
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState('');
+  const [err, setErr] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const inp = 'rounded-lg border border-slate-300 px-3 py-2 text-sm w-full';
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setMsg('');
+    setErr('');
+    try {
+      await api.post('/admin/sync/alantron/import', {
+        domain: domain.trim().toLowerCase(),
+        userId,
+        registrycode: registrycode ? Number(registrycode) : undefined,
+        expiryDate: expiryDate || undefined,
+        status,
+      });
+      setMsg(`${domain} eklendi`);
+      setDomain('');
+      setRegistrycode('');
+      setExpiryDate('');
+      setOpen(false);
+      onAdded();
+    } catch (e) {
+      setErr(getApiErrorMessage(e));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center justify-between px-5 py-4 text-left"
+      >
+        <span className="font-semibold text-slate-800">+ Domain Ekle</span>
+        <span className="text-slate-400">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {msg && (
+        <div className="mx-5 mb-3 rounded-lg bg-green-50 p-2 text-sm text-green-700">{msg}</div>
+      )}
+      {err && (
+        <div className="mx-5 mb-3 rounded-lg bg-red-50 p-2 text-sm text-red-700">{err}</div>
+      )}
+
+      {open && (
+        <form onSubmit={submit} className="space-y-3 border-t border-slate-100 px-5 pb-5 pt-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Domain <span className="text-red-500">*</span>
+              </label>
+              <input
+                required
+                placeholder="ornek.com.tr"
+                value={domain}
+                onChange={(e) => setDomain(e.target.value)}
+                className={inp}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Müşteri <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={userId}
+                onChange={(e) => setUserId(e.target.value)}
+                className={inp}
+              >
+                <option value="">— Seçin —</option>
+                {clients.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.firstName} {c.lastName}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Registrycode <span className="text-slate-400">(opsiyonel)</span>
+              </label>
+              <input
+                type="number"
+                placeholder="Alantron iç ID"
+                value={registrycode}
+                onChange={(e) => setRegistrycode(e.target.value)}
+                className={inp}
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-600">
+                Son Kullanma Tarihi <span className="text-slate-400">(opsiyonel)</span>
+              </label>
+              <input
+                type="date"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+                className={inp}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-sm">
+            <label className="font-medium text-slate-600">Durum:</label>
+            {(['active', 'pending'] as const).map((s) => (
+              <label key={s} className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={status === s}
+                  onChange={() => setStatus(s)}
+                />
+                {s === 'active' ? 'Aktif' : 'Beklemede'}
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+            >
+              İptal
+            </button>
+            <button
+              disabled={saving}
+              className="rounded-lg bg-brand-600 px-5 py-2 text-sm font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              {saving ? 'Kaydediliyor…' : 'Panele Ekle'}
+            </button>
+          </div>
+        </form>
       )}
     </div>
   );

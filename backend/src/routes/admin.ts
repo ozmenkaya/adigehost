@@ -819,7 +819,7 @@ adminRouter.post(
 /**
  * GET /admin/sync/alantron
  * Alantron'un domain liste API'si bulunmuyor (method not implemented).
- * DB'deki Alantron kaynaklı domainleri döndürür.
+ * DB'deki domain servislerini döndürür.
  */
 adminRouter.get(
   '/sync/alantron',
@@ -833,9 +833,83 @@ adminRouter.get(
       success: true,
       data: domains,
       meta: {
-        note: 'Alantron API domain listeleme desteklemiyor. Panele kayıtlı domainler gösteriliyor.',
+        note: 'Alantron API\'si domain listelemeyi desteklemiyor. Aşağıda panele kayıtlı domainler gösteriliyor. Manuel ekleyebilirsiniz.',
         apiLimited: true,
       },
     });
+  }),
+);
+
+/**
+ * POST /admin/sync/alantron/import
+ * Admin bir domain'i manuel olarak panele ekler (Alantron veya başka kaynak).
+ */
+const alantronImportSchema = z.object({
+  body: z.object({
+    domain: z.string().min(3).max(253).regex(/^[a-z0-9.-]+\.[a-z]{2,}$/i, 'Geçerli domain girin'),
+    userId: z.string().uuid('Müşteri seçin'),
+    registrycode: z.coerce.number().int().positive().optional(),
+    status: z.enum(['active', 'pending', 'suspended', 'cancelled']).default('active'),
+    expiryDate: z.string().optional(), // YYYY-MM-DD
+  }),
+});
+
+adminRouter.post(
+  '/sync/alantron/import',
+  validate(alantronImportSchema),
+  asyncHandler(async (req, res) => {
+    const b = req.body as z.infer<typeof alantronImportSchema>['body'];
+
+    // Aynı domain zaten var mı?
+    const existing = await Service.findOne({ where: { type: 'domain', domain: b.domain.toLowerCase() } });
+    if (existing) throw ApiError.conflict(`${b.domain} zaten panelde kayıtlı`);
+
+    const nextDue = b.expiryDate
+      ? new Date(b.expiryDate)
+      : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+    const service = await Service.create({
+      userId: b.userId,
+      type: 'domain',
+      name: b.domain.toLowerCase(),
+      domain: b.domain.toLowerCase(),
+      status: b.status,
+      price: 0,
+      billingCycle: 'annually',
+      nextDue,
+      config: b.registrycode ? { registrycode: b.registrycode, provider: 'alantron' } : { provider: 'alantron' },
+    });
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.domain_import',
+      resource: 'service',
+      resourceId: service.id,
+      details: { domain: b.domain, registrycode: b.registrycode },
+      ip: req.ip,
+    });
+
+    res.status(201).json({ success: true, data: service, message: `${b.domain} panele eklendi` });
+  }),
+);
+
+/**
+ * DELETE /admin/sync/alantron/:id
+ * Panelden domain kaydını sil.
+ */
+adminRouter.delete(
+  '/sync/alantron/:id',
+  asyncHandler(async (req, res) => {
+    const service = await Service.findByPk(req.params.id);
+    if (!service || service.type !== 'domain') throw ApiError.notFound('Domain bulunamadı');
+    await service.destroy();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.domain_delete',
+      resource: 'service',
+      resourceId: req.params.id,
+      ip: req.ip,
+    });
+    res.json({ success: true, message: 'Domain silindi' });
   }),
 );
