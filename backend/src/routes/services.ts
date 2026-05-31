@@ -30,7 +30,7 @@ export const servicesRouter = Router();
 /** İstek sahibinin bir servise erişip erişemediğini kontrol eder. */
 async function getOwnedService(serviceId: string, userId: string, isAdmin: boolean) {
   const service = await Service.findByPk(serviceId, {
-    include: [{ model: Server, as: 'server', attributes: ['id', 'name', 'location'] }],
+    include: [{ model: Server, as: 'server', attributes: ['id', 'name', 'location', 'whmHost', 'whmPort'] }],
   });
   if (!service) throw ApiError.notFound('Servis bulunamadı');
   if (!isAdmin && service.userId !== userId) throw ApiError.forbidden();
