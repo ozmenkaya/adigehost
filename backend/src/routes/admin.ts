@@ -894,6 +894,94 @@ adminRouter.post(
 );
 
 /**
+ * POST /admin/sync/alantron/parse-sql
+ * Alantron.net WHMCS senkronizasyon SQL dosyasını parse eder,
+ * domain adlarını + registrycode'ları + expiry tarihlerini çıkarır.
+ * İmport etmez — sadece önizleme listesi döndürür.
+ */
+const parseSqlSchema = z.object({
+  body: z.object({
+    sql: z.string().min(10).max(5_000_000),
+  }),
+});
+
+adminRouter.post(
+  '/sync/alantron/parse-sql',
+  validate(parseSqlSchema),
+  asyncHandler(async (req, res) => {
+    const sql: string = req.body.sql;
+
+    // ── WHMCS tbldomains formatı için esnek parser ────────────────────────
+    // Format 1: INSERT INTO tbldomains (..., domain, ..., expirydate, ...) VALUES (..., 'ornek.com', ..., '2025-12-31', ...)
+    // Format 2: UPDATE tbldomains SET ... WHERE domain='ornek.com'
+    // Format 3: domain sütunu herhangi bir konumda
+
+    const domainRe = /['"`]([a-z0-9][a-z0-9.-]{0,62}\.[a-z]{2,})['"`]/gi;
+    const dateRe = /['"`](\d{4}-\d{2}-\d{2})['"`]/g;
+
+    // Her satır için parse et
+    const lines = sql.split('\n');
+    const results: Array<{
+      domain: string;
+      registrycode: number | null;
+      expiryDate: string | null;
+      alreadyImported: boolean;
+    }> = [];
+    const seen = new Set<string>();
+
+    for (const line of lines) {
+      const lc = line.toLowerCase();
+      if (!lc.includes('tbldomains') && !lc.includes('domain')) continue;
+
+      // Domain bul
+      const domMatches = [...line.matchAll(domainRe)];
+      const domains = domMatches
+        .map((m) => m[1].toLowerCase())
+        .filter((d) => d.includes('.') && !d.startsWith('www.') && d.length > 4);
+
+      if (domains.length === 0) continue;
+
+      // Registrycode
+      const rcMatch = line.match(/registrycode[=\s:'"]*(\d+)/i);
+      const registrycode = rcMatch ? Number(rcMatch[1]) : null;
+
+      // Expiry date — tarih formatı YYYY-MM-DD
+      const dates = [...line.matchAll(dateRe)].map((m) => m[1]).filter((d) => {
+        const y = parseInt(d.slice(0, 4));
+        return y >= 2020 && y <= 2040;
+      });
+      const expiryDate = dates.length > 0 ? dates[dates.length - 1] : null;
+
+      for (const domain of domains) {
+        if (seen.has(domain)) continue;
+        seen.add(domain);
+        results.push({ domain, registrycode, expiryDate, alreadyImported: false });
+      }
+    }
+
+    // Zaten panelde kayıtlı olanları işaretle
+    if (results.length > 0) {
+      const existing = await Service.findAll({
+        where: { type: 'domain', domain: results.map((r) => r.domain) },
+        attributes: ['domain'],
+      });
+      const imported = new Set(existing.map((s) => s.domain ?? ''));
+      results.forEach((r) => (r.alreadyImported = imported.has(r.domain)));
+    }
+
+    res.json({
+      success: true,
+      data: results,
+      meta: {
+        total: results.length,
+        new: results.filter((r) => !r.alreadyImported).length,
+        alreadyImported: results.filter((r) => r.alreadyImported).length,
+      },
+    });
+  }),
+);
+
+/**
  * DELETE /admin/sync/alantron/:id
  * Panelden domain kaydını sil.
  */
