@@ -13,6 +13,7 @@ import Servers from './pages/admin/Servers';
 import Integrations from './pages/admin/Integrations';
 import Settings from './pages/admin/Settings';
 import Logs from './pages/admin/Logs';
+import Sync from './pages/admin/Sync';
 // Client
 import ClientDashboard from './pages/client/Dashboard';
 import ClientServices from './pages/client/Services';
@@ -59,6 +60,7 @@ export default function App() {
         <Route path="integrations" element={<Integrations />} />
         <Route path="settings" element={<Settings />} />
         <Route path="logs" element={<Logs />} />
+        <Route path="sync" element={<Sync />} />
       </Route>
 
       {/* Müşteri paneli */}

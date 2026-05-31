@@ -17,6 +17,7 @@ const ADMIN_NAV: NavItem[] = [
   { to: '/admin/integrations', label: 'Entegrasyonlar', icon: '🔌' },
   { to: '/admin/settings', label: 'Ayarlar', icon: '⚙️' },
   { to: '/admin/logs', label: 'Loglar', icon: '📜' },
+  { to: '/admin/sync', label: 'Senkronizasyon', icon: '🔄' },
 ];
 
 const CLIENT_NAV: NavItem[] = [

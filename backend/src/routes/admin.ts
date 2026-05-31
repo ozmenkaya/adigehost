@@ -19,6 +19,7 @@ import { logActivity } from '../services/AuditService';
 import { SettingsService, BANK_KEYS, COMPANY_KEYS, DOMAIN_KEYS } from '../services/SettingsService';
 import { ProvisioningService } from '../services/ProvisioningService';
 import { EInvoiceService } from '../services/EInvoiceService';
+import { WHMService } from '../services/WHMService';
 import { InvoiceService } from '../services/InvoiceService';
 import { NotificationService } from '../services/NotificationService';
 import { hashPassword } from '../security/password';
@@ -686,5 +687,154 @@ adminRouter.get(
       raw: true,
     });
     res.json({ success: true, data: rows });
+  }),
+);
+
+// ── Senkronizasyon ────────────────────────────────────────────────────────────
+
+/**
+ * GET /admin/sync/whm
+ * Tüm WHM/cPanel sunucularındaki hesapları çeker.
+ * Her hesap için panelde kayıtlı olup olmadığını (service.config.cpanelUser) belirtir.
+ */
+adminRouter.get(
+  '/sync/whm',
+  asyncHandler(async (_req, res) => {
+    const servers = await Server.findAll({ where: { type: 'shared' } });
+    if (!servers.length) {
+      res.json({ success: true, data: [] });
+      return;
+    }
+
+    // DB'deki tüm hosting servislerinin cpanelUser'larını al.
+    const existing = await Service.findAll({
+      where: { type: 'hosting' },
+      attributes: ['id', 'config', 'userId'],
+    });
+    const knownUsers = new Set(
+      existing
+        .map((s) => (s.config as { cpanelUser?: string } | null)?.cpanelUser)
+        .filter(Boolean),
+    );
+
+    const result: unknown[] = [];
+    for (const srv of servers) {
+      try {
+        const whm = WHMService.forServer(srv);
+        const data = (await whm.listAccounts()) as { acct?: Record<string, unknown>[] };
+        const accts = data?.acct ?? [];
+        for (const a of accts) {
+          result.push({
+            serverId: srv.id,
+            serverName: srv.name,
+            cpanelUser: String(a.user ?? ''),
+            domain: String(a.domain ?? ''),
+            plan: String(a.plan ?? ''),
+            diskused: String(a.diskused ?? ''),
+            disklimit: String(a.disklimit ?? 'unlimited'),
+            email: String(a.email ?? ''),
+            suspended: Boolean(a.suspended),
+            imported: knownUsers.has(String(a.user ?? '')),
+          });
+        }
+      } catch (err) {
+        logger.error('WHM sync hatası', { server: srv.id, error: (err as Error).message });
+      }
+    }
+    res.json({ success: true, data: result });
+  }),
+);
+
+/**
+ * POST /admin/sync/whm/import
+ * Seçilen WHM hesaplarını services tablosuna ekler.
+ * userId zorunlu (hangi müşteriye ait olduğunu admin belirler).
+ * cpanelUser + serverId ikilisi zaten kayıtlıysa atlanır.
+ */
+const whmImportSchema = z.object({
+  body: z.object({
+    accounts: z.array(
+      z.object({
+        cpanelUser: z.string().min(1).max(16),
+        domain: z.string().min(1).max(253),
+        serverId: z.string().uuid(),
+        plan: z.string().max(64).optional(),
+        userId: z.string().uuid('Müşteri ID gerekli'),
+      }),
+    ).min(1),
+  }),
+});
+
+adminRouter.post(
+  '/sync/whm/import',
+  validate(whmImportSchema),
+  asyncHandler(async (req, res) => {
+    const { accounts } = req.body as z.infer<typeof whmImportSchema>['body'];
+
+    // Zaten kayıtlı olanları tespit et.
+    const existing = await Service.findAll({ where: { type: 'hosting' }, attributes: ['config'] });
+    const knownUsers = new Set(
+      existing.map((s) => (s.config as { cpanelUser?: string } | null)?.cpanelUser).filter(Boolean),
+    );
+
+    const created: string[] = [];
+    const skipped: string[] = [];
+
+    for (const acc of accounts) {
+      if (knownUsers.has(acc.cpanelUser)) {
+        skipped.push(acc.domain);
+        continue;
+      }
+      await Service.create({
+        userId: acc.userId,
+        serverId: acc.serverId,
+        type: 'hosting',
+        name: acc.domain,
+        domain: acc.domain,
+        status: 'active',
+        price: 0,
+        billingCycle: 'monthly',
+        nextDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        config: { cpanelUser: acc.cpanelUser, plan: acc.plan ?? null },
+      });
+      created.push(acc.domain);
+    }
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.sync_whm_import',
+      details: { created: created.length, skipped: skipped.length },
+      ip: req.ip,
+    });
+
+    res.json({
+      success: true,
+      data: { created, skipped },
+      message: `${created.length} hesap aktarıldı, ${skipped.length} zaten kayıtlıydı.`,
+    });
+  }),
+);
+
+/**
+ * GET /admin/sync/alantron
+ * Alantron'un domain liste API'si bulunmuyor (method not implemented).
+ * DB'deki Alantron kaynaklı domainleri döndürür.
+ */
+adminRouter.get(
+  '/sync/alantron',
+  asyncHandler(async (_req, res) => {
+    const domains = await Service.findAll({
+      where: { type: 'domain' },
+      include: [{ model: User, as: 'user', attributes: ['id', 'firstName', 'lastName', 'email'] }],
+      order: [['createdAt', 'DESC']],
+    });
+    res.json({
+      success: true,
+      data: domains,
+      meta: {
+        note: 'Alantron API domain listeleme desteklemiyor. Panele kayıtlı domainler gösteriliyor.',
+        apiLimited: true,
+      },
+    });
   }),
 );
