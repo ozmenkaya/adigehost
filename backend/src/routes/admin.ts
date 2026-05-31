@@ -193,6 +193,103 @@ adminRouter.get(
   }),
 );
 
+// --- PUT /admin/clients/:id — müşteri bilgilerini düzenle ---
+const updateClientSchema = z.object({
+  body: z.object({
+    firstName: z.string().min(2).max(100).optional(),
+    lastName: z.string().min(2).max(100).optional(),
+    email: z.string().email().optional(),
+    phone: z.string().max(30).optional().nullable(),
+    identityType: z.enum(['individual', 'corporate']).optional(),
+    taxNumber: z.string().max(20).optional().nullable(),
+    taxOffice: z.string().max(100).optional().nullable(),
+    company: z.string().max(150).optional().nullable(),
+    address: z.string().max(500).optional().nullable(),
+    city: z.string().max(100).optional().nullable(),
+    district: z.string().max(100).optional().nullable(),
+    postalCode: z.string().max(20).optional().nullable(),
+  }),
+});
+
+adminRouter.put(
+  '/clients/:id',
+  validate(updateClientSchema),
+  asyncHandler(async (req, res) => {
+    const user = await User.findByPk(req.params.id);
+    if (!user) throw ApiError.notFound('Müşteri bulunamadı');
+    if (user.role === 'admin') throw ApiError.forbidden('Admin hesabı düzenlenemez');
+    const b = req.body as z.infer<typeof updateClientSchema>['body'];
+
+    // E-posta değişiyorsa benzersizlik kontrolü.
+    if (b.email && b.email !== user.email) {
+      const dup = await User.findOne({ where: { email: b.email } });
+      if (dup) throw ApiError.conflict('Bu e-posta zaten kayıtlı');
+    }
+
+    const fields = [
+      'firstName',
+      'lastName',
+      'email',
+      'phone',
+      'identityType',
+      'taxNumber',
+      'taxOffice',
+      'company',
+      'address',
+      'city',
+      'district',
+      'postalCode',
+    ] as const;
+    for (const f of fields) {
+      if (b[f] !== undefined) (user as unknown as Record<string, unknown>)[f] = b[f] ?? null;
+    }
+    await user.save();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.client_update',
+      resource: 'user',
+      resourceId: user.id,
+      ip: req.ip,
+    });
+    res.json({ success: true, data: user });
+  }),
+);
+
+// --- DELETE /admin/clients/:id — müşteri sil (fatura/hizmet yoksa) ---
+adminRouter.delete(
+  '/clients/:id',
+  asyncHandler(async (req, res) => {
+    const user = await User.findByPk(req.params.id);
+    if (!user) throw ApiError.notFound('Müşteri bulunamadı');
+    if (user.role === 'admin') throw ApiError.forbidden('Admin hesabı silinemez');
+
+    // Yasal saklama (VUK/KVKK): faturası olan müşteri kalıcı silinemez → askıya alın.
+    const invoiceCount = await Invoice.count({ where: { userId: user.id } });
+    if (invoiceCount > 0) {
+      throw ApiError.conflict(
+        `Bu müşterinin ${invoiceCount} faturası var; yasal saklama nedeniyle silinemez. ` +
+          'Bunun yerine "Askıya Al" kullanın.',
+      );
+    }
+    const serviceCount = await Service.count({ where: { userId: user.id } });
+    if (serviceCount > 0) {
+      throw ApiError.conflict(
+        `Bu müşterinin ${serviceCount} hizmeti var; önce hizmetleri iptal edin.`,
+      );
+    }
+
+    await user.destroy();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.client_delete',
+      resource: 'user',
+      resourceId: req.params.id,
+      ip: req.ip,
+    });
+    res.json({ success: true, data: { id: req.params.id } });
+  }),
+);
+
 // --- PUT /admin/clients/:id/suspend — askıya al / aktifleştir ---
 const suspendSchema = z.object({ body: z.object({ suspend: z.boolean() }) });
 adminRouter.put(
