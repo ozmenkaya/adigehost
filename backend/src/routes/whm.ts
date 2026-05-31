@@ -139,3 +139,83 @@ whmRouter.get(
     res.json({ success: true, data: await whm.listSubdomains(cpanelUser) });
   }),
 );
+
+// ── E-posta hesapları ────────────────────────────────────────────────────────
+
+// --- GET /whm/:id/emails ---
+whmRouter.get(
+  '/:id/emails',
+  asyncHandler(async (req, res) => {
+    const { whm, cpanelUser } = await resolveHosting(req);
+    const accounts = await whm.listEmailAccounts(cpanelUser);
+    res.json({ success: true, data: accounts });
+  }),
+);
+
+// --- POST /whm/:id/emails ---
+const addEmailSchema = z.object({
+  body: z.object({
+    login: z
+      .string()
+      .min(1)
+      .max(64)
+      .regex(/^[a-z0-9._+-]+$/i, 'Geçersiz e-posta kullanıcı adı'),
+    password: z.string().min(8).max(128),
+    quota: z.coerce.number().int().min(0).max(10240).default(250),
+  }),
+});
+
+whmRouter.post(
+  '/:id/emails',
+  validate(addEmailSchema),
+  asyncHandler(async (req, res) => {
+    const { service, whm, cpanelUser } = await resolveHosting(req);
+    const domain =
+      (service.config as { domain?: string } | null)?.domain ?? service.domain ?? service.name;
+    if (!domain) throw ApiError.badRequest('Hosting alan adı bulunamadı');
+
+    const { login, password, quota } = req.body as {
+      login: string; password: string; quota: number;
+    };
+    await whm.addEmailAccount(cpanelUser, login.toLowerCase(), domain, password, quota);
+    await audit(req, 'whm.email_create', service.id);
+    res.status(201).json({
+      success: true,
+      data: { email: `${login.toLowerCase()}@${domain}` },
+      message: 'E-posta hesabı oluşturuldu',
+    });
+  }),
+);
+
+// --- DELETE /whm/:id/emails/:login ---
+whmRouter.delete(
+  '/:id/emails/:login',
+  asyncHandler(async (req, res) => {
+    const { service, whm, cpanelUser } = await resolveHosting(req);
+    const domain = service.domain ?? service.name;
+    if (!domain) throw ApiError.badRequest('Hosting alan adı bulunamadı');
+
+    const login = req.params.login.toLowerCase();
+    await whm.deleteEmailAccount(cpanelUser, login, domain);
+    await audit(req, 'whm.email_delete', service.id);
+    res.json({ success: true, message: `${login}@${domain} silindi` });
+  }),
+);
+
+// --- PUT /whm/:id/emails/:login/password ---
+const emailPassSchema = z.object({ body: z.object({ password: z.string().min(8).max(128) }) });
+
+whmRouter.put(
+  '/:id/emails/:login/password',
+  validate(emailPassSchema),
+  asyncHandler(async (req, res) => {
+    const { service, whm, cpanelUser } = await resolveHosting(req);
+    const domain = service.domain ?? service.name;
+    if (!domain) throw ApiError.badRequest('Hosting alan adı bulunamadı');
+
+    const login = req.params.login.toLowerCase();
+    await whm.changeEmailPassword(cpanelUser, login, domain, req.body.password);
+    await audit(req, 'whm.email_password', service.id);
+    res.json({ success: true, message: 'E-posta şifresi güncellendi' });
+  }),
+);

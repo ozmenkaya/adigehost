@@ -183,6 +183,58 @@ export class WHMService {
     return this.cpanel(user, 'SubDomain', 'list_subdomains');
   }
 
+  // ── E-posta hesapları (cPanel UAPI Email modülü) ─────────────────────────
+
+  /** Tüm e-posta hesaplarını disk kullanımıyla listeler. */
+  async listEmailAccounts(user: string): Promise<Array<{
+    email: string; login: string; domain: string;
+    quota: number; diskused: number; diskusedpercent: number;
+  }>> {
+    const raw = await this.cpanel<unknown>(user, 'Email', 'list_pops_with_disk');
+    const rows = this.extractUapiData<Record<string, unknown>>(raw);
+    return rows.map((r) => ({
+      email: String(r.email ?? `${r.login}@${r.domain}`),
+      login: String(r.login ?? ''),
+      domain: String(r.domain ?? ''),
+      quota: Number(r.quota ?? 0),
+      diskused: Number(r.diskused ?? 0),
+      diskusedpercent: Number(r.diskusedpercent_float ?? r.diskusedpercent ?? 0),
+    }));
+  }
+
+  /** E-posta hesabı oluşturur. quota MB (0 = sınırsız). */
+  addEmailAccount(user: string, login: string, domain: string, password: string, quota = 250) {
+    return this.cpanel(user, 'Email', 'add_pop', {
+      email: login,
+      domain,
+      password,
+      quota,
+      skip_update_db: 0,
+    });
+  }
+
+  /** E-posta hesabı siler. */
+  deleteEmailAccount(user: string, login: string, domain: string) {
+    return this.cpanel(user, 'Email', 'delete_pop', { email: login, domain });
+  }
+
+  /** E-posta hesabı şifresini değiştirir. */
+  changeEmailPassword(user: string, login: string, domain: string, password: string) {
+    return this.cpanel(user, 'Email', 'passwd_pop', { email: login, domain, password });
+  }
+
+  /** UAPI v3 response sarmalayıcısından data array'ini çıkarır. */
+  private extractUapiData<T>(raw: unknown): T[] {
+    const r = raw as Record<string, unknown>;
+    const result = (r?.result ?? r) as Record<string, unknown>;
+    if (result?.status === 0) {
+      const errors = Array.isArray(result.errors) ? result.errors.join(', ') : JSON.stringify(result.errors);
+      throw new ApiError(502, `cPanel UAPI hatası: ${errors}`, 'WHM_ERROR');
+    }
+    const data = result?.data ?? r?.data ?? result;
+    return Array.isArray(data) ? (data as T[]) : [];
+  }
+
   async healthcheck(): Promise<boolean> {
     try {
       await this.listAccounts();
