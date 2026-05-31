@@ -36,6 +36,13 @@ export class SettingsService {
 /** Banka/havale bilgisi anahtarları (group: payment). */
 export const BANK_KEYS = ['bank_name', 'bank_iban', 'bank_account_holder', 'bank_branch'];
 
+/** Domain fiyatlama ayarları. */
+export const DOMAIN_KEYS = [
+  'domain_provider',  // 'alantron' | 'domainnameapi'
+  'domain_markup',    // kâr marjı çarpanı (ör. 1.3 = %30)
+  'vat_rate',         // KDV oranı (ör. 20)
+];
+
 /** Satıcı (şirket) bilgisi anahtarları (group: company) — e-fatura "satıcı" alanları. */
 export const COMPANY_KEYS = [
   'company_title', // ünvan

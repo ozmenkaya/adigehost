@@ -16,7 +16,7 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logger } from '../config/logger';
 import { logActivity } from '../services/AuditService';
-import { SettingsService, BANK_KEYS, COMPANY_KEYS } from '../services/SettingsService';
+import { SettingsService, BANK_KEYS, COMPANY_KEYS, DOMAIN_KEYS } from '../services/SettingsService';
 import { ProvisioningService } from '../services/ProvisioningService';
 import { EInvoiceService } from '../services/EInvoiceService';
 import { InvoiceService } from '../services/InvoiceService';
@@ -536,11 +536,12 @@ adminRouter.delete(
 adminRouter.get(
   '/settings',
   asyncHandler(async (_req, res) => {
-    const [bank, company] = await Promise.all([
+    const [bank, company, domain] = await Promise.all([
       SettingsService.getMany(BANK_KEYS),
       SettingsService.getMany(COMPANY_KEYS),
+      SettingsService.getMany(DOMAIN_KEYS),
     ]);
-    res.json({ success: true, data: { bank, company } });
+    res.json({ success: true, data: { bank, company, domain } });
   }),
 );
 
@@ -548,18 +549,21 @@ const settingsSchema = z.object({
   body: z.object({
     bank: z.record(z.string()).optional(),
     company: z.record(z.string()).optional(),
+    domain: z.record(z.string()).optional(),
   }),
 });
 adminRouter.put(
   '/settings',
   validate(settingsSchema),
   asyncHandler(async (req, res) => {
-    const { bank, company } = req.body as {
+    const { bank, company, domain } = req.body as {
       bank?: Record<string, string>;
       company?: Record<string, string>;
+      domain?: Record<string, string>;
     };
     if (bank) await SettingsService.setMany(bank, 'payment');
     if (company) await SettingsService.setMany(company, 'company');
+    if (domain) await SettingsService.setMany(domain, 'pricing');
     await logActivity({ userId: req.user!.sub, action: 'admin.settings_update', ip: req.ip });
     res.json({ success: true, message: 'Ayarlar kaydedildi' });
   }),

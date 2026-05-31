@@ -22,6 +22,11 @@ export default function Settings() {
     bank_branch: '',
   });
   const [company, setCompany] = useState<Record<string, string>>({});
+  const [domain, setDomain] = useState<Record<string, string>>({
+    domain_provider: '',
+    domain_markup: '1.3',
+    vat_rate: '20',
+  });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
@@ -31,6 +36,7 @@ export default function Settings() {
       .then((r) => {
         setBank((b) => ({ ...b, ...r.data.data.bank }));
         setCompany(r.data.data.company ?? {});
+        setDomain((d) => ({ ...d, ...(r.data.data.domain ?? {}) }));
       })
       .catch((e) => setError(getApiErrorMessage(e)));
   }, []);
@@ -40,7 +46,7 @@ export default function Settings() {
     setMsg('');
     setError('');
     try {
-      await api.put('/admin/settings', { bank, company });
+      await api.put('/admin/settings', { bank, company, domain });
       setMsg('Ayarlar kaydedildi');
     } catch (e) {
       setError(getApiErrorMessage(e));
@@ -59,6 +65,9 @@ export default function Settings() {
     </div>
   );
 
+  const markup = parseFloat(domain.domain_markup || '1.3');
+  const markupPercent = isNaN(markup) ? 30 : Math.round((markup - 1) * 100);
+
   return (
     <div className="max-w-2xl space-y-4">
       <h1 className="text-2xl font-bold text-slate-900">Ayarlar</h1>
@@ -66,6 +75,7 @@ export default function Settings() {
       {error && <div className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</div>}
 
       <form onSubmit={save} className="space-y-6">
+        {/* ── Banka ── */}
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="font-semibold text-slate-800">Banka / Havale Bilgileri</h2>
           <p className="text-xs text-slate-500">Müşteri sipariş verdiğinde gösterilir.</p>
@@ -75,6 +85,65 @@ export default function Settings() {
           {bankField('Şube', 'bank_branch')}
         </div>
 
+        {/* ── Domain Fiyatlama ── */}
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+          <h2 className="font-semibold text-slate-800">Domain Fiyatlama</h2>
+          <p className="text-xs text-slate-500">
+            Müsaitlik sorgusunda kullanılan sağlayıcı ve fiyat hesaplama ayarları.
+          </p>
+
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Varsayılan Sağlayıcı
+            </label>
+            <select
+              value={domain.domain_provider ?? ''}
+              onChange={(e) => setDomain({ ...domain, domain_provider: e.target.value })}
+              className={inp}
+            >
+              <option value="">Otomatik (Alantron &gt; DomainNameAPI)</option>
+              <option value="alantron">Alantron</option>
+              <option value="domainnameapi">DomainNameAPI (Atak Domain)</option>
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Kâr Marjı (Markup)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="1"
+                max="10"
+                value={domain.domain_markup ?? '1.3'}
+                onChange={(e) => setDomain({ ...domain, domain_markup: e.target.value })}
+                className={inp}
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                1.3 = %30 kâr · 2.0 = %100 kâr · Mevcut: <strong>%{markupPercent}</strong>
+              </p>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">KDV Oranı (%)</label>
+              <input
+                type="number"
+                step="1"
+                min="0"
+                max="100"
+                value={domain.vat_rate ?? '20'}
+                onChange={(e) => setDomain({ ...domain, vat_rate: e.target.value })}
+                className={inp}
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Fiyatlar müşteriye KDV dahil gösterilir.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Şirket / E-Fatura ── */}
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="font-semibold text-slate-800">Şirket Bilgileri (E-Fatura Satıcı)</h2>
           <p className="text-xs text-slate-500">

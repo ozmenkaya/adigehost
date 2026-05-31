@@ -6,8 +6,11 @@ interface Result {
   tld: string;
   available: boolean;
   isPremium: boolean;
-  priceTRY: number | null;
+  priceTRY: number | null;      // KDV dahil
+  priceExVat: number | null;    // KDV hariç
+  vatRate: number;
   period: number;
+  provider?: string;
 }
 interface OrderResult {
   invoice: { invoiceNum: string; total: number; dueDate: string };
@@ -141,9 +144,18 @@ export default function Domains() {
               </div>
               {r.available && (
                 <div className="flex items-center gap-3">
-                  <span className="font-medium text-slate-700">
-                    {r.priceTRY != null ? `${r.priceTRY} TL/yıl` : '—'}
-                  </span>
+                  <div className="text-right">
+                    <div className="font-semibold text-slate-800">
+                      {r.priceTRY != null
+                        ? `${r.priceTRY.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺/yıl`
+                        : '—'}
+                    </div>
+                    {r.priceExVat != null && (
+                      <div className="text-xs text-slate-400">
+                        KDV hariç {r.priceExVat.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺ · KDV %{r.vatRate}
+                      </div>
+                    )}
+                  </div>
                   <button
                     disabled={ordering === r.domain || r.priceTRY == null}
                     onClick={() => orderDomain(r.domain)}
