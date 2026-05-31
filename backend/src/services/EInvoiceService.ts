@@ -61,11 +61,21 @@ export class EInvoiceService {
       phone: user.phone ?? undefined,
     };
 
+    // Eksik bilgiyle fatura kesimini engelle (UBL'de "-" görünmesin).
+    if (!user.address?.trim() || !user.city?.trim() || !user.district?.trim()) {
+      throw ApiError.badRequest(
+        'Müşteri fatura bilgileri eksik (adres, il ve ilçe zorunlu). ' +
+          'Lütfen müşteri kaydını tamamlayın (Admin → Müşteriler).',
+      );
+    }
+
     // Profil kararı: e-fatura yalnızca satıcının GB etiketi varsa (e-fatura mükellefiyse)
-    // VE müşteri kurumsal + VKN + e-fatura mükellefiyse; aksi halde e-arşiv.
+    // VE müşteri e-fatura mükellefiyse (CheckUser); aksi halde e-arşiv.
+    // E-fatura mükellefi mi? Karar CheckUser'a aittir — şahıs işletmeleri 11 haneli
+    // TCKN ile de e-fatura mükellefi olabilir, bu yüzden 10/11 hane kabul edilir.
     let isEfatura = false;
     let receiverAlias = '';
-    if (c.company_alias && isCorporate && vknTckn.length === 10) {
+    if (c.company_alias && (vknTckn.length === 10 || vknTckn.length === 11)) {
       try {
         const chk = await EDMService.checkUser(vknTckn);
         isEfatura = chk.registered;
