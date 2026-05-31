@@ -47,6 +47,18 @@ export const PROVIDERS: ProviderDef[] = [
     ],
   },
   {
+    key: 'alantron',
+    label: 'Alantron (Alan Adı)',
+    category: 'domain',
+    description: 'Domain kayıt, yenileme, DNS (api.alantron.com)',
+    testable: true,
+    fields: [
+      { key: 'resellerno', label: 'Bayi No (resellerno)', type: 'text', required: true, placeholder: '2192087' },
+      { key: 'resellerpwd', label: 'API Şifresi', type: 'password', secret: true, required: true },
+      { key: 'dkey', label: 'dkey', type: 'text', placeholder: '233348' },
+    ],
+  },
+  {
     key: 'iyzico',
     label: 'İyzico',
     category: 'payment',

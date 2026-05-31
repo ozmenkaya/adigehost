@@ -203,6 +203,21 @@ async function runProviderTest(provider: string, values: Creds): Promise<boolean
       });
       return Boolean(id);
     }
+    case 'alantron': {
+      // Bağlantı testi: getresellerinfo (bayi bilgisi / bakiye).
+      const axios = (await import('axios')).default;
+      const r = await axios.get('https://api.alantron.com/action.json', {
+        params: {
+          type: 'getresellerinfo',
+          resellerno: String(values.resellerno),
+          resellerpwd: String(values.resellerpwd),
+          lang: 'tr',
+          responsetype: 'json',
+        },
+        timeout: 15000,
+      });
+      return r.status === 200 && String(r.data?.status ?? '').toLowerCase() !== 'error';
+    }
     default:
       logger.info(`Test desteklenmeyen sağlayıcı: ${provider}`);
       return false;

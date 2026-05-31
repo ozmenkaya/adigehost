@@ -5,6 +5,8 @@ import { Product } from '../models/Product';
 import { WHMService } from './WHMService';
 import { HetznerService } from './HetznerService';
 import { DomainService, type DomainContact } from './DomainService';
+import { AlantronService } from './AlantronService';
+import { IntegrationService } from './IntegrationService';
 import { ServerManager } from './ServerManager';
 import { User } from '../models/User';
 import { ApiError } from '../utils/ApiError';
@@ -115,10 +117,11 @@ export class ProvisioningService {
   }
 
   /**
-   * Bir domain servisini DomainNameAPI üzerinden kaydeder.
+   * Bir domain servisini uygun sağlayıcıyla kaydeder.
+   * Öncelik: 1) config.provider 2) aktif entegrasyon kontrolü (alantron > domainnameapi)
    * İletişim bilgisi müşteri profilinden kurulur (eksikse hata).
    */
-  static async provisionDomain(service: Service): Promise<{ domain: string }> {
+  static async provisionDomain(service: Service): Promise<{ domain: string; provider: string }> {
     if (service.type !== 'domain' || !service.domain) {
       throw ApiError.badRequest('Geçersiz domain servisi');
     }
@@ -130,6 +133,48 @@ export class ProvisioningService {
       );
     }
 
+    const cfg = service.config as { period?: number; provider?: string } | null;
+    const period = Number(cfg?.period ?? 1);
+
+    // Hangi sağlayıcıyı kullanacağız?
+    const preferredProvider =
+      cfg?.provider ??
+      ((await IntegrationService.getCredentials('alantron').catch(() => null))?.resellerno
+        ? 'alantron'
+        : 'domainnameapi');
+
+    if (preferredProvider === 'alantron') {
+      // Alantron: önce yetkili oluştur, sonra kaydı yap.
+      const phoneRaw = user.phone.replace(/\D/g, '');
+      const phone = phoneRaw.startsWith('90') ? phoneRaw : `90${phoneRaw.replace(/^0/, '')}`;
+      const contactId = await AlantronService.createContact({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        company: user.company ?? user.firstName,
+        email: user.email,
+        address: user.address,
+        city: user.city,
+        country: 'tr',
+        zip: user.postalCode ?? '00000',
+        phone,
+      });
+      const dotIdx = service.domain.indexOf('.');
+      const sld = service.domain.slice(0, dotIdx);
+      const tld = service.domain.slice(dotIdx + 1);
+      const result = await AlantronService.register(sld, tld, period, contactId);
+      // registrycode → config'e sakla (yenileme için).
+      service.config = { ...(cfg ?? {}), registrycode: result.registrycode };
+      service.status = 'active';
+      await service.save();
+      logger.info('Alantron: domain provision edildi', {
+        service: service.id,
+        domain: service.domain,
+        registrycode: result.registrycode,
+      });
+      return { domain: service.domain, provider: 'alantron' };
+    }
+
+    // DomainNameAPI (varsayılan)
     const phoneDigits = user.phone.replace(/\D/g, '').replace(/^90/, '').replace(/^0/, '');
     const contact: DomainContact = {
       contactType: 'Registrant',
@@ -143,13 +188,13 @@ export class ProvisioningService {
       phoneCountryCode: '90',
       phone: phoneDigits,
     };
-
-    const period = Number((service.config as { period?: number } | null)?.period ?? 1);
     await DomainService.register(service.domain, period, contact);
-
     service.status = 'active';
     await service.save();
-    logger.info('Domain provision edildi', { service: service.id, domain: service.domain });
-    return { domain: service.domain };
+    logger.info('DomainNameAPI: domain provision edildi', {
+      service: service.id,
+      domain: service.domain,
+    });
+    return { domain: service.domain, provider: 'domainnameapi' };
   }
 }
