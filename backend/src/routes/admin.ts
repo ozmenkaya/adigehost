@@ -19,6 +19,7 @@ import { logActivity } from '../services/AuditService';
 import { SettingsService, BANK_KEYS, COMPANY_KEYS } from '../services/SettingsService';
 import { ProvisioningService } from '../services/ProvisioningService';
 import { EInvoiceService } from '../services/EInvoiceService';
+import { InvoiceService } from '../services/InvoiceService';
 import { hashPassword } from '../security/password';
 import { randomBytes } from 'node:crypto';
 
@@ -352,6 +353,63 @@ adminRouter.get(
       limit: 200,
     });
     res.json({ success: true, data: invoices });
+  }),
+);
+
+// --- POST /admin/invoices — müşteriye elle fatura oluştur (ödenmemiş) ---
+const createInvoiceSchema = z.object({
+  body: z.object({
+    userId: z.string().uuid('Geçerli bir müşteri seçin'),
+    items: z
+      .array(
+        z.object({
+          description: z.string().min(1).max(255),
+          quantity: z.coerce.number().int().min(1).max(1000).default(1),
+          unitPrice: z.coerce.number().min(0).max(1_000_000),
+        }),
+      )
+      .min(1, 'En az bir kalem gerekli'),
+    notes: z.string().max(500).optional(),
+    dueDays: z.coerce.number().int().min(0).max(365).optional(),
+  }),
+});
+
+adminRouter.post(
+  '/invoices',
+  validate(createInvoiceSchema),
+  asyncHandler(async (req, res) => {
+    const b = req.body as z.infer<typeof createInvoiceSchema>['body'];
+    const user = await User.findByPk(b.userId);
+    if (!user || user.role === 'admin') throw ApiError.badRequest('Geçersiz müşteri');
+
+    const invoice = await InvoiceService.createManual(b.userId, b.items, {
+      notes: b.notes,
+      dueDays: b.dueDays,
+    });
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.invoice_create',
+      resource: 'invoice',
+      resourceId: invoice.id,
+      details: { userId: b.userId, total: invoice.total },
+      ip: req.ip,
+    });
+    res.status(201).json({ success: true, data: invoice });
+  }),
+);
+
+// --- GET /admin/invoices/:id — fatura detayı (kalemler + müşteri) ---
+adminRouter.get(
+  '/invoices/:id',
+  asyncHandler(async (req, res) => {
+    const invoice = await Invoice.findByPk(req.params.id, {
+      include: [
+        { model: InvoiceItem, as: 'items' },
+        { model: User, as: 'user' },
+      ],
+    });
+    if (!invoice) throw ApiError.notFound('Fatura bulunamadı');
+    res.json({ success: true, data: invoice });
   }),
 );
 

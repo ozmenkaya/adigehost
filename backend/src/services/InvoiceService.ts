@@ -3,7 +3,7 @@ import { Invoice, InvoiceItem } from '../models/Invoice';
 import { Service } from '../models/Service';
 import { Product } from '../models/Product';
 import { SettingsService } from './SettingsService';
-import { calculateTotals, formatInvoiceNumber } from '../utils/helpers';
+import { calculateTotals, formatInvoiceNumber, round2 } from '../utils/helpers';
 import { env } from '../config/env';
 
 const CYCLE_MONTHS: Record<string, number> = { monthly: 1, quarterly: 3, annually: 12 };
@@ -46,6 +46,51 @@ export class InvoiceService {
       unitPrice: amount,
       total: amount,
     });
+    return invoice;
+  }
+
+  /**
+   * Admin'in elle oluşturduğu çok kalemli ödenmemiş fatura.
+   * Kalemler servise bağlı değildir (serviceId yok); e-belge kesimi onayda yapılır.
+   */
+  static async createManual(
+    userId: string,
+    items: Array<{ description: string; quantity: number; unitPrice: number }>,
+    opts: { notes?: string; dueDays?: number } = {},
+  ): Promise<Invoice> {
+    const cleanItems = items
+      .map((it) => ({
+        description: String(it.description).trim(),
+        quantity: Math.max(1, Math.trunc(Number(it.quantity) || 1)),
+        unitPrice: Number(it.unitPrice) || 0,
+      }))
+      .filter((it) => it.description && it.unitPrice >= 0);
+    if (cleanItems.length === 0) throw new Error('En az bir geçerli fatura kalemi gerekli');
+
+    const amount = cleanItems.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
+    const vatRate = Number(await SettingsService.get('vat_rate', String(env.VAT_RATE)));
+    const { subtotal, tax, total } = calculateTotals(amount, vatRate);
+    const dueDays = opts.dueDays ?? Number(await SettingsService.get('payment_due_days', '7'));
+
+    const invoice = await Invoice.create({
+      userId,
+      invoiceNum: await this.nextInvoiceNumber(),
+      status: 'unpaid',
+      subtotal,
+      tax,
+      total,
+      dueDate: new Date(Date.now() + dueDays * 24 * 60 * 60 * 1000),
+      notes: opts.notes ?? cleanItems.map((i) => i.description).join(', '),
+    });
+    for (const it of cleanItems) {
+      await InvoiceItem.create({
+        invoiceId: invoice.id,
+        description: it.description,
+        quantity: it.quantity,
+        unitPrice: it.unitPrice,
+        total: round2(it.quantity * it.unitPrice),
+      });
+    }
     return invoice;
   }
 
