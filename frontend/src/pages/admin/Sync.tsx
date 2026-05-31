@@ -79,7 +79,7 @@ export default function Sync() {
   };
 
   const loadClients = async () => {
-    const r = await api.get('/admin/clients', { params: { limit: 200 } });
+    const r = await api.get('/admin/clients', { params: { limit: 100 } });
     setClients(r.data.data ?? []);
   };
 
