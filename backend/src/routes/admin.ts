@@ -700,9 +700,10 @@ adminRouter.get(
 adminRouter.get(
   '/sync/whm',
   asyncHandler(async (_req, res) => {
-    const servers = await Server.findAll({ where: { type: 'shared' } });
+    // WHM bağlantısı olan tüm sunucuları çek (type: shared/dedicated/vps fark etmez).
+    const servers = await Server.findAll({ where: { whmHost: { [Op.ne]: null } } });
     if (!servers.length) {
-      res.json({ success: true, data: [] });
+      res.json({ success: true, data: [], meta: { error: 'WHM bağlantılı sunucu bulunamadı.' } });
       return;
     }
 
