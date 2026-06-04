@@ -268,48 +268,88 @@ export default function Sales() {
               ✅ {addedMsg}
             </div>
           )}
-          <h2 className="text-xl font-bold text-slate-800 mb-4">
-            "{domainName}" için sonuçlar
-          </h2>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {domainResults.map((d) => (
-              <div
-                key={d.domain}
-                className={`rounded-2xl border p-4 flex items-center justify-between ${
-                  d.available
-                    ? 'border-green-200 bg-white'
-                    : 'border-slate-200 bg-slate-50 opacity-60'
-                }`}
-              >
-                <div>
-                  <div className="font-semibold text-slate-800">{d.domain}</div>
-                  {d.available ? (
-                    <div className="text-xs text-green-600 font-medium">✓ Müsait</div>
-                  ) : (
-                    <div className="text-xs text-slate-400">Alınmış</div>
-                  )}
-                  {d.available && d.priceTRY && (
-                    <div className="text-sm font-bold text-brand-700 mt-0.5">
-                      {tr(d.priceTRY)} ₺/yıl
+
+          {(() => {
+            const available = domainResults.filter((d) => d.available);
+            const taken = domainResults.filter((d) => !d.available);
+
+            return (
+              <>
+                {/* Müsait olanlar */}
+                {available.length > 0 && (
+                  <div className="mb-8">
+                    <h2 className="text-lg font-bold text-slate-800 mb-3">
+                      <span className="text-green-600">✓</span> Müsait Alan Adları
+                      <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                        {available.length}
+                      </span>
+                    </h2>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {available.map((d) => (
+                        <div key={d.domain} className="rounded-2xl border-2 border-green-200 bg-white p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-slate-800 truncate">{d.domain}</div>
+                            {d.priceTRY && (
+                              <div className="text-sm font-bold text-brand-700 mt-0.5">
+                                {tr(d.priceTRY)} ₺/yıl
+                              </div>
+                            )}
+                          </div>
+                          {d.priceTRY && (
+                            <button
+                              onClick={() => addDomain(d)}
+                              disabled={isInCart(`domain:${d.domain}`)}
+                              className={`ml-2 shrink-0 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
+                                isInCart(`domain:${d.domain}`)
+                                  ? 'bg-green-100 text-green-700 cursor-default'
+                                  : 'bg-brand-600 text-white hover:bg-brand-700'
+                              }`}
+                            >
+                              {isInCart(`domain:${d.domain}`) ? '✓ Sepette' : '+ Ekle'}
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-                {d.available && d.priceTRY && (
-                  <button
-                    onClick={() => addDomain(d)}
-                    disabled={isInCart(`domain:${d.domain}`)}
-                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      isInCart(`domain:${d.domain}`)
-                        ? 'bg-green-100 text-green-700 cursor-default'
-                        : 'bg-brand-600 text-white hover:bg-brand-700'
-                    }`}
-                  >
-                    {isInCart(`domain:${d.domain}`) ? '✓ Sepette' : 'Sepete Ekle'}
-                  </button>
+                  </div>
                 )}
-              </div>
-            ))}
-          </div>
+
+                {/* Alınmış olanlar */}
+                {taken.length > 0 && (
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-700 mb-3">
+                      <span className="text-slate-400">✗</span> Kayıtlı Alan Adları
+                      <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
+                        {taken.length}
+                      </span>
+                    </h2>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {taken.map((d) => (
+                        <div key={d.domain} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-slate-700 truncate">{d.domain}</div>
+                            <div className="text-xs text-slate-400 mt-0.5">Bu alan adı alınmış</div>
+                          </div>
+                          <a
+                            href={`https://who.is/whois/${encodeURIComponent(d.domain)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="ml-2 shrink-0 text-xs text-brand-600 hover:text-brand-800 hover:underline"
+                          >
+                            WHOIS →
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {available.length === 0 && taken.length === 0 && (
+                  <p className="text-center text-slate-400 py-8">Sonuç bulunamadı.</p>
+                )}
+              </>
+            );
+          })()}
         </section>
       )}
 
