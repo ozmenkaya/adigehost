@@ -490,54 +490,6 @@ export default function Sales() {
         </div>
       </section>
 
-      {/* Güven kuşağı — Ödeme & SSL logoları */}
-      <section className="border-t border-slate-200 bg-white py-8 px-4">
-        <div className="mx-auto max-w-5xl">
-          <div className="text-center text-xs uppercase tracking-wider text-slate-400 mb-4">
-            Güvenli Ödeme
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {/* Visa */}
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-              <svg width="56" height="18" viewBox="0 0 56 18" xmlns="http://www.w3.org/2000/svg">
-                <text x="0" y="14" fontFamily="Helvetica, Arial, sans-serif" fontWeight="900" fontStyle="italic" fontSize="16" fill="#1A1F71">VISA</text>
-              </svg>
-            </div>
-            {/* MasterCard */}
-            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm flex items-center gap-1">
-              <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="9" cy="12" r="7" fill="#EB001B"/><circle cx="15" cy="12" r="7" fill="#F79E1B" opacity="0.85"/></svg>
-              <span className="text-xs font-semibold text-slate-700">MasterCard</span>
-            </div>
-            {/* Troy */}
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-              <span className="text-sm font-extrabold text-blue-700">troy</span>
-            </div>
-            {/* iyzico */}
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="#1E64FF"><path d="M12 2L2 12l10 10 10-10L12 2zm0 4l6 6-6 6-6-6 6-6z"/></svg>
-              <span className="text-sm font-bold text-slate-700">iyzico ile Öde</span>
-            </div>
-            {/* Havale/EFT */}
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm flex items-center gap-2">
-              <span className="text-base">🏦</span>
-              <span className="text-sm font-semibold text-slate-700">Havale / EFT</span>
-            </div>
-            {/* SSL */}
-            <div className="rounded-lg border-2 border-green-500 bg-green-50 px-4 py-2 shadow-sm flex items-center gap-2">
-              <span className="text-green-600 text-base">🔒</span>
-              <div>
-                <div className="text-[10px] font-bold text-green-700 leading-tight">SSL</div>
-                <div className="text-[10px] text-green-600 leading-tight">Güvenli Sertifika</div>
-              </div>
-            </div>
-            {/* KDV/E-Fatura */}
-            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
-              <span className="text-xs font-semibold text-slate-700">✓ E-Fatura</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Footer */}
       <footer className="bg-slate-800 text-slate-300 text-sm pt-12 pb-6 px-4">
         <div className="mx-auto max-w-5xl">
