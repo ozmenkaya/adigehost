@@ -1,0 +1,425 @@
+import { type FormEvent, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { api, getApiErrorMessage } from '../../utils/api';
+import { useCartStore, type CartItem } from '../../store/cartStore';
+import { useAuthStore } from '../../store/authStore';
+
+interface Product {
+  id: string;
+  name: string;
+  type: string;
+  priceMonthly: number;
+  priceAnnually: number | null;
+  setupFee: number | null;
+  specs: Record<string, string> | null;
+  description: string | null;
+}
+
+interface DomainResult {
+  domain: string;
+  tld: string;
+  available: boolean;
+  isPremium: boolean;
+  priceTRY: number | null;
+  priceExVat: number | null;
+  vatRate: number;
+  period: number;
+}
+
+function tr(n: number) {
+  return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
+  const { items, remove, total, totalExVat, count } = useCartStore();
+  const [open, setOpen] = useState(false);
+  const vat = total() - totalExVat();
+
+  return (
+    <>
+      {/* Sepet butonu — sabit sağ alt */}
+      <button
+        onClick={() => setOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-700"
+      >
+        🛒 Sepet
+        {count() > 0 && (
+          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-brand-700">
+            {count()}
+          </span>
+        )}
+      </button>
+
+      {/* Drawer */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div className="relative flex w-full max-w-sm flex-col bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b px-5 py-4">
+              <h2 className="text-lg font-bold text-slate-900">Sepetim ({count()})</h2>
+              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+              {items.length === 0 ? (
+                <p className="text-center text-slate-400 py-10">Sepetiniz boş.</p>
+              ) : (
+                items.map((item) => (
+                  <div key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                    <div className="flex-1">
+                      <div className="font-medium text-slate-800 text-sm">{item.name}</div>
+                      {item.billingCycle && (
+                        <div className="text-xs text-slate-500">
+                          {item.billingCycle === 'annually' ? 'Yıllık' : 'Aylık'}
+                        </div>
+                      )}
+                      <div className="mt-1 font-semibold text-brand-700">{tr(item.price)} ₺</div>
+                      <div className="text-xs text-slate-400">KDV hariç {tr(item.priceExVat)} ₺</div>
+                    </div>
+                    <button
+                      onClick={() => remove(item.id)}
+                      className="mt-0.5 text-red-400 hover:text-red-600 text-xs"
+                    >
+                      Kaldır
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {items.length > 0 && (
+              <div className="border-t px-5 py-4 space-y-3">
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>Ara toplam</span><span>{tr(totalExVat())} ₺</span>
+                </div>
+                <div className="flex justify-between text-sm text-slate-600">
+                  <span>KDV</span><span>{tr(vat)} ₺</span>
+                </div>
+                <div className="flex justify-between font-bold text-slate-900">
+                  <span>Toplam</span><span className="text-brand-700 text-lg">{tr(total())} ₺</span>
+                </div>
+                <button
+                  onClick={() => { setOpen(false); onCheckout(); }}
+                  className="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white hover:bg-brand-700"
+                >
+                  Satın Al →
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function Sales() {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const { add, items } = useCartStore();
+
+  const [products, setProducts] = useState<Product[]>([]);
+  const [domainName, setDomainName] = useState('');
+  const [domainResults, setDomainResults] = useState<DomainResult[] | null>(null);
+  const [searching, setSearching] = useState(false);
+  const [domainError, setDomainError] = useState('');
+  const [addedMsg, setAddedMsg] = useState('');
+
+  useEffect(() => {
+    api.get('/public/products').then((r) => setProducts(r.data.data ?? []));
+  }, []);
+
+  const searchDomain = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!domainName.trim()) return;
+    setSearching(true);
+    setDomainError('');
+    setDomainResults(null);
+    try {
+      const r = await api.post('/public/domains/check', { name: domainName.trim().toLowerCase() });
+      setDomainResults(r.data.data ?? []);
+    } catch (err) {
+      setDomainError(getApiErrorMessage(err));
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const addDomain = (d: DomainResult) => {
+    if (!d.available || !d.priceTRY) return;
+    const item: CartItem = {
+      id: `domain:${d.domain}`,
+      type: 'domain',
+      name: `Domain: ${d.domain}`,
+      price: d.priceTRY,
+      priceExVat: d.priceExVat ?? d.priceTRY,
+      vatRate: d.vatRate,
+      domain: d.domain,
+      period: d.period || 1,
+    };
+    add(item);
+    setAddedMsg(`${d.domain} sepete eklendi`);
+    setTimeout(() => setAddedMsg(''), 3000);
+  };
+
+  const addHosting = (p: Product, cycle: 'monthly' | 'annually') => {
+    const priceRaw = cycle === 'annually' && p.priceAnnually ? Number(p.priceAnnually) : Number(p.priceMonthly);
+    const priceExVat = priceRaw;
+    const price = Math.round(priceExVat * 1.2 * 100) / 100;
+    const item: CartItem = {
+      id: `hosting:${p.id}:${cycle}`,
+      type: 'hosting',
+      name: `${p.name} (${cycle === 'annually' ? 'Yıllık' : 'Aylık'})`,
+      price,
+      priceExVat,
+      vatRate: 20,
+      billingCycle: cycle,
+      productId: p.id,
+      domain: '',
+    };
+    add(item);
+    setAddedMsg(`${p.name} sepete eklendi`);
+    setTimeout(() => setAddedMsg(''), 3000);
+  };
+
+  const goCheckout = () => {
+    if (user) {
+      navigate('/checkout');
+    } else {
+      navigate('/checkout');
+    }
+  };
+
+  const isInCart = (id: string) => items.some((i) => i.id === id);
+  const hostingProducts = products.filter((p) => p.type === 'hosting');
+
+  return (
+    <div className="min-h-screen bg-slate-50">
+      {/* Header */}
+      <header className="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
+        <div className="mx-auto max-w-6xl flex items-center justify-between px-4 py-4">
+          <div className="text-2xl font-bold text-brand-700">AdigeHost</div>
+          <div className="flex items-center gap-3">
+            {user ? (
+              <a href="/app" className="text-sm text-brand-600 hover:underline">Panelim →</a>
+            ) : (
+              <>
+                <a href="/login" className="text-sm text-slate-600 hover:text-brand-600">Giriş Yap</a>
+                <a href="/register" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">Kayıt Ol</a>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Hero — Domain arama */}
+      <section className="bg-gradient-to-br from-brand-700 to-brand-900 py-20 px-4">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-4xl font-extrabold text-white mb-3">
+            Hayalinizin Alan Adını Bulun
+          </h1>
+          <p className="text-brand-200 mb-8 text-lg">
+            Domain kayıt, yenileme ve transfer — hızlı ve güvenli.
+          </p>
+          <form onSubmit={searchDomain} className="flex gap-2">
+            <input
+              value={domainName}
+              onChange={(e) => setDomainName(e.target.value.replace(/\s/g, '').toLowerCase())}
+              placeholder="hayaladim (uzantısız)"
+              className="flex-1 rounded-xl px-5 py-3.5 text-base text-slate-900 outline-none focus:ring-2 focus:ring-brand-300"
+            />
+            <button
+              type="submit"
+              disabled={searching}
+              className="rounded-xl bg-amber-400 px-6 py-3.5 font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60"
+            >
+              {searching ? '⏳' : 'Sorgula'}
+            </button>
+          </form>
+          {domainError && <p className="mt-3 text-red-300 text-sm">{domainError}</p>}
+        </div>
+      </section>
+
+      {/* Domain sonuçları */}
+      {domainResults && (
+        <section className="mx-auto max-w-4xl px-4 py-8">
+          {addedMsg && (
+            <div className="mb-4 rounded-xl bg-green-50 border border-green-200 p-3 text-sm text-green-700">
+              ✅ {addedMsg}
+            </div>
+          )}
+          <h2 className="text-xl font-bold text-slate-800 mb-4">
+            "{domainName}" için sonuçlar
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {domainResults.map((d) => (
+              <div
+                key={d.domain}
+                className={`rounded-2xl border p-4 flex items-center justify-between ${
+                  d.available
+                    ? 'border-green-200 bg-white'
+                    : 'border-slate-200 bg-slate-50 opacity-60'
+                }`}
+              >
+                <div>
+                  <div className="font-semibold text-slate-800">{d.domain}</div>
+                  {d.available ? (
+                    <div className="text-xs text-green-600 font-medium">✓ Müsait</div>
+                  ) : (
+                    <div className="text-xs text-slate-400">Alınmış</div>
+                  )}
+                  {d.available && d.priceTRY && (
+                    <div className="text-sm font-bold text-brand-700 mt-0.5">
+                      {tr(d.priceTRY)} ₺/yıl
+                    </div>
+                  )}
+                </div>
+                {d.available && d.priceTRY && (
+                  <button
+                    onClick={() => addDomain(d)}
+                    disabled={isInCart(`domain:${d.domain}`)}
+                    className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      isInCart(`domain:${d.domain}`)
+                        ? 'bg-green-100 text-green-700 cursor-default'
+                        : 'bg-brand-600 text-white hover:bg-brand-700'
+                    }`}
+                  >
+                    {isInCart(`domain:${d.domain}`) ? '✓ Sepette' : 'Sepete Ekle'}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Hosting Paketleri */}
+      {hostingProducts.length > 0 && (
+        <section className="mx-auto max-w-5xl px-4 py-16">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl font-extrabold text-slate-900">Hosting Paketleri</h2>
+            <p className="text-slate-500 mt-2">WordPress için optimize edilmiş, hızlı ve güvenli.</p>
+          </div>
+
+          <div className={`grid gap-6 ${hostingProducts.length === 1 ? 'max-w-sm mx-auto' : hostingProducts.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
+            {hostingProducts.map((p, idx) => {
+              const isPopular = idx === 1 && hostingProducts.length >= 3;
+              const monthly = Math.round(Number(p.priceMonthly) * 1.2 * 100) / 100;
+              const annually = p.priceAnnually
+                ? Math.round(Number(p.priceAnnually) * 1.2 * 100) / 100
+                : null;
+              const specs = p.specs ?? {};
+
+              return (
+                <div
+                  key={p.id}
+                  className={`relative rounded-2xl border p-6 flex flex-col ${
+                    isPopular
+                      ? 'border-brand-400 bg-white shadow-xl ring-2 ring-brand-500'
+                      : 'border-slate-200 bg-white shadow-sm'
+                  }`}
+                >
+                  {isPopular && (
+                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-600 px-4 py-1 text-xs font-bold text-white">
+                      En Popüler
+                    </div>
+                  )}
+                  <h3 className="text-xl font-bold text-slate-900">{p.name}</h3>
+                  {p.description && (
+                    <p className="text-sm text-slate-500 mt-1">{p.description}</p>
+                  )}
+
+                  <div className="mt-4 mb-5">
+                    <div className="text-3xl font-extrabold text-brand-700">
+                      {tr(monthly)} <span className="text-base font-normal text-slate-500">₺/ay</span>
+                    </div>
+                    {annually && (
+                      <div className="text-sm text-green-600 font-medium mt-0.5">
+                        Yıllık: {tr(annually)} ₺ — {Math.round((1 - annually / (monthly * 12)) * 100)}% indirim
+                      </div>
+                    )}
+                    <div className="text-xs text-slate-400 mt-0.5">KDV dahil</div>
+                  </div>
+
+                  {/* Özellikler */}
+                  {Object.keys(specs).length > 0 && (
+                    <ul className="space-y-2 mb-6 flex-1">
+                      {Object.entries(specs).map(([k, v]) => (
+                        <li key={k} className="flex items-center gap-2 text-sm text-slate-700">
+                          <span className="text-brand-500">✓</span>
+                          <span><b>{k}:</b> {v}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* Butonlar */}
+                  <div className="space-y-2 mt-auto">
+                    <button
+                      onClick={() => addHosting(p, 'monthly')}
+                      disabled={isInCart(`hosting:${p.id}:monthly`)}
+                      className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${
+                        isInCart(`hosting:${p.id}:monthly`)
+                          ? 'bg-green-100 text-green-700 cursor-default'
+                          : isPopular
+                            ? 'bg-brand-600 text-white hover:bg-brand-700'
+                            : 'border border-brand-500 text-brand-700 hover:bg-brand-50'
+                      }`}
+                    >
+                      {isInCart(`hosting:${p.id}:monthly`) ? '✓ Sepette' : 'Aylık Seç'}
+                    </button>
+                    {annually && (
+                      <button
+                        onClick={() => addHosting(p, 'annually')}
+                        disabled={isInCart(`hosting:${p.id}:annually`)}
+                        className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${
+                          isInCart(`hosting:${p.id}:annually`)
+                            ? 'bg-green-100 text-green-700 cursor-default'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {isInCart(`hosting:${p.id}:annually`) ? '✓ Sepette' : `Yıllık Seç — ${tr(annually)} ₺`}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* Neden AdigeHost */}
+      <section className="bg-white border-t border-slate-100 py-16 px-4">
+        <div className="mx-auto max-w-4xl">
+          <h2 className="text-2xl font-bold text-slate-800 text-center mb-10">Neden AdigeHost?</h2>
+          <div className="grid sm:grid-cols-3 gap-8 text-center">
+            {[
+              { icon: '⚡', title: 'Hızlı Kurulum', desc: 'Ödeme onayının ardından hosting hesabınız dakikalar içinde aktive edilir.' },
+              { icon: '🔒', title: 'Güvenli', desc: 'SSL sertifikası, DDoS koruması ve düzenli yedekleme dahil.' },
+              { icon: '🇹🇷', title: 'Türkiye Odaklı', desc: 'Havale/EFT ile ödeme, Türkçe destek, e-fatura.' },
+            ].map((f) => (
+              <div key={f.title}>
+                <div className="text-4xl mb-3">{f.icon}</div>
+                <div className="font-bold text-slate-800 mb-1">{f.title}</div>
+                <div className="text-sm text-slate-500">{f.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-slate-800 text-slate-400 text-sm py-8 px-4 text-center">
+        <div>© {new Date().getFullYear()} AdigeHost — Tüm hakları saklıdır.</div>
+        <div className="mt-2 flex justify-center gap-6">
+          <a href="/login" className="hover:text-white">Giriş Yap</a>
+          <a href="/register" className="hover:text-white">Kayıt Ol</a>
+        </div>
+      </footer>
+
+      {/* Sepet */}
+      <CartDrawer onCheckout={goCheckout} />
+    </div>
+  );
+}

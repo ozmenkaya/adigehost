@@ -14,6 +14,8 @@ import { serversRouter } from './servers';
 import { adminRouter } from './admin';
 import { integrationsRouter } from './integrations';
 import { webhooksRouter } from './webhooks';
+import { publicRouter } from './public';
+import { cartRouter } from './cart';
 
 export const router = Router();
 
@@ -24,6 +26,9 @@ router.use('/auth', authRouter);
 // Webhook'lar (kimlik doğrulama imza ile yapılır, JWT değil)
 router.use('/webhooks', webhooksRouter);
 
+// Herkese açık — satış sayfası (auth gerekmez)
+router.use('/public', publicRouter);
+
 // Kimlik doğrulama gerektiren müşteri uçları
 router.use('/users', authenticate, usersRouter);
 router.use('/services', authenticate, servicesRouter);
@@ -33,6 +38,7 @@ router.use('/invoices', authenticate, invoicesRouter);
 router.use('/tickets', authenticate, ticketsRouter);
 router.use('/hetzner', authenticate, hetznerRouter);
 router.use('/whm', authenticate, whmRouter);
+router.use('/cart', authenticate, cartRouter);
 
 // Admin uçları
 router.use('/servers', authenticate, requireAdmin, serversRouter);

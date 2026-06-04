@@ -21,6 +21,9 @@ import OrderHosting from './pages/client/OrderHosting';
 import HostingDetail from './pages/client/HostingDetail';
 import Domains from './pages/client/Domains';
 import Profile from './pages/client/Profile';
+// Shop (public)
+import Sales from './pages/shop/Sales';
+import Checkout from './pages/shop/Checkout';
 
 function ProtectedRoute({ role, children }: { role?: 'admin'; children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -29,16 +32,20 @@ function ProtectedRoute({ role, children }: { role?: 'admin'; children: React.Re
   return <>{children}</>;
 }
 
-/** Kök yönlendirme: role göre admin/müşteri paneline. */
+/** Admin'ler için admin paneline kısayol; diğerleri satış sayfasını görür. */
 function RootRedirect() {
   const { isAuthenticated, user } = useAuthStore();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  return <Navigate to={user?.role === 'admin' ? '/admin' : '/app'} replace />;
+  if (isAuthenticated && user?.role === 'admin') return <Navigate to="/admin" replace />;
+  return <Sales />;
 }
 
 export default function App() {
   return (
     <Routes>
+      {/* Public shop */}
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/checkout" element={<Checkout />} />
+
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
 
@@ -80,7 +87,6 @@ export default function App() {
         <Route path="profile" element={<Profile />} />
       </Route>
 
-      <Route path="/" element={<RootRedirect />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
