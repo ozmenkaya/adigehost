@@ -131,12 +131,32 @@ export default function Sales() {
 
   const searchDomain = async (e: FormEvent) => {
     e.preventDefault();
-    if (!domainName.trim()) return;
+    const raw = domainName.trim().toLowerCase();
+    if (!raw) return;
+
+    // Kullanıcı "ornek.com" yazdıysa: name="ornek", tlds=["com", ...defaults]
+    // Sadece "ornek" yazdıysa: name="ornek", tlds=undefined (varsayılan liste)
+    let name = raw;
+    let tlds: string[] | undefined;
+    const dotIdx = raw.indexOf('.');
+    if (dotIdx > 0) {
+      name = raw.slice(0, dotIdx);
+      const userTld = raw.slice(dotIdx + 1);
+      const defaults = ['com','net','org','com.tr','net.tr','info','co','io','xyz','online'];
+      tlds = [userTld, ...defaults.filter((t) => t !== userTld)].slice(0, 10);
+    }
+    // Geçersiz karakterleri temizle
+    name = name.replace(/[^a-z0-9-]/g, '');
+    if (!name) {
+      setDomainError('Geçerli bir alan adı girin (harf, rakam, tire)');
+      return;
+    }
+
     setSearching(true);
     setDomainError('');
     setDomainResults(null);
     try {
-      const r = await api.post('/public/domains/check', { name: domainName.trim().toLowerCase() });
+      const r = await api.post('/public/domains/check', tlds ? { name, tlds } : { name });
       setDomainResults(r.data.data ?? []);
     } catch (err) {
       setDomainError(getApiErrorMessage(err));
