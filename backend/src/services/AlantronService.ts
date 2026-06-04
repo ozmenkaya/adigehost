@@ -344,4 +344,161 @@ export class AlantronService {
       return null;
     }
   }
+
+  /**
+   * DNS / Nameserver güncelleme (modifydomain).
+   * En fazla 5 DNS sunucu desteklenir (dns0..dns4).
+   */
+  static async modifyDns(
+    registrycode: number,
+    nameServers: string[],
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const params: Record<string, unknown> = { type: 'modifydomain', registrycode };
+    nameServers.slice(0, 5).forEach((ns, i) => {
+      params[`dns${i}`] = ns;
+    });
+    const data = await post<Record<string, unknown>>(creds, params);
+    assertOk(data, 'modifydomain');
+    logger.info('Alantron: DNS güncellendi', { registrycode, nameServers });
+    return data;
+  }
+
+  /**
+   * Domain kilit durumunu değiştir (transfer korumalı/transfer açık).
+   * locked: true → 'yes', false → 'no'
+   */
+  static async setLock(
+    registrycode: number,
+    locked: boolean,
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const data = await post<Record<string, unknown>>(creds, {
+      type: 'lockdomain', registrycode, locked: locked ? 'yes' : 'no',
+    });
+    assertOk(data, 'lockdomain');
+    return data;
+  }
+
+  /**
+   * Transfer (auth) kodu ata. 6-32 karakter.
+   */
+  static async setAuthCode(
+    registrycode: number,
+    authCode: string,
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    if (authCode.length < 6 || authCode.length > 32) {
+      throw ApiError.badRequest('Auth kodu 6-32 karakter olmalı');
+    }
+    const data = await post<Record<string, unknown>>(creds, {
+      type: 'authcode', registrycode, auth: authCode,
+    });
+    assertOk(data, 'authcode');
+    return data;
+  }
+
+  /**
+   * Child nameserver ekler (kendi domain'ine bağlı ns kayıtları).
+   * Örn. ns1.adigehost.com → 91.99.186.98
+   */
+  static async addNameserver(
+    registrycode: number,
+    nameserver: string,
+    ipAddress: string,
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const data = await post<Record<string, unknown>>(creds, {
+      type: 'addnameserver', registrycode, ns: nameserver, ip: ipAddress,
+    });
+    assertOk(data, 'addnameserver');
+    return data;
+  }
+
+  /** Child nameserver IP'sini günceller. */
+  static async modifyNameserver(
+    registrycode: number,
+    nameserver: string,
+    ipAddress: string,
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const data = await post<Record<string, unknown>>(creds, {
+      type: 'modifynameserver', registrycode, ns: nameserver, ip: ipAddress,
+    });
+    assertOk(data, 'modifynameserver');
+    return data;
+  }
+
+  /** Child nameserver sil. */
+  static async deleteNameserver(
+    registrycode: number,
+    nameserver: string,
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const data = await post<Record<string, unknown>>(creds, {
+      type: 'deletenameserver', registrycode, ns: nameserver,
+    });
+    assertOk(data, 'deletenameserver');
+    return data;
+  }
+
+  /**
+   * Domain'in tüm bilgilerini güzelleştirilmiş şekilde döndürür.
+   * subtype=all → ns kayıtları + dns + lock + tarihler
+   */
+  static async getDomainFull(registrycode: number): Promise<{
+    domain: string;
+    registrationDate?: Date;
+    expiryDate?: Date;
+    nameServers: string[];
+    locked: boolean;
+    authCode?: string;
+    privacy: boolean;
+    childNameServers: Array<{ ns: string; ip: string }>;
+    raw: Record<string, unknown>;
+  }> {
+    const data = await this.getDomain(registrycode, 'all');
+    // Alantron yanıtı: { "<registrycode>": { dns0, dns1, dns2, locked, expepoch, ... } }
+    const details = (data[String(registrycode)] ?? data.details ?? data) as Record<string, unknown>;
+
+    // dns0..dns4 → diziye topla
+    const nameServers: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const v = details[`dns${i}`];
+      if (v && String(v).trim()) nameServers.push(String(v));
+    }
+    // Eğer dns dizisi varsa onu da ekle (eski format)
+    if (Array.isArray(details.dns)) {
+      for (const d of details.dns as string[]) if (d && !nameServers.includes(d)) nameServers.push(d);
+    }
+
+    // Child nameserver (ns dizisi varsa)
+    const nsArr = (details.ns as Array<Record<string, unknown>> | string[] | undefined) ?? [];
+    const childNameServers = Array.isArray(nsArr)
+      ? nsArr.map((n) => {
+          if (typeof n === 'string') return { ns: n, ip: '' };
+          return {
+            ns: String(n.ns ?? n.nameserver ?? n.host ?? ''),
+            ip: String(n.ip ?? n.ipaddress ?? n.address ?? ''),
+          };
+        }).filter((x) => x.ns)
+      : [];
+
+    const lock = String(details.locked ?? details.lock ?? '').toLowerCase();
+    const exp = details.expepoch ? Number(details.expepoch) : null;
+    const reg = details.regepoch ? Number(details.regepoch) : null;
+    const privacy = String(details.private ?? '').toLowerCase() === 'yes';
+
+    return {
+      domain: String(details.domain ?? ''),
+      registrationDate: reg ? new Date(reg * 1000) : undefined,
+      expiryDate: exp ? new Date(exp * 1000) : undefined,
+      nameServers,
+      locked: lock === 'yes' || lock === 'true' || lock === '1',
+      authCode: details.authcode ? String(details.authcode) : undefined,
+      privacy,
+      childNameServers,
+      raw: data,
+    };
+  }
 }

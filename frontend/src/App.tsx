@@ -18,7 +18,7 @@ import Sync from './pages/admin/Sync';
 import ClientDashboard from './pages/client/Dashboard';
 import ClientServices from './pages/client/Services';
 import OrderHosting from './pages/client/OrderHosting';
-import HostingDetail from './pages/client/HostingDetail';
+import ServiceDetail from './pages/client/ServiceDetail';
 import Domains from './pages/client/Domains';
 import Profile from './pages/client/Profile';
 // Shop (public)
@@ -79,7 +79,7 @@ export default function App() {
       >
         <Route index element={<ClientDashboard />} />
         <Route path="services" element={<ClientServices />} />
-        <Route path="services/:id" element={<HostingDetail />} />
+        <Route path="services/:id" element={<ServiceDetail />} />
         <Route path="order/hosting" element={<OrderHosting />} />
         <Route path="domains" element={<Domains />} />
         <Route path="profile" element={<Profile />} />

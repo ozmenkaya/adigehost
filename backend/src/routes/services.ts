@@ -16,6 +16,7 @@ import { NotificationService } from '../services/NotificationService';
 import { User } from '../models';
 import { validate } from '../middleware/validate';
 import { slugify } from '../utils/helpers';
+import { clientDomainsRouter } from './clientDomains';
 
 /**
  * Müşteri servis yönetimi (VPS / Hosting / Domain servisleri).
@@ -26,6 +27,9 @@ import { slugify } from '../utils/helpers';
  * (Hetzner/WHM) — Faz 2'de eklenecek.
  */
 export const servicesRouter = Router();
+
+// Domain alt yolu: /services/:id/domain/* — Alantron işlemleri
+servicesRouter.use('/:id/domain', clientDomainsRouter);
 
 /** İstek sahibinin bir servise erişip erişemediğini kontrol eder. */
 async function getOwnedService(serviceId: string, userId: string, isAdmin: boolean) {
