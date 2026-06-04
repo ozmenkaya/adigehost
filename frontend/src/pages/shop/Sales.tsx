@@ -134,16 +134,22 @@ export default function Sales() {
     const raw = domainName.trim().toLowerCase();
     if (!raw) return;
 
-    // Kullanıcı "ornek.com" yazdıysa: name="ornek", tlds=["com", ...defaults]
-    // Sadece "ornek" yazdıysa: name="ornek", tlds=undefined (varsayılan liste)
+    // Kullanıcı "ornek.com" yazdıysa: name="ornek", tlds=[com, ...alternatives]
+    // Sadece "ornek" yazdıysa: backend default liste kullansın
     let name = raw;
     let tlds: string[] | undefined;
     const dotIdx = raw.indexOf('.');
     if (dotIdx > 0) {
       name = raw.slice(0, dotIdx);
       const userTld = raw.slice(dotIdx + 1);
-      const defaults = ['com','net','org','com.tr','net.tr','info','co','io','xyz','online'];
-      tlds = [userTld, ...defaults.filter((t) => t !== userTld)].slice(0, 10);
+      // Kullanıcının yazdığı TLD'yi başa al + 20 alternatif
+      const alts = [
+        'com', 'com.tr', 'net', 'org', 'info', 'co',
+        'io', 'app', 'dev', 'tr', 'net.tr', 'org.tr',
+        'xyz', 'online', 'site', 'tech', 'biz', 'cloud',
+        'me', 'shop', 'store',
+      ];
+      tlds = [userTld, ...alts.filter((t) => t !== userTld)].slice(0, 20);
     }
     // Geçersiz karakterleri temizle
     name = name.replace(/[^a-z0-9-]/g, '');
@@ -245,7 +251,7 @@ export default function Sales() {
             <input
               value={domainName}
               onChange={(e) => setDomainName(e.target.value.replace(/\s/g, '').toLowerCase())}
-              placeholder="hayaladim (uzantısız)"
+              placeholder="ornek-domain veya ornek.com"
               className="flex-1 rounded-xl px-5 py-3.5 text-base text-slate-900 outline-none focus:ring-2 focus:ring-brand-300"
             />
             <button
@@ -257,6 +263,21 @@ export default function Sales() {
             </button>
           </form>
           {domainError && <p className="mt-3 text-red-300 text-sm">{domainError}</p>}
+          {searching && (
+            <p className="mt-3 text-brand-100 text-sm">
+              40+ uzantı sorgulanıyor… birkaç saniye sürebilir.
+            </p>
+          )}
+
+          {/* Popüler TLD'ler */}
+          <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs">
+            {['.com', '.com.tr', '.net', '.org', '.io', '.app', '.dev', '.xyz', '.online', '.tech', '.shop', '.tr'].map((t) => (
+              <span key={t} className="rounded-full bg-white/10 px-3 py-1 text-brand-100 font-medium">
+                {t}
+              </span>
+            ))}
+            <span className="rounded-full bg-amber-400/20 px-3 py-1 text-amber-200 font-semibold">+30 daha</span>
+          </div>
         </div>
       </section>
 

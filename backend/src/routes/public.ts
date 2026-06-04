@@ -32,11 +32,21 @@ publicRouter.get(
 const checkSchema = z.object({
   body: z.object({
     name: z.string().min(1).max(63).regex(/^[a-z0-9-]+$/i, 'Geçersiz domain adı'),
-    tlds: z.array(z.string()).max(20).optional(),
+    tlds: z.array(z.string()).max(50).optional(),
   }),
 });
 
-const DEFAULT_TLDS = ['com', 'net', 'org', 'com.tr', 'net.tr', 'info', 'co', 'io', 'xyz', 'online'];
+// Alantron'da test edilmiş 42 TLD — popülerlikten az popülere
+const DEFAULT_TLDS = [
+  'com', 'com.tr', 'net', 'org', 'info', 'co',
+  'io', 'app', 'dev', 'tr', 'net.tr', 'org.tr',
+  'xyz', 'online', 'site', 'tech', 'biz', 'cloud',
+  'shop', 'store', 'me', 'eu', 'de', 'co.uk',
+  'web.tr', 'gen.tr', 'ist', 'istanbul',
+  'club', 'pro', 'live', 'art', 'blog',
+  'agency', 'digital', 'design', 'studio',
+  'tv', 'cc', 'us', 'asia',
+];
 
 publicRouter.post(
   '/domains/check',

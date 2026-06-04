@@ -171,44 +171,46 @@ export class AlantronService {
   }
 
   /**
-   * Çok TLD'li müsaitlik sorgulama.
-   * extratlds=yes ile tek API çağrısında ~10 TLD birden gelir — çok daha verimli.
-   * İstenen TLD'ler filtrelenir; yanıtta eksik olanlar atlanır.
+   * Çok TLD'li müsaitlik sorgulama — her TLD için paralel istek.
+   * Alantron extratlds=yes sabit bir TLD seti döndürdüğü için
+   * kullanıcının istediği tüm TLD'leri kapsamak adına tek tek sorgularız.
+   * 8'erli batch ile paralel çalıştırılır.
    */
   static async checkAvailabilityBulk(sld: string, tlds: string[]): Promise<AlantronAvailability[]> {
     const creds = await getCreds();
     const cleanTlds = tlds.map((t) => t.replace(/^\./, ''));
-    // İlk TLD'yi tld parametresi, geri kalanları extratlds ile al.
-    const firstTld = cleanTlds[0] ?? 'com';
-    const data = await get<Record<string, unknown>>(creds, {
-      type: 'checkavailability',
-      domain: sld,
-      tld: firstTld,
-      extratlds: 'yes',
-    });
-
-    // Hata kontrolü
-    if (String(data.status ?? '').toLowerCase() === 'hata') {
-      const msg = String(data.description ?? data.mesaj ?? 'Alantron hatası');
-      throw new ApiError(502, `Alantron checkAvailability: ${msg}`, 'ALANTRON_ERROR');
-    }
-
     const results: AlantronAvailability[] = [];
-    for (const tld of cleanTlds) {
-      const fullDomain = `${sld}.${tld}`;
-      const info = data[fullDomain] as Record<string, unknown> | undefined;
-      if (!info) continue;
-      const statusRaw = String(info.status ?? '').toLowerCase();
-      const available = statusRaw === 'available';
-      const priceRaw = info.price != null ? Number(info.price) : null;
-      const currency = String(info.currency ?? 'USD');
-      results.push({
-        domain: fullDomain, sld, tld,
-        available, status: statusRaw,
-        priceTry: currency === 'TRY' ? priceRaw : null,
-        priceUsd: currency === 'USD' ? priceRaw : null,
-        currency, period: 1, isPremium: false,
-      });
+
+    const queryOne = async (tld: string): Promise<AlantronAvailability | null> => {
+      try {
+        const data = await get<Record<string, unknown>>(creds, {
+          type: 'checkavailability', domain: sld, tld, extratlds: 'no',
+        });
+        if (String(data.status ?? '').toLowerCase() === 'hata') return null;
+        const fullDomain = `${sld}.${tld}`;
+        const info = data[fullDomain] as Record<string, unknown> | undefined;
+        if (!info) return null;
+        const statusRaw = String(info.status ?? '').toLowerCase();
+        const available = statusRaw === 'available';
+        const priceRaw = info.price != null ? Number(info.price) : null;
+        const currency = String(info.currency ?? 'USD');
+        return {
+          domain: fullDomain, sld, tld,
+          available, status: statusRaw,
+          priceTry: currency === 'TRY' ? priceRaw : null,
+          priceUsd: currency === 'USD' ? priceRaw : null,
+          currency, period: 1, isPremium: false,
+        };
+      } catch {
+        return null;
+      }
+    };
+
+    // 8'erli paralel batch
+    for (let i = 0; i < cleanTlds.length; i += 8) {
+      const batch = cleanTlds.slice(i, i + 8);
+      const batchResults = await Promise.all(batch.map(queryOne));
+      for (const r of batchResults) if (r) results.push(r);
     }
     return results;
   }
