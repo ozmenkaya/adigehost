@@ -581,7 +581,17 @@ export default function Sales() {
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-slate-700 flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-slate-400">
+          {/* iyzico logo band */}
+          <div className="mt-10 pt-8 border-t border-slate-700 flex justify-center">
+            <img
+              src="/media/logo_band_white.svg"
+              alt="iyzico ile öde — Visa, MasterCard, Troy"
+              className="h-12 w-auto opacity-90"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+            />
+          </div>
+
+          <div className="mt-6 flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-slate-400">
             <div>© {new Date().getFullYear()} AdigeHost — Tüm hakları saklıdır.</div>
             <div>destek@adigehost.tr</div>
           </div>
