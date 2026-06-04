@@ -1,0 +1,5 @@
+# See man 5 aliases for format
+postmaster:    destek
+noreply: root
+abuse:    destek
+hostmaster:    destek
