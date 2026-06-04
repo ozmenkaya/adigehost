@@ -24,6 +24,7 @@ import Profile from './pages/client/Profile';
 // Shop (public)
 import Sales from './pages/shop/Sales';
 import Checkout from './pages/shop/Checkout';
+import Legal from './pages/shop/Legal';
 
 function ProtectedRoute({ role, children }: { role?: 'admin'; children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -43,6 +44,8 @@ export default function App() {
       {/* Public shop */}
       <Route path="/" element={<RootRedirect />} />
       <Route path="/checkout" element={<Checkout />} />
+      <Route path="/legal" element={<Legal />} />
+      <Route path="/legal/:slug" element={<Legal />} />
 
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />

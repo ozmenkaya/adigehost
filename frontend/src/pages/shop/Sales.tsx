@@ -490,12 +490,101 @@ export default function Sales() {
         </div>
       </section>
 
+      {/* Güven kuşağı — Ödeme & SSL logoları */}
+      <section className="border-t border-slate-200 bg-white py-8 px-4">
+        <div className="mx-auto max-w-5xl">
+          <div className="text-center text-xs uppercase tracking-wider text-slate-400 mb-4">
+            Güvenli Ödeme
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            {/* Visa */}
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <svg width="56" height="18" viewBox="0 0 56 18" xmlns="http://www.w3.org/2000/svg">
+                <text x="0" y="14" fontFamily="Helvetica, Arial, sans-serif" fontWeight="900" fontStyle="italic" fontSize="16" fill="#1A1F71">VISA</text>
+              </svg>
+            </div>
+            {/* MasterCard */}
+            <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm flex items-center gap-1">
+              <svg width="22" height="22" viewBox="0 0 24 24"><circle cx="9" cy="12" r="7" fill="#EB001B"/><circle cx="15" cy="12" r="7" fill="#F79E1B" opacity="0.85"/></svg>
+              <span className="text-xs font-semibold text-slate-700">MasterCard</span>
+            </div>
+            {/* Troy */}
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <span className="text-sm font-extrabold text-blue-700">troy</span>
+            </div>
+            {/* iyzico */}
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2 shadow-sm flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="#1E64FF"><path d="M12 2L2 12l10 10 10-10L12 2zm0 4l6 6-6 6-6-6 6-6z"/></svg>
+              <span className="text-sm font-bold text-slate-700">iyzico ile Öde</span>
+            </div>
+            {/* Havale/EFT */}
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm flex items-center gap-2">
+              <span className="text-base">🏦</span>
+              <span className="text-sm font-semibold text-slate-700">Havale / EFT</span>
+            </div>
+            {/* SSL */}
+            <div className="rounded-lg border-2 border-green-500 bg-green-50 px-4 py-2 shadow-sm flex items-center gap-2">
+              <span className="text-green-600 text-base">🔒</span>
+              <div>
+                <div className="text-[10px] font-bold text-green-700 leading-tight">SSL</div>
+                <div className="text-[10px] text-green-600 leading-tight">Güvenli Sertifika</div>
+              </div>
+            </div>
+            {/* KDV/E-Fatura */}
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+              <span className="text-xs font-semibold text-slate-700">✓ E-Fatura</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
-      <footer className="bg-slate-800 text-slate-400 text-sm py-8 px-4 text-center">
-        <div>© {new Date().getFullYear()} AdigeHost — Tüm hakları saklıdır.</div>
-        <div className="mt-2 flex justify-center gap-6">
-          <a href="/login" className="hover:text-white">Giriş Yap</a>
-          <a href="/register" className="hover:text-white">Kayıt Ol</a>
+      <footer className="bg-slate-800 text-slate-300 text-sm pt-12 pb-6 px-4">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid gap-8 md:grid-cols-4">
+            {/* Marka */}
+            <div>
+              <div className="text-xl font-bold text-white mb-3">AdigeHost</div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Türkiye odaklı hosting, VPS ve domain hizmetleri.
+              </p>
+            </div>
+
+            {/* Kurumsal */}
+            <div>
+              <h4 className="font-semibold text-white mb-3 text-sm">Kurumsal</h4>
+              <ul className="space-y-2 text-xs">
+                <li><a href="/legal/hakkimizda" className="hover:text-white">Hakkımızda</a></li>
+                <li><a href="/legal/ssl-sertifikasi" className="hover:text-white">SSL Sertifikası</a></li>
+                <li><a href="mailto:destek@adigehost.tr" className="hover:text-white">İletişim</a></li>
+              </ul>
+            </div>
+
+            {/* Yasal */}
+            <div>
+              <h4 className="font-semibold text-white mb-3 text-sm">Yasal</h4>
+              <ul className="space-y-2 text-xs">
+                <li><a href="/legal/teslimat-ve-iade" className="hover:text-white">Teslimat ve İade Şartları</a></li>
+                <li><a href="/legal/gizlilik" className="hover:text-white">Gizlilik Sözleşmesi</a></li>
+                <li><a href="/legal/mesafeli-satis" className="hover:text-white">Mesafeli Satış Sözleşmesi</a></li>
+              </ul>
+            </div>
+
+            {/* Hesap */}
+            <div>
+              <h4 className="font-semibold text-white mb-3 text-sm">Hesap</h4>
+              <ul className="space-y-2 text-xs">
+                <li><a href="/login" className="hover:text-white">Giriş Yap</a></li>
+                <li><a href="/register" className="hover:text-white">Kayıt Ol</a></li>
+                <li><a href="/app" className="hover:text-white">Müşteri Paneli</a></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-10 pt-6 border-t border-slate-700 flex flex-col md:flex-row justify-between items-center gap-2 text-xs text-slate-400">
+            <div>© {new Date().getFullYear()} AdigeHost — Tüm hakları saklıdır.</div>
+            <div>destek@adigehost.tr</div>
+          </div>
         </div>
       </footer>
 
