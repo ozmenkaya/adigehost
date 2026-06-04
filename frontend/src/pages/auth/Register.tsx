@@ -64,8 +64,13 @@ export default function Register() {
     'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500';
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4 py-8">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
       <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-lg">
+        <div className="mb-4">
+          <Link to="/" className="text-sm text-slate-500 hover:text-brand-600">
+            ← Anasayfaya Dön
+          </Link>
+        </div>
         <div className="mb-6 text-center">
           <h1 className="text-2xl font-bold text-brand-700">AdigeHost</h1>
           <p className="mt-1 text-sm text-slate-500">Yeni Hesap Oluştur</p>

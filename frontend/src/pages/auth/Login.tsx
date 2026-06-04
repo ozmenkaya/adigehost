@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/authStore';
 import { getApiErrorMessage } from '../../utils/api';
@@ -7,27 +7,40 @@ export default function Login() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const loading = useAuthStore((s) => s.loading);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const role = useAuthStore((s) => s.user?.role);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+
+  // Zaten girişliyse uygun yere yönlendir
+  useEffect(() => {
+    if (isAuthenticated) navigate(role === 'admin' ? '/admin' : '/app', { replace: true });
+  }, [isAuthenticated, role, navigate]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
     try {
       await login(email, password);
-      navigate('/');
+      // login() sonrası state güncellenir, useEffect doğru yere yönlendirir
     } catch (err) {
       setError(getApiErrorMessage(err));
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg">
+        {/* Anasayfaya dön */}
+        <div className="mb-4">
+          <Link to="/" className="text-sm text-slate-500 hover:text-brand-600">
+            ← Anasayfaya Dön
+          </Link>
+        </div>
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-brand-700">AdigeHost</h1>
-          <p className="mt-1 text-sm text-slate-500">Yönetim Paneli Girişi</p>
+          <p className="mt-1 text-sm text-slate-500">Müşteri Paneli Girişi</p>
         </div>
 
         {error && (

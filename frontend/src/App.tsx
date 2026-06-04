@@ -32,10 +32,8 @@ function ProtectedRoute({ role, children }: { role?: 'admin'; children: React.Re
   return <>{children}</>;
 }
 
-/** Admin'ler için admin paneline kısayol; diğerleri satış sayfasını görür. */
+/** Anasayfa daima satış sayfasıdır — login gerektirmez. */
 function RootRedirect() {
-  const { isAuthenticated, user } = useAuthStore();
-  if (isAuthenticated && user?.role === 'admin') return <Navigate to="/admin" replace />;
   return <Sales />;
 }
 
