@@ -97,7 +97,9 @@ authRouter.post(
       district: b.district ?? null,
       postalCode: b.postalCode ?? null,
       role: 'client',
-      status: 'pending',
+      // Müşteri kaydı sonrası direkt aktif. E-posta doğrulama linki
+      // gönderilir ama satın alma/erişim için zorunlu değildir.
+      status: 'active',
     });
 
     // E-posta doğrulama linki gönder (SMTP yoksa log'a yazılır).
