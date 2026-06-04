@@ -33,10 +33,10 @@ function createLimiter(opts: {
   });
 }
 
-/** Genel API limiti: 120 istek / dakika. */
+/** Genel API limiti: 600 istek / dakika (SPA panel sayfası başına ~30 çağrı yapabilir). */
 export const apiLimiter = createLimiter({
   windowMs: 60 * 1000,
-  max: 120,
+  max: 600,
   prefix: 'api',
 });
 
