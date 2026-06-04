@@ -4,7 +4,7 @@ import { Product } from '../models';
 import { DomainService } from '../services/DomainService';
 import { AlantronService } from '../services/AlantronService';
 import { ExchangeRateService } from '../services/ExchangeRateService';
-import { SettingsService } from '../services/SettingsService';
+import { SettingsService, BANK_KEYS } from '../services/SettingsService';
 import { IntegrationService } from '../services/IntegrationService';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -14,6 +14,15 @@ import { round2 } from '../utils/helpers';
  * Herkese açık (auth gerektirmeyen) uçlar — satış sayfası için.
  */
 export const publicRouter = Router();
+
+// ── Banka / Havale bilgileri (havale ödeyenler için) ─────────────────────────
+publicRouter.get(
+  '/bank',
+  asyncHandler(async (_req, res) => {
+    const bank = await SettingsService.getMany(BANK_KEYS);
+    res.json({ success: true, data: bank });
+  }),
+);
 
 // ── Ürün / Hosting paketleri ─────────────────────────────────────────────────
 publicRouter.get(
