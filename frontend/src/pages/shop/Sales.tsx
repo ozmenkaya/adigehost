@@ -586,7 +586,9 @@ export default function Sales() {
             <img
               src="/media/logo_band_white.svg"
               alt="iyzico ile öde — Visa, MasterCard, Troy"
-              className="h-12 w-auto opacity-90"
+              width={456}
+              height={32}
+              className="h-8 w-auto opacity-90"
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
             />
           </div>
