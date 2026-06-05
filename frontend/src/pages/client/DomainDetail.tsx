@@ -34,8 +34,12 @@ export default function DomainDetail() {
   const [error, setError] = useState('');
 
   const flash = (m: string, isErr = false) => {
-    if (isErr) setError(m); else setMsg(m);
-    setTimeout(() => { setMsg(''); setError(''); }, 5000);
+    if (isErr) setError(m);
+    else setMsg(m);
+    setTimeout(() => {
+      setMsg('');
+      setError('');
+    }, 5000);
   };
 
   const loadAll = async () => {
@@ -53,7 +57,9 @@ export default function DomainDetail() {
     }
   };
 
-  useEffect(() => { void loadAll(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => {
+    void loadAll(); /* eslint-disable-next-line */
+  }, [id]);
 
   if (loading) return <div className="text-slate-400">Yükleniyor…</div>;
   if (!service) return <div className="text-red-500">Servis bulunamadı</div>;
@@ -65,10 +71,10 @@ export default function DomainDetail() {
 
   const tabs: Array<{ key: Tab; label: string; icon: string }> = [
     { key: 'renew', label: 'Yenile', icon: '↻' },
-    { key: 'nameservers', label: 'Nameserver', icon: '🌐' },
-    { key: 'dns', label: 'Child DNS', icon: '🔗' },
-    { key: 'security', label: 'Güvenlik', icon: '🔒' },
-    { key: 'info', label: 'Bilgiler', icon: 'ℹ️' },
+    { key: 'nameservers', label: 'Nameserver', icon: '' },
+    { key: 'dns', label: 'Child DNS', icon: '' },
+    { key: 'security', label: 'Güvenlik', icon: '' },
+    { key: 'info', label: 'Bilgiler', icon: 'ℹ' },
   ];
 
   return (
@@ -83,9 +89,15 @@ export default function DomainDetail() {
               <span className={service.status === 'active' ? 'text-green-600' : 'text-amber-500'}>
                 {service.status}
               </span>
-              {info?.locked && <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">🔒 Kilitli</span>}
+              {info?.locked && (
+                <span className="ml-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                  Kilitli
+                </span>
+              )}
               {expiry && (
-                <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isExpiring ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>
+                <span
+                  className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isExpiring ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}
+                >
                   Bitiş: {new Date(expiry).toLocaleDateString('tr-TR')}
                   {daysLeft !== null && ` (${daysLeft} gün)`}
                 </span>
@@ -105,7 +117,9 @@ export default function DomainDetail() {
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`flex-1 min-w-[110px] rounded-lg py-2 text-sm font-medium transition-colors ${
-              tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              tab === t.key
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             {t.icon} {t.label}
@@ -128,7 +142,10 @@ export default function DomainDetail() {
         <NameserversTab
           currentNameServers={info.nameServers}
           serviceId={id!}
-          onSaved={() => { flash('Nameserver\'lar güncellendi'); void loadAll(); }}
+          onSaved={() => {
+            flash("Nameserver'lar güncellendi");
+            void loadAll();
+          }}
           onError={(e) => flash(e, true)}
         />
       )}
@@ -138,7 +155,10 @@ export default function DomainDetail() {
         <ChildDnsTab
           childNs={info.childNameServers}
           serviceId={id!}
-          onChanged={() => { flash('İşlem tamamlandı'); void loadAll(); }}
+          onChanged={() => {
+            flash('İşlem tamamlandı');
+            void loadAll();
+          }}
           onError={(e) => flash(e, true)}
         />
       )}
@@ -148,7 +168,10 @@ export default function DomainDetail() {
         <SecurityTab
           locked={info.locked}
           serviceId={id!}
-          onChanged={() => { flash('İşlem tamamlandı'); void loadAll(); }}
+          onChanged={() => {
+            flash('İşlem tamamlandı');
+            void loadAll();
+          }}
           onError={(e) => flash(e, true)}
         />
       )}
@@ -160,10 +183,20 @@ export default function DomainDetail() {
           <dl className="grid grid-cols-2 gap-3 text-sm">
             <Row label="Alan Adı" value={info.domain || domain} />
             <Row label="Sağlayıcı" value="Alantron" />
-            <Row label="Kayıt Tarihi" value={info.registrationDate ? new Date(info.registrationDate).toLocaleDateString('tr-TR') : '—'} />
-            <Row label="Bitiş Tarihi" value={info.expiryDate ? new Date(info.expiryDate).toLocaleDateString('tr-TR') : '—'} />
+            <Row
+              label="Kayıt Tarihi"
+              value={
+                info.registrationDate
+                  ? new Date(info.registrationDate).toLocaleDateString('tr-TR')
+                  : '—'
+              }
+            />
+            <Row
+              label="Bitiş Tarihi"
+              value={info.expiryDate ? new Date(info.expiryDate).toLocaleDateString('tr-TR') : '—'}
+            />
             <Row label="Registrycode" value={String(service.config?.registrycode ?? '—')} mono />
-            <Row label="Kilit Durumu" value={info.locked ? '🔒 Kilitli' : '🔓 Açık'} />
+            <Row label="Kilit Durumu" value={info.locked ? 'Kilitli' : 'Açık'} />
           </dl>
         </div>
       )}
@@ -173,7 +206,10 @@ export default function DomainDetail() {
 
 // ── NS sekmesi ───────────────────────────────────────────────────────────────
 function NameserversTab({
-  currentNameServers, serviceId, onSaved, onError,
+  currentNameServers,
+  serviceId,
+  onSaved,
+  onError,
 }: {
   currentNameServers: string[];
   serviceId: string;
@@ -190,7 +226,10 @@ function NameserversTab({
   const save = async (e: FormEvent) => {
     e.preventDefault();
     const clean = ns.map((n) => n.trim().toLowerCase()).filter(Boolean);
-    if (clean.length < 2) { onError('En az 2 nameserver gerekli'); return; }
+    if (clean.length < 2) {
+      onError('En az 2 nameserver gerekli');
+      return;
+    }
     setSaving(true);
     try {
       await api.put(`/services/${serviceId}/domain/nameservers`, { nameServers: clean });
@@ -202,8 +241,8 @@ function NameserversTab({
     }
   };
 
-  const setOne = (i: number, v: string) => setNs((arr) => arr.map((x, idx) => idx === i ? v : x));
-  const addRow = () => setNs((arr) => arr.length < 5 ? [...arr, ''] : arr);
+  const setOne = (i: number, v: string) => setNs((arr) => arr.map((x, idx) => (idx === i ? v : x)));
+  const addRow = () => setNs((arr) => (arr.length < 5 ? [...arr, ''] : arr));
   const removeRow = (i: number) => setNs((arr) => arr.filter((_, idx) => idx !== i));
 
   return (
@@ -220,7 +259,9 @@ function NameserversTab({
             <input
               value={n}
               onChange={(e) => setOne(i, e.target.value)}
-              placeholder={i < 2 ? `ns${i + 1}.example.com (zorunlu)` : `ns${i + 1}.example.com (opsiyonel)`}
+              placeholder={
+                i < 2 ? `ns${i + 1}.example.com (zorunlu)` : `ns${i + 1}.example.com (opsiyonel)`
+              }
               className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm font-mono"
             />
             {ns.length > 2 && (
@@ -228,9 +269,7 @@ function NameserversTab({
                 type="button"
                 onClick={() => removeRow(i)}
                 className="text-red-400 hover:text-red-600 text-xs px-2"
-              >
-                ✕
-              </button>
+              ></button>
             )}
           </div>
         ))}
@@ -277,7 +316,10 @@ function NameserversTab({
 
 // ── Child DNS sekmesi ────────────────────────────────────────────────────────
 function ChildDnsTab({
-  childNs, serviceId, onChanged, onError,
+  childNs,
+  serviceId,
+  onChanged,
+  onError,
 }: {
   childNs: Array<{ ns: string; ip: string }>;
   serviceId: string;
@@ -296,7 +338,8 @@ function ChildDnsTab({
         nameserver: newNs.trim().toLowerCase(),
         ipAddress: newIp.trim(),
       });
-      setNewNs(''); setNewIp('');
+      setNewNs('');
+      setNewIp('');
       onChanged();
     } catch (err) {
       onError(getApiErrorMessage(err));
@@ -320,8 +363,9 @@ function ChildDnsTab({
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="font-bold text-slate-800 mb-1">Child Nameserver Kayıtları</h2>
         <p className="text-xs text-slate-500 mb-4">
-          Kendi domain'inize bağlı nameserver kayıtları (örn. <code className="bg-slate-100 px-1.5 rounded">ns1.{`<domain>`}</code> → IP).
-          Sadece kendi domain'iniz altındaki NS host'larını yönetebilirsiniz.
+          Kendi domain'inize bağlı nameserver kayıtları (örn.
+          <code className="bg-slate-100 px-1.5 rounded">ns1.{`<domain>`}</code>→ IP). Sadece kendi
+          domain'iniz altındaki NS host'larını yönetebilirsiniz.
         </p>
 
         {childNs.length === 0 ? (
@@ -377,7 +421,10 @@ function ChildDnsTab({
 
 // ── Güvenlik sekmesi ─────────────────────────────────────────────────────────
 function SecurityTab({
-  locked, serviceId, onChanged, onError,
+  locked,
+  serviceId,
+  onChanged,
+  onError,
 }: {
   locked: boolean;
   serviceId: string;
@@ -388,7 +435,14 @@ function SecurityTab({
   const [busy, setBusy] = useState(false);
 
   const toggleLock = async () => {
-    if (!confirm(locked ? 'Domain kilidi açılsın mı? (transfer için gerekli)' : 'Domain kilitlensin mi? (transfer korumalı olur)')) return;
+    if (
+      !confirm(
+        locked
+          ? 'Domain kilidi açılsın mı? (transfer için gerekli)'
+          : 'Domain kilitlensin mi? (transfer korumalı olur)',
+      )
+    )
+      return;
     setBusy(true);
     try {
       await api.put(`/services/${serviceId}/domain/lock`, { locked: !locked });
@@ -402,7 +456,10 @@ function SecurityTab({
 
   const saveAuth = async (e: FormEvent) => {
     e.preventDefault();
-    if (authCode.length < 6) { onError('Auth kodu en az 6 karakter olmalı'); return; }
+    if (authCode.length < 6) {
+      onError('Auth kodu en az 6 karakter olmalı');
+      return;
+    }
     setBusy(true);
     try {
       await api.put(`/services/${serviceId}/domain/auth-code`, { authCode });
@@ -422,10 +479,11 @@ function SecurityTab({
         <div className="flex items-start justify-between">
           <div>
             <h2 className="font-bold text-slate-800 mb-1">
-              {locked ? '🔒 Domain Kilitli' : '🔓 Domain Açık'}
+              {locked ? 'Domain Kilitli' : 'Domain Açık'}
             </h2>
             <p className="text-sm text-slate-500">
-              Kilitli olduğunda domain başka bir kayıtçıya transfer edilemez (yetkisiz transfer koruması).
+              Kilitli olduğunda domain başka bir kayıtçıya transfer edilemez (yetkisiz transfer
+              koruması).
             </p>
           </div>
           <button
@@ -480,7 +538,10 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
 
 // ── Yenile sekmesi ───────────────────────────────────────────────────────────
 function RenewTab({
-  serviceId, domain, currentExpiry, onError,
+  serviceId,
+  domain,
+  currentExpiry,
+  onError,
 }: {
   serviceId: string;
   domain: string;
@@ -489,8 +550,12 @@ function RenewTab({
 }) {
   const [years, setYears] = useState(1);
   const [price, setPrice] = useState<{
-    yearlyExVat: number; yearlyIncVat: number;
-    subtotal: number; tax: number; total: number; vatRate: number;
+    yearlyExVat: number;
+    yearlyIncVat: number;
+    subtotal: number;
+    tax: number;
+    total: number;
+    vatRate: number;
   } | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -498,7 +563,8 @@ function RenewTab({
 
   useEffect(() => {
     setLoadingPrice(true);
-    api.get(`/services/${serviceId}/domain/renew-price`, { params: { years } })
+    api
+      .get(`/services/${serviceId}/domain/renew-price`, { params: { years } })
       .then((r) => setPrice(r.data.data))
       .catch((e) => onError(getApiErrorMessage(e)))
       .finally(() => setLoadingPrice(false));
@@ -519,7 +585,10 @@ function RenewTab({
         }
         // Fallback redirect
         const url = initRes.data.data?.paymentPageUrl;
-        if (!url) { onError('İyzico ödeme sayfası alınamadı'); return; }
+        if (!url) {
+          onError('İyzico ödeme sayfası alınamadı');
+          return;
+        }
         window.location.href = url;
       } else {
         // Havale: panelin fatura sayfasına yönlendir (havale bilgileri orada)
@@ -541,7 +610,7 @@ function RenewTab({
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h2 className="font-bold text-slate-800 mb-1">Domain Yenile</h2>
         <p className="text-xs text-slate-500 mb-4">
-          <code className="bg-slate-100 px-1.5 py-0.5 rounded">{domain}</code> alan adınızı uzatın.
+          <code className="bg-slate-100 px-1.5 py-0.5 rounded">{domain}</code>alan adınızı uzatın.
           Ödeme onaylandığında Alantron'a otomatik yansır.
         </p>
 
@@ -575,7 +644,9 @@ function RenewTab({
           <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
             <div className="flex justify-between text-sm text-slate-600">
               <span>Yıllık fiyat (KDV dahil)</span>
-              <span className="font-medium">{price.yearlyIncVat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+              <span className="font-medium">
+                {price.yearlyIncVat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+              </span>
             </div>
             <div className="flex justify-between text-sm text-slate-600">
               <span>{years} yıl × KDV hariç</span>
@@ -594,7 +665,7 @@ function RenewTab({
 
             {expiryDate && newExpiry && (
               <div className="pt-2 mt-2 border-t border-slate-200 text-xs text-slate-500 flex items-center gap-2">
-                <span>📅 Yeni bitiş tarihi:</span>
+                <span>Yeni bitiş tarihi:</span>
                 <span className="font-semibold text-green-700">
                   {newExpiry.toLocaleDateString('tr-TR')}
                 </span>
@@ -613,22 +684,22 @@ function RenewTab({
             disabled={creating || !price}
             className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            {creating ? '…' : '💳 Kredi Kartı ile Hemen Yenile'}
+            {creating ? '…' : 'Kredi Kartı ile Hemen Yenile'}
           </button>
           <button
             onClick={() => create('havale')}
             disabled={creating || !price}
             className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-60"
           >
-            🏦 Havale / EFT ile Yenile
+            Havale / EFT ile Yenile
           </button>
         </div>
       </div>
 
       <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
         <p>
-          ℹ️ Ödeme onaylandığı anda Alantron'a renewal isteği gönderilir.
-          Domain bitiş tarihiniz {years} yıl uzar ve fatura e-fatura olarak kesilir.
+          ℹ Ödeme onaylandığı anda Alantron'a renewal isteği gönderilir. Domain bitiş tarihiniz{' '}
+          {years} yıl uzar ve fatura e-fatura olarak kesilir.
         </p>
       </div>
 

@@ -7,7 +7,7 @@ import DomainDetail from './DomainDetail';
 /**
  * Servis tipine göre uygun detay sayfasını gösterir.
  * Hosting → HostingDetail (e-posta + cPanel)
- * Domain  → DomainDetail (NS + DNS + güvenlik)
+ * Domain → DomainDetail (NS + DNS + güvenlik)
  */
 export default function ServiceDetail() {
   const { id } = useParams();
@@ -15,7 +15,8 @@ export default function ServiceDetail() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api.get(`/services/${id}`)
+    api
+      .get(`/services/${id}`)
       .then((r) => setType(r.data.data?.type ?? ''))
       .catch((e) => setError(e?.response?.data?.error?.message ?? 'Servis bulunamadı'));
   }, [id]);

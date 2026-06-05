@@ -20,7 +20,7 @@ export default function Checkout() {
   const navigate = useNavigate();
   const { user, isAuthenticated, login, register } = useAuthStore();
   const { items, total, totalExVat, clear, remove } = useCartStore();
-  void user;  // user dropdown'da kullanılıyor
+  void user; // user dropdown'da kullanılıyor
 
   const [mode, setMode] = useState<Mode>('login');
   const [authBusy, setAuthBusy] = useState(false);
@@ -133,22 +133,38 @@ export default function Checkout() {
       <div className="min-h-screen bg-slate-50 px-4 py-12">
         <div className="mx-auto max-w-2xl">
           <div className="rounded-3xl bg-white shadow-xl p-8 text-center">
-            <div className="text-5xl mb-3">🎉</div>
+            <div className="text-5xl mb-3"></div>
             <h1 className="text-2xl font-bold text-slate-900 mb-2">Siparişiniz Alındı!</h1>
             <p className="text-slate-600 mb-6">
-              <b>{result.invoice.invoiceNum}</b> · Toplam <b className="text-brand-700">{tr(Number(result.invoice.total))} ₺</b>
+              <b>{result.invoice.invoiceNum}</b>· Toplam
+              <b className="text-brand-700">{tr(Number(result.invoice.total))} ₺</b>
             </p>
 
             <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 text-left mb-6">
-              <div className="font-bold text-amber-900 mb-3">💳 Havale / EFT Bilgileri</div>
+              <div className="font-bold text-amber-900 mb-3">Havale / EFT Bilgileri</div>
               <div className="text-sm text-amber-800 space-y-1">
-                {result.bank.bank_name && <div><b>Banka:</b> {result.bank.bank_name}</div>}
-                {result.bank.bank_account_holder && <div><b>Hesap Sahibi:</b> {result.bank.bank_account_holder}</div>}
-                {result.bank.bank_iban && <div className="font-mono"><b>IBAN:</b> {result.bank.bank_iban}</div>}
+                {result.bank.bank_name && (
+                  <div>
+                    <b>Banka:</b>
+                    {result.bank.bank_name}
+                  </div>
+                )}
+                {result.bank.bank_account_holder && (
+                  <div>
+                    <b>Hesap Sahibi:</b>
+                    {result.bank.bank_account_holder}
+                  </div>
+                )}
+                {result.bank.bank_iban && (
+                  <div className="font-mono">
+                    <b>IBAN:</b>
+                    {result.bank.bank_iban}
+                  </div>
+                )}
               </div>
               <div className="mt-3 pt-3 border-t border-amber-200 text-xs text-amber-700">
-                Açıklamaya <b>{result.invoice.invoiceNum}</b> yazın.
-                Ödemeniz onaylandığında hizmetiniz otomatik aktive edilecek.
+                Açıklamaya<b>{result.invoice.invoiceNum}</b>yazın. Ödemeniz onaylandığında
+                hizmetiniz otomatik aktive edilecek.
               </div>
             </div>
 
@@ -169,13 +185,16 @@ export default function Checkout() {
       {/* Header */}
       <header className="bg-white border-b border-slate-100">
         <div className="mx-auto max-w-6xl flex items-center justify-between px-4 py-4">
-          <a href="/" className="text-2xl font-bold text-brand-700">AdigeHost</a>
-          <a href="/" className="text-sm text-slate-500 hover:text-slate-700">← Alışverişe Devam Et</a>
+          <a href="/" className="text-2xl font-bold text-brand-700">
+            AdigeHost
+          </a>
+          <a href="/" className="text-sm text-slate-500 hover:text-slate-700">
+            ← Alışverişe Devam Et
+          </a>
         </div>
       </header>
 
       <div className="mx-auto max-w-6xl px-4 py-8 grid lg:grid-cols-3 gap-6">
-
         {/* SOL: Sepet + Hosting domain */}
         <div className="lg:col-span-2 space-y-4">
           <h1 className="text-2xl font-bold text-slate-900">Sipariş Özeti</h1>
@@ -195,8 +214,8 @@ export default function Checkout() {
           {/* Hosting için bilgi */}
           {hostingItems.length > 0 && (
             <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
-              ℹ️ Hosting paketleri için kuracağınız <b>alan adını</b> yukarıda belirtin.
-              Henüz domain'iniz yoksa, sepete domain ekleyebilirsiniz.
+              ℹ Hosting paketleri için kuracağınız<b>alan adını</b>yukarıda belirtin. Henüz
+              domain'iniz yoksa, sepete domain ekleyebilirsiniz.
             </div>
           )}
         </div>
@@ -294,14 +313,21 @@ export default function Checkout() {
                     disabled={authBusy}
                     className="w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
                   >
-                    {authBusy ? '…' : mode === 'login' ? 'Giriş Yap ve Devam Et' : 'Kayıt Ol ve Devam Et'}
+                    {authBusy
+                      ? '…'
+                      : mode === 'login'
+                        ? 'Giriş Yap ve Devam Et'
+                        : 'Kayıt Ol ve Devam Et'}
                   </button>
                 </form>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="rounded-xl bg-green-50 border border-green-200 p-3 text-sm text-green-800">
-                  ✓ <b>{user?.firstName} {user?.lastName}</b> olarak giriş yaptınız
+                  <b>
+                    {user?.firstName} {user?.lastName}
+                  </b>
+                  olarak giriş yaptınız
                 </div>
                 {placeError && (
                   <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{placeError}</div>
@@ -317,11 +343,7 @@ export default function Checkout() {
                   disabled={placing || items.length === 0}
                   className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {placing ? '…' : (
-                    <>
-                      💳 Kredi Kartı ile Öde
-                    </>
-                  )}
+                  {placing ? '…' : <>Kredi Kartı ile Öde</>}
                 </button>
                 <p className="text-xs text-center text-slate-500 -mt-1">
                   iyzico güvencesiyle • 3D Secure • Anında aktivasyon
@@ -339,7 +361,7 @@ export default function Checkout() {
                   disabled={placing || items.length === 0}
                   className="w-full rounded-xl bg-amber-500 py-3 text-base font-bold text-white hover:bg-amber-600 disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {placing ? '…' : '🏦 Havale / EFT ile Öde'}
+                  {placing ? '…' : 'Havale / EFT ile Öde'}
                 </button>
                 <p className="text-xs text-center text-slate-500 -mt-1">
                   IBAN bilgilerini göreceksiniz • Ödeme onayı sonrası aktivasyon
@@ -361,7 +383,10 @@ export default function Checkout() {
 }
 
 function CheckoutItem({
-  item, domainValue, onDomainChange, onRemove,
+  item,
+  domainValue,
+  onDomainChange,
+  onRemove,
 }: {
   item: CartItem;
   domainValue: string;
@@ -378,16 +403,11 @@ function CheckoutItem({
               Periyot: {item.billingCycle === 'annually' ? 'Yıllık' : 'Aylık'}
             </div>
           )}
-          <div className="text-xs text-slate-400 mt-0.5">
-            KDV hariç {tr(item.priceExVat)} ₺
-          </div>
+          <div className="text-xs text-slate-400 mt-0.5">KDV hariç {tr(item.priceExVat)} ₺</div>
         </div>
         <div className="text-right">
           <div className="font-bold text-slate-900">{tr(item.price)} ₺</div>
-          <button
-            onClick={onRemove}
-            className="mt-1 text-xs text-red-500 hover:text-red-700"
-          >
+          <button onClick={onRemove} className="mt-1 text-xs text-red-500 hover:text-red-700">
             Kaldır
           </button>
         </div>
@@ -397,7 +417,7 @@ function CheckoutItem({
       {item.type === 'hosting' && (
         <div className="mt-3 pt-3 border-t border-slate-100">
           <label className="block text-xs font-medium text-slate-600 mb-1">
-            Hosting alan adı <span className="text-red-500">*</span>
+            Hosting alan adı<span className="text-red-500">*</span>
           </label>
           <input
             value={domainValue}

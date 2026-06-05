@@ -4,16 +4,16 @@ import { persist } from 'zustand/middleware';
 export type CartItemType = 'hosting' | 'domain';
 
 export interface CartItem {
-  id: string;            // productId veya domain adı
+  id: string; // productId veya domain adı
   type: CartItemType;
-  name: string;          // Görüntülenecek ad
-  price: number;         // KDV dahil TL
-  priceExVat: number;    // KDV hariç
+  name: string; // Görüntülenecek ad
+  price: number; // KDV dahil TL
+  priceExVat: number; // KDV hariç
   vatRate: number;
   billingCycle?: 'monthly' | 'annually';
-  domain?: string;       // domain siparişleri için
-  period?: number;       // domain için yıl
-  productId?: string;    // hosting için ürün ID
+  domain?: string; // domain siparişleri için
+  period?: number; // domain için yıl
+  productId?: string; // hosting için ürün ID
   meta?: Record<string, unknown>;
 }
 

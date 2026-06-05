@@ -10,11 +10,11 @@ export default function PaymentResult() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full rounded-2xl bg-white shadow-xl p-8 text-center">
-          <div className="text-6xl mb-4">🎉</div>
+          <div className="text-6xl mb-4"></div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Ödeme Başarılı</h1>
           {invoiceNum && (
             <p className="text-slate-600 mb-1">
-              Fatura: <b className="font-mono">{invoiceNum}</b>
+              Fatura:<b className="font-mono">{invoiceNum}</b>
             </p>
           )}
           <p className="text-sm text-slate-500 mb-6">
@@ -35,7 +35,7 @@ export default function PaymentResult() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full rounded-2xl bg-white shadow-xl p-8 text-center">
-          <div className="text-6xl mb-4">⚠️</div>
+          <div className="text-6xl mb-4"></div>
           <h1 className="text-2xl font-bold text-slate-900 mb-2">Ödeme Başarısız</h1>
           <p className="text-sm text-red-600 mb-2">{msg ?? 'Bilinmeyen hata'}</p>
           <p className="text-sm text-slate-500 mb-6">

@@ -148,18 +148,22 @@ export default function Sync() {
         <button
           onClick={() => setTab('whm')}
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-            tab === 'whm' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            tab === 'whm'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          🗄 WHM Hesapları
+          WHM Hesapları
         </button>
         <button
           onClick={() => setTab('alantron')}
           className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-            tab === 'alantron' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+            tab === 'alantron'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
           }`}
         >
-          🌐 Alantron
+          Alantron
         </button>
       </div>
 
@@ -178,13 +182,13 @@ export default function Sync() {
               {!whmLoading && (
                 <>
                   <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs">
-                    Toplam: <b>{whmAccounts.length}</b>
+                    Toplam:<b>{whmAccounts.length}</b>
                   </span>
                   <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-xs text-green-700">
-                    Kayıtlı: <b>{importedCount}</b>
+                    Kayıtlı:<b>{importedCount}</b>
                   </span>
                   <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs text-amber-700">
-                    Kayıtsız: <b>{notImportedCount}</b>
+                    Kayıtsız:<b>{notImportedCount}</b>
                   </span>
                 </>
               )}
@@ -202,7 +206,7 @@ export default function Sync() {
                   disabled={importing}
                   className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
                 >
-                  {importing ? 'Aktarılıyor…' : `✓ ${selected.size} Hesabı Panele Aktar`}
+                  {importing ? 'Aktarılıyor…' : ` ${selected.size} Hesabı Panele Aktar`}
                 </button>
               )}
             </div>
@@ -292,7 +296,7 @@ export default function Sync() {
                       <td className="px-3 py-2.5">
                         {a.imported ? (
                           <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs text-green-700">
-                            ✓ Kayıtlı
+                            Kayıtlı
                           </span>
                         ) : a.suspended ? (
                           <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-600">
@@ -318,7 +322,7 @@ export default function Sync() {
         <div className="space-y-4">
           {alNote && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              ℹ️ {alNote}
+              ℹ {alNote}
             </div>
           )}
 
@@ -326,10 +330,7 @@ export default function Sync() {
           <AlantronSqlImport clients={clients} onImported={() => void loadAlantron()} />
 
           {/* Manuel tek domain ekle */}
-          <AlantronAddForm
-            clients={clients}
-            onAdded={() => void loadAlantron()}
-          />
+          <AlantronAddForm clients={clients} onAdded={() => void loadAlantron()} />
 
           {/* Kayıtlı domainler */}
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -361,76 +362,86 @@ export default function Sync() {
               <tbody className="divide-y divide-slate-100">
                 {alLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">Yükleniyor…</td>
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                      Yükleniyor…
+                    </td>
                   </tr>
                 ) : alDomains.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">Henüz domain yok.</td>
+                    <td colSpan={6} className="px-4 py-10 text-center text-slate-400">
+                      Henüz domain yok.
+                    </td>
                   </tr>
                 ) : (
                   alDomains.map((d) => {
                     const expiry = d.nextDue ? new Date(d.nextDue) : null;
-                    const daysLeft = expiry ? Math.ceil((expiry.getTime() - Date.now()) / 86400000) : null;
+                    const daysLeft = expiry
+                      ? Math.ceil((expiry.getTime() - Date.now()) / 86400000)
+                      : null;
                     const isExpiring = daysLeft !== null && daysLeft < 30;
                     return (
-                    <tr key={d.id} className={`hover:bg-slate-50 ${isExpiring ? 'bg-red-50' : ''}`}>
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-slate-800">{d.domain ?? d.name}</div>
-                        {isExpiring && (
-                          <div className="text-xs text-red-600 font-medium">
-                            ⚠️ {daysLeft! < 0 ? 'Süresi doldu!' : `${daysLeft} gün kaldı`}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <DomainAssign
-                          id={d.id}
-                          currentUser={d.user}
-                          clients={clients}
-                          onAssigned={() => void loadAlantron()}
-                        />
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs text-slate-500">
-                        {d.config?.registrycode ?? '—'}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
-                        {expiry ? expiry.toLocaleDateString('tr-TR') : '—'}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span
-                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                            d.status === 'active'
-                              ? 'bg-green-100 text-green-700'
-                              : d.status === 'pending'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-slate-100 text-slate-500'
-                          }`}
-                        >
-                          {d.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={async () => {
-                            if (!confirm(`${d.domain ?? d.name} panelden silinsin mi?`)) return;
-                            await api.delete(`/admin/sync/alantron/${d.id}`).catch(() => {});
-                            void loadAlantron();
-                          }}
-                          className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-500 hover:bg-red-50"
-                        >
-                          Sil
-                        </button>
-                        {d.config?.registrycode && (
-                          <DomainActions
+                      <tr
+                        key={d.id}
+                        className={`hover:bg-slate-50 ${isExpiring ? 'bg-red-50' : ''}`}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-slate-800">{d.domain ?? d.name}</div>
+                          {isExpiring && (
+                            <div className="text-xs text-red-600 font-medium">
+                              {daysLeft! < 0 ? 'Süresi doldu!' : `${daysLeft} gün kaldı`}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <DomainAssign
                             id={d.id}
-                            domain={d.domain ?? d.name}
-                            registrycode={d.config.registrycode}
-                            onRenewed={() => void loadAlantron()}
+                            currentUser={d.user}
+                            clients={clients}
+                            onAssigned={() => void loadAlantron()}
                           />
-                        )}
-                      </td>
-                    </tr>
-                  );})
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-slate-500">
+                          {d.config?.registrycode ?? '—'}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          {expiry ? expiry.toLocaleDateString('tr-TR') : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              d.status === 'active'
+                                ? 'bg-green-100 text-green-700'
+                                : d.status === 'pending'
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            {d.status}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`${d.domain ?? d.name} panelden silinsin mi?`)) return;
+                              await api.delete(`/admin/sync/alantron/${d.id}`).catch(() => {});
+                              void loadAlantron();
+                            }}
+                            className="rounded border border-red-200 px-2 py-0.5 text-xs text-red-500 hover:bg-red-50"
+                          >
+                            Sil
+                          </button>
+                          {d.config?.registrycode && (
+                            <DomainActions
+                              id={d.id}
+                              domain={d.domain ?? d.name}
+                              registrycode={d.config.registrycode}
+                              onRenewed={() => void loadAlantron()}
+                            />
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -443,7 +454,10 @@ export default function Sync() {
 
 // ── Müşteri atama satır bileşeni ─────────────────────────────────────────────
 function DomainAssign({
-  id, currentUser, clients, onAssigned,
+  id,
+  currentUser,
+  clients,
+  onAssigned,
 }: {
   id: string;
   currentUser?: { firstName: string; lastName: string; email: string } | null;
@@ -456,11 +470,7 @@ function DomainAssign({
 
   if (!editing) {
     return (
-      <div
-        className="cursor-pointer group"
-        onClick={() => setEditing(true)}
-        title="Müşteri ata"
-      >
+      <div className="cursor-pointer group" onClick={() => setEditing(true)} title="Müşteri ata">
         {currentUser ? (
           <div>
             <div className="text-slate-700 group-hover:text-brand-600 text-sm">
@@ -485,7 +495,9 @@ function DomainAssign({
       >
         <option value="">— Seçin —</option>
         {clients.map((c) => (
-          <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
+          <option key={c.id} value={c.id}>
+            {c.firstName} {c.lastName}
+          </option>
         ))}
       </select>
       <button
@@ -499,16 +511,21 @@ function DomainAssign({
         }}
         className="rounded bg-brand-600 px-2 py-1 text-xs text-white disabled:opacity-40"
       >
-        {saving ? '…' : '✓'}
+        {saving ? '…' : ''}
       </button>
-      <button onClick={() => setEditing(false)} className="text-xs text-slate-400 hover:text-slate-600">✕</button>
+      <button
+        onClick={() => setEditing(false)}
+        className="text-xs text-slate-400 hover:text-slate-600"
+      ></button>
     </div>
   );
 }
 
 // ── Domain operasyon butonları ────────────────────────────────────────────────
 function DomainActions({
-  id, domain, onRenewed,
+  id,
+  domain,
+  onRenewed,
 }: {
   id: string;
   domain: string;
@@ -535,7 +552,10 @@ function DomainActions({
   };
 
   const fetchInfo = async () => {
-    if (showInfo) { setShowInfo(false); return; }
+    if (showInfo) {
+      setShowInfo(false);
+      return;
+    }
     try {
       const r = await api.get(`/admin/sync/alantron/${id}/info`);
       setInfo(r.data.data);
@@ -565,9 +585,15 @@ function DomainActions({
       </div>
       {showInfo && info && (
         <div className="mt-1 text-left rounded bg-slate-50 border border-slate-200 p-2 text-xs text-slate-600 w-56">
-          {Object.entries(info).filter(([,v])=>v&&String(v).length<50).slice(0,8).map(([k,v])=>(
-            <div key={k}><b>{k}:</b> {String(v)}</div>
-          ))}
+          {Object.entries(info)
+            .filter(([, v]) => v && String(v).length < 50)
+            .slice(0, 8)
+            .map(([k, v]) => (
+              <div key={k}>
+                <b>{k}:</b>
+                {String(v)}
+              </div>
+            ))}
         </div>
       )}
     </div>
@@ -582,13 +608,7 @@ interface ParsedDomain {
   alreadyImported: boolean;
 }
 
-function AlantronSqlImport({
-  clients,
-  onImported,
-}: {
-  clients: Client[];
-  onImported: () => void;
-}) {
+function AlantronSqlImport({ clients, onImported }: { clients: Client[]; onImported: () => void }) {
   const [open, setOpen] = useState(false);
   const [sqlText, setSqlText] = useState('');
   const [parsed, setParsed] = useState<ParsedDomain[] | null>(null);
@@ -600,13 +620,20 @@ function AlantronSqlImport({
 
   const parseSql = async () => {
     if (!sqlText.trim()) return;
-    setParsing(true); setErr(''); setParsed(null);
+    setParsing(true);
+    setErr('');
+    setParsed(null);
     try {
       const r = await api.post('/admin/sync/alantron/parse-sql', { sql: sqlText });
       setParsed(r.data.data ?? []);
-      setMsg(`${r.data.meta?.total ?? 0} domain bulundu · ${r.data.meta?.new ?? 0} yeni · ${r.data.meta?.alreadyImported ?? 0} zaten kayıtlı`);
-    } catch (e) { setErr(getApiErrorMessage(e)); }
-    finally { setParsing(false); }
+      setMsg(
+        `${r.data.meta?.total ?? 0} domain bulundu · ${r.data.meta?.new ?? 0} yeni · ${r.data.meta?.alreadyImported ?? 0} zaten kayıtlı`,
+      );
+    } catch (e) {
+      setErr(getApiErrorMessage(e));
+    } finally {
+      setParsing(false);
+    }
   };
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -620,23 +647,33 @@ function AlantronSqlImport({
   const importAll = async () => {
     if (!parsed || !defaultUserId) return;
     const toImport = parsed.filter((d) => !d.alreadyImported);
-    if (!toImport.length) { setErr('İçe aktarılacak yeni domain yok'); return; }
-    setImporting(true); setErr('');
-    let ok = 0, skip = 0;
+    if (!toImport.length) {
+      setErr('İçe aktarılacak yeni domain yok');
+      return;
+    }
+    setImporting(true);
+    setErr('');
+    let ok = 0,
+      skip = 0;
     for (const d of toImport) {
       try {
         await api.post('/admin/sync/alantron/import', {
-          domain: d.domain, userId: defaultUserId,
+          domain: d.domain,
+          userId: defaultUserId,
           registrycode: d.registrycode ?? undefined,
           expiryDate: d.expiryDate ?? undefined,
           status: 'active',
         });
         ok++;
-      } catch { skip++; }
+      } catch {
+        skip++;
+      }
     }
     setImporting(false);
     setMsg(`${ok} domain aktarıldı, ${skip} atlandı`);
-    setParsed(null); setSqlText(''); setOpen(false);
+    setParsed(null);
+    setSqlText('');
+    setOpen(false);
     onImported();
   };
 
@@ -647,14 +684,18 @@ function AlantronSqlImport({
         className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <div>
-          <span className="font-semibold text-blue-900">📥 WHMCS SQL Dosyası ile Toplu İçe Aktar</span>
-          <p className="text-xs text-blue-700 mt-0.5">alantron.net → Formlar/API → WHMCS → Senkronizasyon SQL dosyasını indirin</p>
+          <span className="font-semibold text-blue-900">WHMCS SQL Dosyası ile Toplu İçe Aktar</span>
+          <p className="text-xs text-blue-700 mt-0.5">
+            alantron.net → Formlar/API → WHMCS → Senkronizasyon SQL dosyasını indirin
+          </p>
         </div>
         <span className="text-blue-400">{open ? '▲' : '▼'}</span>
       </button>
 
       {(msg || err) && (
-        <div className={`mx-5 mb-3 rounded-lg p-2 text-sm ${err ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+        <div
+          className={`mx-5 mb-3 rounded-lg p-2 text-sm ${err ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}
+        >
           {err || msg}
         </div>
       )}
@@ -662,13 +703,26 @@ function AlantronSqlImport({
       {open && (
         <div className="border-t border-blue-200 px-5 pb-5 pt-4 space-y-4 bg-white rounded-b-2xl">
           <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
-            <b>Adımlar:</b> 1) <a href="https://www.alantron.net" target="_blank" rel="noopener noreferrer" className="underline">alantron.net</a>'e
-            giriş yapın → 2) Formlar/API → WHMCS sayfasına gidin → 3) "Senkronizasyon SQL dosyasını" indirin
-            → 4) Aşağıya yapıştırın veya dosyayı yükleyin
+            <b>Adımlar:</b>1)
+            <a
+              href="https://www.alantron.net"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              alantron.net
+            </a>
+            'e giriş yapın → 2) Formlar/API → WHMCS sayfasına gidin → 3) "Senkronizasyon SQL
+            dosyasını"indirin → 4) Aşağıya yapıştırın veya dosyayı yükleyin
           </div>
 
           <div className="flex gap-2 items-center">
-            <input type="file" accept=".sql,.txt" onChange={handleFile} className="text-sm text-slate-600" />
+            <input
+              type="file"
+              accept=".sql,.txt"
+              onChange={handleFile}
+              className="text-sm text-slate-600"
+            />
             <span className="text-slate-400 text-xs">veya aşağıya yapıştırın</span>
           </div>
 
@@ -685,12 +739,12 @@ function AlantronSqlImport({
             disabled={parsing || !sqlText.trim()}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {parsing ? 'Ayrıştırılıyor…' : "🔍 SQL'i Ayrıştır"}
+            {parsing ? 'Ayrıştırılıyor…' : "SQL'i Ayrıştır"}
           </button>
 
           {parsed && (
             <div className="space-y-3">
-              {parsed.filter(d => !d.alreadyImported).length > 0 && (
+              {parsed.filter((d) => !d.alreadyImported).length > 0 && (
                 <div className="flex items-center gap-3">
                   <label className="text-sm font-medium text-slate-700 shrink-0">Müşteri:</label>
                   <select
@@ -700,7 +754,9 @@ function AlantronSqlImport({
                   >
                     <option value="">— Tüm domainler için müşteri seçin —</option>
                     {clients.map((c) => (
-                      <option key={c.id} value={c.id}>{c.firstName} {c.lastName}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.firstName} {c.lastName}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -720,12 +776,16 @@ function AlantronSqlImport({
                     {parsed.map((d) => (
                       <tr key={d.domain} className={d.alreadyImported ? 'opacity-40' : ''}>
                         <td className="px-3 py-1.5 font-medium">{d.domain}</td>
-                        <td className="px-3 py-1.5 text-center font-mono">{d.registrycode ?? '—'}</td>
+                        <td className="px-3 py-1.5 text-center font-mono">
+                          {d.registrycode ?? '—'}
+                        </td>
                         <td className="px-3 py-1.5 text-center">{d.expiryDate ?? '—'}</td>
                         <td className="px-3 py-1.5 text-center">
-                          {d.alreadyImported
-                            ? <span className="text-green-600">✓ Var</span>
-                            : <span className="text-amber-600">Yeni</span>}
+                          {d.alreadyImported ? (
+                            <span className="text-green-600">Var</span>
+                          ) : (
+                            <span className="text-amber-600">Yeni</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -733,13 +793,15 @@ function AlantronSqlImport({
                 </table>
               </div>
 
-              {parsed.filter(d => !d.alreadyImported).length > 0 && (
+              {parsed.filter((d) => !d.alreadyImported).length > 0 && (
                 <button
                   onClick={importAll}
                   disabled={importing || !defaultUserId}
                   className="w-full rounded-lg bg-green-600 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-60"
                 >
-                  {importing ? 'Aktarılıyor…' : `✓ ${parsed.filter(d => !d.alreadyImported).length} Yeni Domaini Panele Aktar`}
+                  {importing
+                    ? 'Aktarılıyor…'
+                    : ` ${parsed.filter((d) => !d.alreadyImported).length} Yeni Domaini Panele Aktar`}
                 </button>
               )}
             </div>
@@ -751,13 +813,7 @@ function AlantronSqlImport({
 }
 
 // ── Alantron domain ekleme formu ──────────────────��─────────────────────────────
-function AlantronAddForm({
-  clients,
-  onAdded,
-}: {
-  clients: Client[];
-  onAdded: () => void;
-}) {
+function AlantronAddForm({ clients, onAdded }: { clients: Client[]; onAdded: () => void }) {
   const [domain, setDomain] = useState('');
   const [userId, setUserId] = useState('');
   const [registrycode, setRegistrycode] = useState('');
@@ -809,16 +865,14 @@ function AlantronAddForm({
       {msg && (
         <div className="mx-5 mb-3 rounded-lg bg-green-50 p-2 text-sm text-green-700">{msg}</div>
       )}
-      {err && (
-        <div className="mx-5 mb-3 rounded-lg bg-red-50 p-2 text-sm text-red-700">{err}</div>
-      )}
+      {err && <div className="mx-5 mb-3 rounded-lg bg-red-50 p-2 text-sm text-red-700">{err}</div>}
 
       {open && (
         <form onSubmit={submit} className="space-y-3 border-t border-slate-100 px-5 pb-5 pt-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
-                Domain <span className="text-red-500">*</span>
+                Domain<span className="text-red-500">*</span>
               </label>
               <input
                 required
@@ -830,7 +884,7 @@ function AlantronAddForm({
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
-                Müşteri <span className="text-red-500">*</span>
+                Müşteri<span className="text-red-500">*</span>
               </label>
               <select
                 required
@@ -848,7 +902,7 @@ function AlantronAddForm({
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
-                Registrycode <span className="text-slate-400">(opsiyonel)</span>
+                Registrycode<span className="text-slate-400">(opsiyonel)</span>
               </label>
               <input
                 type="number"
@@ -860,7 +914,7 @@ function AlantronAddForm({
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-600">
-                Son Kullanma Tarihi <span className="text-slate-400">(opsiyonel)</span>
+                Son Kullanma Tarihi<span className="text-slate-400">(opsiyonel)</span>
               </label>
               <input
                 type="date"
@@ -874,11 +928,7 @@ function AlantronAddForm({
             <label className="font-medium text-slate-600">Durum:</label>
             {(['active', 'pending'] as const).map((s) => (
               <label key={s} className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  checked={status === s}
-                  onChange={() => setStatus(s)}
-                />
+                <input type="radio" checked={status === s} onChange={() => setStatus(s)} />
                 {s === 'active' ? 'Aktif' : 'Beklemede'}
               </label>
             ))}

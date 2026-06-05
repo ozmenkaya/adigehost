@@ -61,7 +61,7 @@ export default function Servers() {
     setMsg('');
     try {
       const res = await api.post(`/servers/${id}/test`);
-      setMsg(res.data.data.connected ? '✅ Bağlantı başarılı' : '❌ Bağlanılamadı');
+      setMsg(res.data.data.connected ? 'Bağlantı başarılı' : 'Bağlanılamadı');
     } catch (err) {
       setError(getApiErrorMessage(err));
     }

@@ -42,7 +42,7 @@ function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-lg hover:bg-brand-700"
       >
-        🛒 Sepet
+        Sepet
         {count() > 0 && (
           <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white text-xs font-bold text-brand-700">
             {count()}
@@ -57,7 +57,10 @@ function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
           <div className="relative flex w-full max-w-sm flex-col bg-white shadow-2xl">
             <div className="flex items-center justify-between border-b px-5 py-4">
               <h2 className="text-lg font-bold text-slate-900">Sepetim ({count()})</h2>
-              <button onClick={() => setOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              ></button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
@@ -65,7 +68,10 @@ function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
                 <p className="text-center text-slate-400 py-10">Sepetiniz boş.</p>
               ) : (
                 items.map((item) => (
-                  <div key={item.id} className="flex items-start justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3">
+                  <div
+                    key={item.id}
+                    className="flex items-start justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 p-3"
+                  >
                     <div className="flex-1">
                       <div className="font-medium text-slate-800 text-sm">{item.name}</div>
                       {item.billingCycle && (
@@ -74,7 +80,9 @@ function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
                         </div>
                       )}
                       <div className="mt-1 font-semibold text-brand-700">{tr(item.price)} ₺</div>
-                      <div className="text-xs text-slate-400">KDV hariç {tr(item.priceExVat)} ₺</div>
+                      <div className="text-xs text-slate-400">
+                        KDV hariç {tr(item.priceExVat)} ₺
+                      </div>
                     </div>
                     <button
                       onClick={() => remove(item.id)}
@@ -90,16 +98,22 @@ function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
             {items.length > 0 && (
               <div className="border-t px-5 py-4 space-y-3">
                 <div className="flex justify-between text-sm text-slate-600">
-                  <span>Ara toplam</span><span>{tr(totalExVat())} ₺</span>
+                  <span>Ara toplam</span>
+                  <span>{tr(totalExVat())} ₺</span>
                 </div>
                 <div className="flex justify-between text-sm text-slate-600">
-                  <span>KDV</span><span>{tr(vat)} ₺</span>
+                  <span>KDV</span>
+                  <span>{tr(vat)} ₺</span>
                 </div>
                 <div className="flex justify-between font-bold text-slate-900">
-                  <span>Toplam</span><span className="text-brand-700 text-lg">{tr(total())} ₺</span>
+                  <span>Toplam</span>
+                  <span className="text-brand-700 text-lg">{tr(total())} ₺</span>
                 </div>
                 <button
-                  onClick={() => { setOpen(false); onCheckout(); }}
+                  onClick={() => {
+                    setOpen(false);
+                    onCheckout();
+                  }}
                   className="w-full rounded-xl bg-brand-600 py-3 text-sm font-bold text-white hover:bg-brand-700"
                 >
                   Satın Al →
@@ -129,7 +143,11 @@ export default function Sales() {
   const [xferDomain, setXferDomain] = useState('');
   const [xferAuthCode, setXferAuthCode] = useState('');
   const [xferYears, setXferYears] = useState(1);
-  const [xferCheck, setXferCheck] = useState<{ transferable: boolean; message: string; yearlyIncVat: number | null } | null>(null);
+  const [xferCheck, setXferCheck] = useState<{
+    transferable: boolean;
+    message: string;
+    yearlyIncVat: number | null;
+  } | null>(null);
   const [xferBusy, setXferBusy] = useState(false);
   const [xferError, setXferError] = useState('');
   const [xferSuccess, setXferSuccess] = useState('');
@@ -143,8 +161,8 @@ export default function Sales() {
     const raw = domainName.trim().toLowerCase();
     if (!raw) return;
 
-    // Kullanıcı "ornek.com" yazdıysa: name="ornek", tlds=[com, ...alternatives]
-    // Sadece "ornek" yazdıysa: backend default liste kullansın
+    // Kullanıcı "ornek.com"yazdıysa: name="ornek", tlds=[com, ...alternatives]
+    // Sadece "ornek"yazdıysa: backend default liste kullansın
     let name = raw;
     let tlds: string[] | undefined;
     const dotIdx = raw.indexOf('.');
@@ -153,10 +171,27 @@ export default function Sales() {
       const userTld = raw.slice(dotIdx + 1);
       // Kullanıcının yazdığı TLD'yi başa al + 20 alternatif
       const alts = [
-        'com', 'com.tr', 'net', 'org', 'info', 'co',
-        'io', 'app', 'dev', 'tr', 'net.tr', 'org.tr',
-        'xyz', 'online', 'site', 'tech', 'biz', 'cloud',
-        'me', 'shop', 'store',
+        'com',
+        'com.tr',
+        'net',
+        'org',
+        'info',
+        'co',
+        'io',
+        'app',
+        'dev',
+        'tr',
+        'net.tr',
+        'org.tr',
+        'xyz',
+        'online',
+        'site',
+        'tech',
+        'biz',
+        'cloud',
+        'me',
+        'shop',
+        'store',
       ];
       tlds = [userTld, ...alts.filter((t) => t !== userTld)].slice(0, 20);
     }
@@ -198,7 +233,8 @@ export default function Sales() {
   };
 
   const addHosting = (p: Product, cycle: 'monthly' | 'annually') => {
-    const priceRaw = cycle === 'annually' && p.priceAnnually ? Number(p.priceAnnually) : Number(p.priceMonthly);
+    const priceRaw =
+      cycle === 'annually' && p.priceAnnually ? Number(p.priceAnnually) : Number(p.priceMonthly);
     const priceExVat = priceRaw;
     const price = Math.round(priceExVat * 1.2 * 100) / 100;
     const item: CartItem = {
@@ -236,11 +272,20 @@ export default function Sales() {
           <div className="text-2xl font-bold text-brand-700">AdigeHost</div>
           <div className="flex items-center gap-3">
             {user ? (
-              <a href="/app" className="text-sm text-brand-600 hover:underline">Panelim →</a>
+              <a href="/app" className="text-sm text-brand-600 hover:underline">
+                Panelim →
+              </a>
             ) : (
               <>
-                <a href="/login" className="text-sm text-slate-600 hover:text-brand-600">Giriş Yap</a>
-                <a href="/register" className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">Kayıt Ol</a>
+                <a href="/login" className="text-sm text-slate-600 hover:text-brand-600">
+                  Giriş Yap
+                </a>
+                <a
+                  href="/register"
+                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+                >
+                  Kayıt Ol
+                </a>
               </>
             )}
           </div>
@@ -251,7 +296,9 @@ export default function Sales() {
       <section className="bg-gradient-to-br from-brand-700 to-brand-900 py-16 px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h1 className="text-4xl font-extrabold text-white mb-3">
-            {heroTab === 'register' ? 'Hayalinizin Alan Adını Bulun' : 'Domaininizi AdigeHost\'a Taşıyın'}
+            {heroTab === 'register'
+              ? 'Hayalinizin Alan Adını Bulun'
+              : "Domaininizi AdigeHost'a Taşıyın"}
           </h1>
           <p className="text-brand-200 mb-6 text-lg">
             {heroTab === 'register'
@@ -267,7 +314,7 @@ export default function Sales() {
                 heroTab === 'register' ? 'bg-white text-brand-700' : 'text-white hover:bg-white/10'
               }`}
             >
-              🔍 Domain Ara
+              Domain Ara
             </button>
             <button
               onClick={() => setHeroTab('transfer')}
@@ -294,7 +341,7 @@ export default function Sales() {
                   disabled={searching}
                   className="rounded-xl bg-amber-400 px-6 py-3.5 font-bold text-slate-900 hover:bg-amber-300 disabled:opacity-60"
                 >
-                  {searching ? '⏳' : 'Sorgula'}
+                  {searching ? '' : 'Sorgula'}
                 </button>
               </form>
               {domainError && <p className="mt-3 text-red-300 text-sm">{domainError}</p>}
@@ -306,12 +353,30 @@ export default function Sales() {
 
               {/* Popüler TLD'ler */}
               <div className="mt-6 flex flex-wrap justify-center gap-2 text-xs">
-                {['.com', '.com.tr', '.net', '.org', '.io', '.app', '.dev', '.xyz', '.online', '.tech', '.shop', '.tr'].map((t) => (
-                  <span key={t} className="rounded-full bg-white/10 px-3 py-1 text-brand-100 font-medium">
+                {[
+                  '.com',
+                  '.com.tr',
+                  '.net',
+                  '.org',
+                  '.io',
+                  '.app',
+                  '.dev',
+                  '.xyz',
+                  '.online',
+                  '.tech',
+                  '.shop',
+                  '.tr',
+                ].map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full bg-white/10 px-3 py-1 text-brand-100 font-medium"
+                  >
                     {t}
                   </span>
                 ))}
-                <span className="rounded-full bg-amber-400/20 px-3 py-1 text-amber-200 font-semibold">+30 daha</span>
+                <span className="rounded-full bg-amber-400/20 px-3 py-1 text-amber-200 font-semibold">
+                  +30 daha
+                </span>
               </div>
             </>
           )}
@@ -323,7 +388,9 @@ export default function Sales() {
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    setXferError(''); setXferSuccess(''); setXferBusy(true);
+                    setXferError('');
+                    setXferSuccess('');
+                    setXferBusy(true);
                     try {
                       const r = await api.post('/public/domains/transfer-check', {
                         domain: xferDomain.trim().toLowerCase(),
@@ -331,7 +398,9 @@ export default function Sales() {
                       setXferCheck(r.data.data);
                     } catch (err) {
                       setXferError(getApiErrorMessage(err));
-                    } finally { setXferBusy(false); }
+                    } finally {
+                      setXferBusy(false);
+                    }
                   }}
                   className="space-y-3"
                 >
@@ -342,7 +411,9 @@ export default function Sales() {
                     <input
                       required
                       value={xferDomain}
-                      onChange={(e) => setXferDomain(e.target.value.replace(/\s/g, '').toLowerCase())}
+                      onChange={(e) =>
+                        setXferDomain(e.target.value.replace(/\s/g, '').toLowerCase())
+                      }
                       placeholder="ornek.com"
                       className="mt-1 w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base text-slate-900 outline-none focus:border-brand-500"
                     />
@@ -351,15 +422,21 @@ export default function Sales() {
                     disabled={xferBusy}
                     className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60"
                   >
-                    {xferBusy ? '⏳ Kontrol ediliyor…' : 'Transfer Edilebilir mi? Sorgula'}
+                    {xferBusy ? 'Kontrol ediliyor…' : 'Transfer Edilebilir mi? Sorgula'}
                   </button>
                   {xferError && <p className="text-sm text-red-600">{xferError}</p>}
                   <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
                     <p className="font-semibold mb-1">Transfer için ön hazırlık:</p>
                     <ol className="list-decimal ml-4 space-y-0.5">
-                      <li>Mevcut registrar'da domain <b>kilidini açın</b></li>
-                      <li><b>EPP/Auth kodu</b>nu alın</li>
-                      <li>Privacy WHOIS varsa <b>geçici olarak kapatın</b></li>
+                      <li>
+                        Mevcut registrar'da domain<b>kilidini açın</b>
+                      </li>
+                      <li>
+                        <b>EPP/Auth kodu</b>nu alın
+                      </li>
+                      <li>
+                        Privacy WHOIS varsa<b>geçici olarak kapatın</b>
+                      </li>
                     </ol>
                   </div>
                 </form>
@@ -371,11 +448,11 @@ export default function Sales() {
                     <div className="font-bold text-slate-800 text-lg">{xferDomain}</div>
                     {xferCheck.transferable ? (
                       <div className="text-green-600 text-sm font-semibold mt-1">
-                        ✓ Transfer edilebilir
+                        Transfer edilebilir
                       </div>
                     ) : (
                       <div className="text-red-600 text-sm font-semibold mt-1">
-                        ✗ {xferCheck.message}
+                        {xferCheck.message}
                       </div>
                     )}
                   </div>
@@ -383,7 +460,14 @@ export default function Sales() {
                   {xferCheck.transferable && xferCheck.yearlyIncVat && (
                     <>
                       <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 text-center">
-                        Yıllık fiyat: <b>{xferCheck.yearlyIncVat.toLocaleString('tr-TR', {minimumFractionDigits:2})} ₺</b> (KDV dahil)
+                        Yıllık fiyat:
+                        <b>
+                          {xferCheck.yearlyIncVat.toLocaleString('tr-TR', {
+                            minimumFractionDigits: 2,
+                          })}{' '}
+                          ₺
+                        </b>
+                        (KDV dahil)
                       </div>
 
                       <label className="block">
@@ -423,26 +507,41 @@ export default function Sales() {
                             navigate('/login?next=/');
                             return;
                           }
-                          setXferBusy(true); setXferError('');
+                          setXferBusy(true);
+                          setXferError('');
                           try {
                             const r = await api.post('/domains/transfer-order', {
-                              domain: xferDomain, authCode: xferAuthCode, year: xferYears,
+                              domain: xferDomain,
+                              authCode: xferAuthCode,
+                              year: xferYears,
                             });
-                            setXferSuccess(r.data.message + ' Fatura: ' + r.data.data.invoice.invoiceNum);
+                            setXferSuccess(
+                              r.data.message + 'Fatura: ' + r.data.data.invoice.invoiceNum,
+                            );
                           } catch (err) {
                             setXferError(getApiErrorMessage(err));
-                          } finally { setXferBusy(false); }
+                          } finally {
+                            setXferBusy(false);
+                          }
                         }}
                         className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60"
                       >
-                        {xferBusy ? '⏳' : user ? `Transfer Talebi Oluştur (${xferYears} yıl)` : 'Giriş Yap ve Devam Et'}
+                        {xferBusy
+                          ? ''
+                          : user
+                            ? `Transfer Talebi Oluştur (${xferYears} yıl)`
+                            : 'Giriş Yap ve Devam Et'}
                       </button>
                       {xferError && <p className="text-sm text-red-600">{xferError}</p>}
                     </>
                   )}
 
                   <button
-                    onClick={() => { setXferCheck(null); setXferDomain(''); setXferAuthCode(''); }}
+                    onClick={() => {
+                      setXferCheck(null);
+                      setXferDomain('');
+                      setXferAuthCode('');
+                    }}
                     type="button"
                     className="w-full text-sm text-slate-500 hover:text-slate-700"
                   >
@@ -453,7 +552,7 @@ export default function Sales() {
 
               {xferSuccess && (
                 <div className="text-center space-y-3 py-4">
-                  <div className="text-4xl">✅</div>
+                  <div className="text-4xl"></div>
                   <p className="text-green-700 font-semibold">{xferSuccess}</p>
                   <p className="text-xs text-slate-500">
                     Ödeme onaylandığında transfer başlatılır. Süreç 5-7 gün sürer.
@@ -476,7 +575,7 @@ export default function Sales() {
         <section className="mx-auto max-w-4xl px-4 py-8">
           {addedMsg && (
             <div className="mb-4 rounded-xl bg-green-50 border border-green-200 p-3 text-sm text-green-700">
-              ✅ {addedMsg}
+              {addedMsg}
             </div>
           )}
 
@@ -490,14 +589,17 @@ export default function Sales() {
                 {available.length > 0 && (
                   <div className="mb-8">
                     <h2 className="text-lg font-bold text-slate-800 mb-3">
-                      <span className="text-green-600">✓</span> Müsait Alan Adları
+                      <span className="text-green-600"></span>Müsait Alan Adları
                       <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                         {available.length}
                       </span>
                     </h2>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {available.map((d) => (
-                        <div key={d.domain} className="rounded-2xl border-2 border-green-200 bg-white p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
+                        <div
+                          key={d.domain}
+                          className="rounded-2xl border-2 border-green-200 bg-white p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow"
+                        >
                           <div className="min-w-0 flex-1">
                             <div className="font-semibold text-slate-800 truncate">{d.domain}</div>
                             {d.priceTRY && (
@@ -516,7 +618,7 @@ export default function Sales() {
                                   : 'bg-brand-600 text-white hover:bg-brand-700'
                               }`}
                             >
-                              {isInCart(`domain:${d.domain}`) ? '✓ Sepette' : '+ Ekle'}
+                              {isInCart(`domain:${d.domain}`) ? 'Sepette' : '+ Ekle'}
                             </button>
                           )}
                         </div>
@@ -529,14 +631,17 @@ export default function Sales() {
                 {taken.length > 0 && (
                   <div>
                     <h2 className="text-lg font-bold text-slate-700 mb-3">
-                      <span className="text-slate-400">✗</span> Kayıtlı Alan Adları
+                      <span className="text-slate-400"></span>Kayıtlı Alan Adları
                       <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">
                         {taken.length}
                       </span>
                     </h2>
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {taken.map((d) => (
-                        <div key={d.domain} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between">
+                        <div
+                          key={d.domain}
+                          className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 flex items-center justify-between"
+                        >
                           <div className="min-w-0 flex-1">
                             <div className="font-medium text-slate-700 truncate">{d.domain}</div>
                             <div className="text-xs text-slate-400 mt-0.5">Bu alan adı alınmış</div>
@@ -569,10 +674,14 @@ export default function Sales() {
         <section className="mx-auto max-w-5xl px-4 py-16">
           <div className="text-center mb-10">
             <h2 className="text-3xl font-extrabold text-slate-900">Hosting Paketleri</h2>
-            <p className="text-slate-500 mt-2">WordPress için optimize edilmiş, hızlı ve güvenli.</p>
+            <p className="text-slate-500 mt-2">
+              WordPress için optimize edilmiş, hızlı ve güvenli.
+            </p>
           </div>
 
-          <div className={`grid gap-6 ${hostingProducts.length === 1 ? 'max-w-sm mx-auto' : hostingProducts.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
+          <div
+            className={`grid gap-6 ${hostingProducts.length === 1 ? 'max-w-sm mx-auto' : hostingProducts.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}
+          >
             {hostingProducts.map((p, idx) => {
               const isPopular = idx === 1 && hostingProducts.length >= 3;
               const monthly = Math.round(Number(p.priceMonthly) * 1.2 * 100) / 100;
@@ -596,17 +705,17 @@ export default function Sales() {
                     </div>
                   )}
                   <h3 className="text-xl font-bold text-slate-900">{p.name}</h3>
-                  {p.description && (
-                    <p className="text-sm text-slate-500 mt-1">{p.description}</p>
-                  )}
+                  {p.description && <p className="text-sm text-slate-500 mt-1">{p.description}</p>}
 
                   <div className="mt-4 mb-5">
                     <div className="text-3xl font-extrabold text-brand-700">
-                      {tr(monthly)} <span className="text-base font-normal text-slate-500">₺/ay</span>
+                      {tr(monthly)}
+                      <span className="text-base font-normal text-slate-500">₺/ay</span>
                     </div>
                     {annually && (
                       <div className="text-sm text-green-600 font-medium mt-0.5">
-                        Yıllık: {tr(annually)} ₺ — {Math.round((1 - annually / (monthly * 12)) * 100)}% indirim
+                        Yıllık: {tr(annually)} ₺ —{' '}
+                        {Math.round((1 - annually / (monthly * 12)) * 100)}% indirim
                       </div>
                     )}
                     <div className="text-xs text-slate-400 mt-0.5">KDV dahil</div>
@@ -617,8 +726,11 @@ export default function Sales() {
                     <ul className="space-y-2 mb-6 flex-1">
                       {Object.entries(specs).map(([k, v]) => (
                         <li key={k} className="flex items-center gap-2 text-sm text-slate-700">
-                          <span className="text-brand-500">✓</span>
-                          <span><b>{k}:</b> {v}</span>
+                          <span className="text-brand-500"></span>
+                          <span>
+                            <b>{k}:</b>
+                            {v}
+                          </span>
                         </li>
                       ))}
                     </ul>
@@ -637,7 +749,7 @@ export default function Sales() {
                             : 'border border-brand-500 text-brand-700 hover:bg-brand-50'
                       }`}
                     >
-                      {isInCart(`hosting:${p.id}:monthly`) ? '✓ Sepette' : 'Aylık Seç'}
+                      {isInCart(`hosting:${p.id}:monthly`) ? 'Sepette' : 'Aylık Seç'}
                     </button>
                     {annually && (
                       <button
@@ -649,7 +761,9 @@ export default function Sales() {
                             : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                         }`}
                       >
-                        {isInCart(`hosting:${p.id}:annually`) ? '✓ Sepette' : `Yıllık Seç — ${tr(annually)} ₺`}
+                        {isInCart(`hosting:${p.id}:annually`)
+                          ? 'Sepette'
+                          : `Yıllık Seç — ${tr(annually)} ₺`}
                       </button>
                     )}
                   </div>
@@ -666,9 +780,21 @@ export default function Sales() {
           <h2 className="text-2xl font-bold text-slate-800 text-center mb-10">Neden AdigeHost?</h2>
           <div className="grid sm:grid-cols-3 gap-8 text-center">
             {[
-              { icon: '⚡', title: 'Hızlı Kurulum', desc: 'Ödeme onayının ardından hosting hesabınız dakikalar içinde aktive edilir.' },
-              { icon: '🔒', title: 'Güvenli', desc: 'SSL sertifikası, DDoS koruması ve düzenli yedekleme dahil.' },
-              { icon: '🇹🇷', title: 'Türkiye Odaklı', desc: 'Havale/EFT ile ödeme, Türkçe destek, e-fatura.' },
+              {
+                icon: '',
+                title: 'Hızlı Kurulum',
+                desc: 'Ödeme onayının ardından hosting hesabınız dakikalar içinde aktive edilir.',
+              },
+              {
+                icon: '',
+                title: 'Güvenli',
+                desc: 'SSL sertifikası, DDoS koruması ve düzenli yedekleme dahil.',
+              },
+              {
+                icon: '',
+                title: 'Türkiye Odaklı',
+                desc: 'Havale/EFT ile ödeme, Türkçe destek, e-fatura.',
+              },
             ].map((f) => (
               <div key={f.title}>
                 <div className="text-4xl mb-3">{f.icon}</div>
@@ -696,9 +822,21 @@ export default function Sales() {
             <div>
               <h4 className="font-semibold text-white mb-3 text-sm">Kurumsal</h4>
               <ul className="space-y-2 text-xs">
-                <li><a href="/legal/hakkimizda" className="hover:text-white">Hakkımızda</a></li>
-                <li><a href="/legal/ssl-sertifikasi" className="hover:text-white">SSL Sertifikası</a></li>
-                <li><a href="mailto:destek@adigehost.tr" className="hover:text-white">İletişim</a></li>
+                <li>
+                  <a href="/legal/hakkimizda" className="hover:text-white">
+                    Hakkımızda
+                  </a>
+                </li>
+                <li>
+                  <a href="/legal/ssl-sertifikasi" className="hover:text-white">
+                    SSL Sertifikası
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:destek@adigehost.tr" className="hover:text-white">
+                    İletişim
+                  </a>
+                </li>
               </ul>
             </div>
 
@@ -706,9 +844,21 @@ export default function Sales() {
             <div>
               <h4 className="font-semibold text-white mb-3 text-sm">Yasal</h4>
               <ul className="space-y-2 text-xs">
-                <li><a href="/legal/teslimat-ve-iade" className="hover:text-white">Teslimat ve İade Şartları</a></li>
-                <li><a href="/legal/gizlilik" className="hover:text-white">Gizlilik Sözleşmesi</a></li>
-                <li><a href="/legal/mesafeli-satis" className="hover:text-white">Mesafeli Satış Sözleşmesi</a></li>
+                <li>
+                  <a href="/legal/teslimat-ve-iade" className="hover:text-white">
+                    Teslimat ve İade Şartları
+                  </a>
+                </li>
+                <li>
+                  <a href="/legal/gizlilik" className="hover:text-white">
+                    Gizlilik Sözleşmesi
+                  </a>
+                </li>
+                <li>
+                  <a href="/legal/mesafeli-satis" className="hover:text-white">
+                    Mesafeli Satış Sözleşmesi
+                  </a>
+                </li>
               </ul>
             </div>
 
@@ -716,9 +866,21 @@ export default function Sales() {
             <div>
               <h4 className="font-semibold text-white mb-3 text-sm">Hesap</h4>
               <ul className="space-y-2 text-xs">
-                <li><a href="/login" className="hover:text-white">Giriş Yap</a></li>
-                <li><a href="/register" className="hover:text-white">Kayıt Ol</a></li>
-                <li><a href="/app" className="hover:text-white">Müşteri Paneli</a></li>
+                <li>
+                  <a href="/login" className="hover:text-white">
+                    Giriş Yap
+                  </a>
+                </li>
+                <li>
+                  <a href="/register" className="hover:text-white">
+                    Kayıt Ol
+                  </a>
+                </li>
+                <li>
+                  <a href="/app" className="hover:text-white">
+                    Müşteri Paneli
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
@@ -731,7 +893,9 @@ export default function Sales() {
               width={456}
               height={32}
               className="h-8 w-auto opacity-90"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+              }}
             />
           </div>
 

@@ -63,12 +63,17 @@ export default function HostingDetail() {
   const [error, setError] = useState('');
 
   const flash = (m: string, isErr = false) => {
-    if (isErr) setError(m); else setMsg(m);
-    setTimeout(() => { setMsg(''); setError(''); }, 5000);
+    if (isErr) setError(m);
+    else setMsg(m);
+    setTimeout(() => {
+      setMsg('');
+      setError('');
+    }, 5000);
   };
 
   useEffect(() => {
-    api.get(`/services/${id}`)
+    api
+      .get(`/services/${id}`)
       .then((r) => setService(r.data.data))
       .catch((e) => setError(getApiErrorMessage(e)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -101,12 +106,21 @@ export default function HostingDetail() {
     e.preventDefault();
     setAddingEmail(true);
     try {
-      await api.post(`/whm/${id}/emails`, { login: newLogin, password: newEmailPass, quota: newQuota });
+      await api.post(`/whm/${id}/emails`, {
+        login: newLogin,
+        password: newEmailPass,
+        quota: newQuota,
+      });
       flash(`${newLogin}@${domain} oluşturuldu`);
-      setNewLogin(''); setNewEmailPass(''); setNewQuota(250);
+      setNewLogin('');
+      setNewEmailPass('');
+      setNewQuota(250);
       void loadEmails();
-    } catch (err) { flash(getApiErrorMessage(err), true); }
-    finally { setAddingEmail(false); }
+    } catch (err) {
+      flash(getApiErrorMessage(err), true);
+    } finally {
+      setAddingEmail(false);
+    }
   };
 
   const deleteEmail = async (login: string) => {
@@ -115,7 +129,9 @@ export default function HostingDetail() {
       await api.delete(`/whm/${id}/emails/${login}`);
       flash(`${login}@${domain} silindi`);
       void loadEmails();
-    } catch (err) { flash(getApiErrorMessage(err), true); }
+    } catch (err) {
+      flash(getApiErrorMessage(err), true);
+    }
   };
 
   const changeEmailPass = async (e: FormEvent, login: string) => {
@@ -127,8 +143,11 @@ export default function HostingDetail() {
       await api.put(`/whm/${id}/emails/${login}/password`, { password: pw });
       setPassMap((m) => ({ ...m, [login]: '' }));
       flash(`${login}@${domain} şifresi güncellendi`);
-    } catch (err) { flash(getApiErrorMessage(err), true); }
-    finally { setChangingPass(null); }
+    } catch (err) {
+      flash(getApiErrorMessage(err), true);
+    } finally {
+      setChangingPass(null);
+    }
   };
 
   const changeCpanelPass = async (e: FormEvent) => {
@@ -137,10 +156,13 @@ export default function HostingDetail() {
       await api.post(`/whm/${id}/password`, { password: newCpanelPass });
       setNewCpanelPass('');
       flash('cPanel şifresi güncellendi');
-    } catch (err) { flash(getApiErrorMessage(err), true); }
+    } catch (err) {
+      flash(getApiErrorMessage(err), true);
+    }
   };
 
-  const inp = 'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-brand-500';
+  const inp =
+    'rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:border-brand-500';
 
   if (!service) return <div className="text-slate-400">Yükleniyor…</div>;
 
@@ -168,7 +190,7 @@ export default function HostingDetail() {
             className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-600"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93V18c0-.55.45-1 1-1s1 .45 1 1v1.93c-3.95-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.05 7.44-7 7.93zM12 8a4 4 0 100 8 4 4 0 000-8z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93V18c0-.55.45-1 1-1s1 .45 1 1v1.93c-3.95-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.05 7.44-7 7.93zM12 8a4 4 0 100 8 4 4 0 000-8z" />
             </svg>
             cPanel'e Giriş
           </a>
@@ -180,12 +202,19 @@ export default function HostingDetail() {
 
       {/* Sekmeler */}
       <div className="flex gap-1 rounded-xl bg-slate-100 p-1">
-        {([['emails', '✉ E-posta Hesapları'], ['settings', '⚙ Ayarlar']] as const).map(([k, l]) => (
+        {(
+          [
+            ['emails', 'E-posta Hesapları'],
+            ['settings', 'Ayarlar'],
+          ] as const
+        ).map(([k, l]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
             className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-              tab === k ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+              tab === k
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
             }`}
           >
             {l}
@@ -205,7 +234,10 @@ export default function HostingDetail() {
                   {emails.length}
                 </span>
               </h2>
-              <button onClick={() => void loadEmails()} className="text-xs text-brand-600 hover:text-brand-700">
+              <button
+                onClick={() => void loadEmails()}
+                className="text-xs text-brand-600 hover:text-brand-700"
+              >
                 Yenile
               </button>
             </div>
@@ -223,22 +255,29 @@ export default function HostingDetail() {
                         <p className="font-medium text-slate-800 truncate">{acc.email}</p>
                         <p className="text-xs text-slate-400">
                           {fmtBytes(acc.diskused)} kullanıldı
-                          {acc.quota > 0 ? ` / ${acc.quota} MB` : ' / Sınırsız'}
+                          {acc.quota > 0 ? ` / ${acc.quota} MB` : '/ Sınırsız'}
                         </p>
                         {acc.quota > 0 && <UsageBar pct={acc.diskusedpercent} />}
                         {/* Şifre satırı */}
-                        <form onSubmit={(e) => changeEmailPass(e, acc.login)} className="mt-2 flex gap-2">
+                        <form
+                          onSubmit={(e) => changeEmailPass(e, acc.login)}
+                          className="mt-2 flex gap-2"
+                        >
                           <input
                             type="password"
                             placeholder="Yeni şifre (min 8)"
                             minLength={8}
                             value={passMap[acc.login] ?? ''}
-                            onChange={(e) => setPassMap((m) => ({ ...m, [acc.login]: e.target.value }))}
+                            onChange={(e) =>
+                              setPassMap((m) => ({ ...m, [acc.login]: e.target.value }))
+                            }
                             className={`flex-1 text-xs ${inp}`}
                           />
                           <button
                             type="submit"
-                            disabled={changingPass === acc.login || (passMap[acc.login]?.length ?? 0) < 8}
+                            disabled={
+                              changingPass === acc.login || (passMap[acc.login]?.length ?? 0) < 8
+                            }
                             className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100 disabled:opacity-40"
                           >
                             {changingPass === acc.login ? '…' : 'Şifre Güncelle'}
@@ -266,7 +305,9 @@ export default function HostingDetail() {
                 <input
                   required
                   value={newLogin}
-                  onChange={(e) => setNewLogin(e.target.value.toLowerCase().replace(/[^a-z0-9._+-]/g, ''))}
+                  onChange={(e) =>
+                    setNewLogin(e.target.value.toLowerCase().replace(/[^a-z0-9._+-]/g, ''))
+                  }
                   placeholder="kullanici"
                   className={`flex-1 ${inp}`}
                 />
@@ -291,7 +332,9 @@ export default function HostingDetail() {
                     onChange={(e) => setNewQuota(Number(e.target.value))}
                     className={`w-24 ${inp}`}
                   />
-                  <span className="text-sm text-slate-500">MB kota <span className="text-slate-400">(0=∞)</span></span>
+                  <span className="text-sm text-slate-500">
+                    MB kota<span className="text-slate-400">(0=∞)</span>
+                  </span>
                 </div>
               </div>
               <button
@@ -313,7 +356,8 @@ export default function HostingDetail() {
             <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
               <h2 className="mb-1 font-semibold text-orange-800">cPanel Kontrol Paneli</h2>
               <p className="mb-3 text-sm text-orange-700">
-                Dosya yöneticisi, e-posta yönlendirme, SSL, Softaculous ve diğer araçlara cPanel üzerinden erişebilirsiniz.
+                Dosya yöneticisi, e-posta yönlendirme, SSL, Softaculous ve diğer araçlara cPanel
+                üzerinden erişebilirsiniz.
               </p>
               <a
                 href={cpanelUrl}
@@ -324,7 +368,8 @@ export default function HostingDetail() {
                 cPanel'i Aç →
               </a>
               <p className="mt-2 text-xs text-orange-600">
-                Kullanıcı adı: <span className="font-mono font-bold">{service.config?.cpanelUser}</span>
+                Kullanıcı adı:
+                <span className="font-mono font-bold">{service.config?.cpanelUser}</span>
               </p>
             </div>
           )}
@@ -362,7 +407,13 @@ export default function HostingDetail() {
               </div>
               <div>
                 <dt className="text-xs uppercase text-slate-400">Durum</dt>
-                <dd className={service.status === 'active' ? 'text-green-600 font-medium' : 'text-amber-500 font-medium'}>
+                <dd
+                  className={
+                    service.status === 'active'
+                      ? 'text-green-600 font-medium'
+                      : 'text-amber-500 font-medium'
+                  }
+                >
                   {service.status}
                 </dd>
               </div>

@@ -108,9 +108,7 @@ export default function Integrations() {
     try {
       const r = await api.post(`/admin/integrations/${id}/test`);
       setMsg(
-        r.data.data.connected
-          ? '✅ Bağlantı başarılı'
-          : `❌ ${r.data.data.error ?? 'Bağlanılamadı'}`,
+        r.data.data.connected ? 'Bağlantı başarılı' : ` ${r.data.data.error ?? 'Bağlanılamadı'}`,
       );
       load();
     } catch (e) {

@@ -12,11 +12,11 @@ interface SavedCard {
 
 function brandLogo(brand: string | null): string {
   const b = (brand ?? '').toLowerCase();
-  if (b.includes('visa')) return '💳 VISA';
-  if (b.includes('master')) return '💳 MasterCard';
-  if (b.includes('troy')) return '💳 Troy';
-  if (b.includes('amex') || b.includes('american')) return '💳 Amex';
-  return '💳';
+  if (b.includes('visa')) return 'VISA';
+  if (b.includes('master')) return 'MasterCard';
+  if (b.includes('troy')) return 'Troy';
+  if (b.includes('amex') || b.includes('american')) return 'Amex';
+  return '';
 }
 
 export default function Cards() {
@@ -27,7 +27,8 @@ export default function Cards() {
 
   const load = () => {
     setLoading(true);
-    api.get('/users/me/cards')
+    api
+      .get('/users/me/cards')
       .then((r) => setCards(r.data.data ?? []))
       .catch((e) => setError(getApiErrorMessage(e)))
       .finally(() => setLoading(false));
@@ -35,8 +36,12 @@ export default function Cards() {
   useEffect(() => load(), []);
 
   const flash = (m: string, err = false) => {
-    if (err) setError(m); else setMsg(m);
-    setTimeout(() => { setMsg(''); setError(''); }, 3500);
+    if (err) setError(m);
+    else setMsg(m);
+    setTimeout(() => {
+      setMsg('');
+      setError('');
+    }, 3500);
   };
 
   const makeDefault = async (id: string) => {
@@ -44,16 +49,21 @@ export default function Cards() {
       await api.put(`/users/me/cards/${id}/default`);
       flash('Varsayılan kart güncellendi');
       load();
-    } catch (e) { flash(getApiErrorMessage(e), true); }
+    } catch (e) {
+      flash(getApiErrorMessage(e), true);
+    }
   };
 
   const remove = async (id: string, last4: string | null) => {
-    if (!confirm(`**** **** **** ${last4 ?? '????'} kartını silmek istediğinize emin misiniz?`)) return;
+    if (!confirm(`**** **** **** ${last4 ?? '????'} kartını silmek istediğinize emin misiniz?`))
+      return;
     try {
       await api.delete(`/users/me/cards/${id}`);
       flash('Kart silindi');
       load();
-    } catch (e) { flash(getApiErrorMessage(e), true); }
+    } catch (e) {
+      flash(getApiErrorMessage(e), true);
+    }
   };
 
   return (
@@ -72,11 +82,11 @@ export default function Cards() {
         <p className="text-slate-400">Yükleniyor…</p>
       ) : cards.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-slate-300 bg-white p-10 text-center">
-          <div className="text-5xl mb-3">💳</div>
+          <div className="text-5xl mb-3"></div>
           <p className="text-slate-500 mb-2">Henüz kayıtlı kart yok.</p>
           <p className="text-xs text-slate-400">
-            Bir kart ile ödeme yaptığınızda iyzico tarafında saklama izni verebilirsiniz.
-            Sonraki tahsilatlar saklı kartla otomatik yapılır.
+            Bir kart ile ödeme yaptığınızda iyzico tarafında saklama izni verebilirsiniz. Sonraki
+            tahsilatlar saklı kartla otomatik yapılır.
           </p>
         </div>
       ) : (
@@ -85,9 +95,7 @@ export default function Cards() {
             <div
               key={c.id}
               className={`rounded-2xl border p-5 ${
-                c.isDefault
-                  ? 'border-brand-300 bg-brand-50 shadow-sm'
-                  : 'border-slate-200 bg-white'
+                c.isDefault ? 'border-brand-300 bg-brand-50 shadow-sm' : 'border-slate-200 bg-white'
               }`}
             >
               <div className="flex items-center justify-between">
@@ -101,7 +109,9 @@ export default function Cards() {
                       </span>
                     )}
                   </div>
-                  {c.cardAlias && <div className="text-xs text-slate-500 mt-0.5">{c.cardAlias}</div>}
+                  {c.cardAlias && (
+                    <div className="text-xs text-slate-500 mt-0.5">{c.cardAlias}</div>
+                  )}
                   <div className="text-xs text-slate-400 mt-0.5">
                     Eklendi: {new Date(c.createdAt).toLocaleDateString('tr-TR')}
                   </div>
@@ -129,11 +139,11 @@ export default function Cards() {
       )}
 
       <div className="rounded-2xl bg-blue-50 border border-blue-200 p-4 text-sm text-blue-900">
-        <p className="font-semibold mb-1">🔒 Kart Güvenliği</p>
+        <p className="font-semibold mb-1">Kart Güvenliği</p>
         <p className="text-xs text-blue-800 leading-relaxed">
-          Kart numarası ve CVV bilgileri <strong>asla sunucumuzda saklanmaz</strong>.
-          Yalnızca iyzico tarafında PCI-DSS uyumlu olarak saklanır ve bizim sunucumuzda
-          AES-256-GCM şifreli bir token tutulur.
+          Kart numarası ve CVV bilgileri<strong>asla sunucumuzda saklanmaz</strong>. Yalnızca iyzico
+          tarafında PCI-DSS uyumlu olarak saklanır ve bizim sunucumuzda AES-256-GCM şifreli bir
+          token tutulur.
         </p>
       </div>
     </div>

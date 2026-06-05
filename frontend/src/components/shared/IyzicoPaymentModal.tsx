@@ -50,7 +50,7 @@ export default function IyzicoPaymentModal({ open, checkoutFormContent, onClose 
       <div className="relative w-full max-w-2xl max-h-[95vh] overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 sticky top-0 bg-white z-10">
           <div className="flex items-center gap-2">
-            <div className="text-2xl">💳</div>
+            <div className="text-2xl"></div>
             <div>
               <div className="font-bold text-slate-800">Güvenli Ödeme</div>
               <div className="text-xs text-slate-500">iyzico altyapısı — 3D Secure</div>

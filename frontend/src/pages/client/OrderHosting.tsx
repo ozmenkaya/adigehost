@@ -59,9 +59,9 @@ export default function OrderHosting() {
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <h1 className="text-xl font-bold text-amber-800">Siparişiniz alındı 🎉</h1>
+          <h1 className="text-xl font-bold text-amber-800">Siparişiniz alındı</h1>
           <p className="mt-1 text-sm text-amber-700">
-            Aşağıdaki hesaba <strong>havale/EFT</strong> ile ödeme yapın. Ödemeniz onaylandığında
+            Aşağıdaki hesaba<strong>havale/EFT</strong>ile ödeme yapın. Ödemeniz onaylandığında
             hosting hesabınız otomatik olarak açılacaktır.
           </p>
           <div className="mt-4 space-y-2 rounded-xl bg-white p-4 text-sm">
@@ -120,7 +120,8 @@ export default function OrderHosting() {
               </span>
               <div className="font-semibold text-slate-800">{p.name}</div>
               <div className="mt-2 text-2xl font-bold text-brand-700">
-                {p.priceMonthly} <span className="text-sm font-normal text-slate-500">TL/ay</span>
+                {p.priceMonthly}
+                <span className="text-sm font-normal text-slate-500">TL/ay</span>
               </div>
               {p.priceAnnually && (
                 <div className="text-xs text-slate-400">veya {p.priceAnnually} TL/yıl</div>

@@ -6,8 +6,8 @@ interface Result {
   tld: string;
   available: boolean;
   isPremium: boolean;
-  priceTRY: number | null;      // KDV dahil
-  priceExVat: number | null;    // KDV hariç
+  priceTRY: number | null; // KDV dahil
+  priceExVat: number | null; // KDV hariç
   vatRate: number;
   period: number;
   provider?: string;
@@ -62,9 +62,9 @@ export default function Domains() {
     return (
       <div className="mx-auto max-w-lg space-y-4">
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6">
-          <h1 className="text-xl font-bold text-amber-800">Siparişiniz alındı 🎉</h1>
+          <h1 className="text-xl font-bold text-amber-800">Siparişiniz alındı</h1>
           <p className="mt-1 text-sm text-amber-700">
-            <strong>{order.domain}</strong> için havale/EFT ile ödeme yapın. Ödeme onaylandığında
+            <strong>{order.domain}</strong>için havale/EFT ile ödeme yapın. Ödeme onaylandığında
             alan adı adınıza kaydedilecektir.
           </p>
           <div className="mt-4 space-y-2 rounded-xl bg-white p-4 text-sm">
@@ -134,9 +134,7 @@ export default function Domains() {
                 <div className="font-semibold text-slate-800">{r.domain}</div>
                 <div className="text-xs">
                   {r.available ? (
-                    <span className="text-green-600">
-                      ✓ Müsait{r.isPremium ? ' · Premium' : ''}
-                    </span>
+                    <span className="text-green-600">Müsait{r.isPremium ? '· Premium' : ''}</span>
                   ) : (
                     <span className="text-slate-400">Dolu</span>
                   )}
@@ -152,7 +150,12 @@ export default function Domains() {
                     </div>
                     {r.priceExVat != null && (
                       <div className="text-xs text-slate-400">
-                        KDV hariç {r.priceExVat.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺ · KDV %{r.vatRate}
+                        KDV hariç{' '}
+                        {r.priceExVat.toLocaleString('tr-TR', {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}{' '}
+                        ₺ · KDV %{r.vatRate}
                       </div>
                     )}
                   </div>

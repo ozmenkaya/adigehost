@@ -45,7 +45,7 @@ export default function Register() {
     return (
       <div className="flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
-          <h1 className="text-xl font-bold text-green-700">Kaydınız alındı 🎉</h1>
+          <h1 className="text-xl font-bold text-green-700">Kaydınız alındı</h1>
           <p className="mt-2 text-sm text-slate-600">
             E-posta adresinize doğrulama linki gönderildi. Doğruladıktan sonra giriş yapabilirsiniz.
           </p>

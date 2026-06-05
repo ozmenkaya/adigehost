@@ -32,7 +32,11 @@ function fmtTL(n: number) {
 
 function fmtDate(s: string | null) {
   if (!s) return '—';
-  return new Date(s).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return new Date(s).toLocaleDateString('tr-TR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
 }
 
 export default function Services() {
@@ -42,13 +46,17 @@ export default function Services() {
   const [tab, setTab] = useState<Tab>('hosting');
 
   const load = () => {
-    api.get('/services')
+    api
+      .get('/services')
       .then((res) => setServices(res.data.data))
       .catch((err) => setError(getApiErrorMessage(err)));
   };
   useEffect(() => load(), []);
 
-  const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
+  const flash = (m: string) => {
+    setMsg(m);
+    setTimeout(() => setMsg(''), 3000);
+  };
 
   const toggleAutoRenew = async (e: React.MouseEvent, id: string, current: boolean) => {
     e.preventDefault();
@@ -76,14 +84,21 @@ export default function Services() {
   useEffect(() => {
     if (services.length === 0) return;
     if (grouped.hosting.length === 0 && grouped.domain.length > 0) setTab('domain');
-    else if (grouped.hosting.length === 0 && grouped.domain.length === 0 && grouped.vps.length > 0) setTab('vps');
+    else if (grouped.hosting.length === 0 && grouped.domain.length === 0 && grouped.vps.length > 0)
+      setTab('vps');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [services.length]);
 
   const tabs: Array<{ key: Tab; label: string; icon: string; count: number; visible: boolean }> = [
-    { key: 'hosting', label: 'Hosting', icon: '🌐', count: grouped.hosting.length, visible: true },
-    { key: 'domain', label: 'Domain', icon: '🔗', count: grouped.domain.length, visible: true },
-    { key: 'vps', label: 'VPS', icon: '🖥️', count: grouped.vps.length, visible: grouped.vps.length > 0 },
+    { key: 'hosting', label: 'Hosting', icon: '', count: grouped.hosting.length, visible: true },
+    { key: 'domain', label: 'Domain', icon: '', count: grouped.domain.length, visible: true },
+    {
+      key: 'vps',
+      label: 'VPS',
+      icon: '',
+      count: grouped.vps.length,
+      visible: grouped.vps.length > 0,
+    },
   ];
 
   return (
@@ -112,20 +127,28 @@ export default function Services() {
 
       {/* Sekmeler */}
       <div className="flex gap-1 rounded-xl bg-slate-100 p-1 max-w-md">
-        {tabs.filter((t) => t.visible).map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
-              tab === t.key ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
-            }`}
-          >
-            {t.icon} {t.label}{' '}
-            <span className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
-              tab === t.key ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-500'
-            }`}>{t.count}</span>
-          </button>
-        ))}
+        {tabs
+          .filter((t) => t.visible)
+          .map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-colors ${
+                tab === t.key
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+              }`}
+            >
+              {t.icon} {t.label}{' '}
+              <span
+                className={`ml-1 rounded-full px-1.5 py-0.5 text-xs ${
+                  tab === t.key ? 'bg-brand-100 text-brand-700' : 'bg-slate-200 text-slate-500'
+                }`}
+              >
+                {t.count}
+              </span>
+            </button>
+          ))}
       </div>
 
       {/* ── HOSTING TABLOSU ───────────────────────────────────────── */}
@@ -147,7 +170,10 @@ export default function Services() {
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
                     Henüz hosting hizmetiniz yok.
-                    <Link to="/app/order/hosting" className="block mt-2 text-brand-600 hover:underline">
+                    <Link
+                      to="/app/order/hosting"
+                      className="block mt-2 text-brand-600 hover:underline"
+                    >
                       + Hosting paketi seç
                     </Link>
                   </td>
@@ -156,7 +182,10 @@ export default function Services() {
                 grouped.hosting.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">
-                      <Link to={`/app/services/${s.id}`} className="font-medium text-slate-800 hover:text-brand-600">
+                      <Link
+                        to={`/app/services/${s.id}`}
+                        className="font-medium text-slate-800 hover:text-brand-600"
+                      >
                         {s.domain ?? s.name}
                       </Link>
                     </td>
@@ -164,7 +193,9 @@ export default function Services() {
                       {s.config?.cpanelUser ?? '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[s.status]?.cls ?? ''}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[s.status]?.cls ?? ''}`}
+                      >
                         {STATUS[s.status]?.label ?? s.status}
                       </span>
                     </td>
@@ -172,7 +203,12 @@ export default function Services() {
                     <td className="px-4 py-3 text-right text-sm">
                       <span className="font-semibold">{fmtTL(s.price)}</span>{' '}
                       <span className="text-xs text-slate-400">
-                        ₺/{s.billingCycle === 'annually' ? 'yıl' : s.billingCycle === 'quarterly' ? '3 ay' : 'ay'}
+                        ₺/
+                        {s.billingCycle === 'annually'
+                          ? 'yıl'
+                          : s.billingCycle === 'quarterly'
+                            ? '3 ay'
+                            : 'ay'}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -215,30 +251,46 @@ export default function Services() {
               ) : (
                 grouped.domain.map((s) => {
                   const expiry = s.nextDue ? new Date(s.nextDue) : null;
-                  const daysLeft = expiry ? Math.ceil((expiry.getTime() - Date.now()) / 86400000) : null;
+                  const daysLeft = expiry
+                    ? Math.ceil((expiry.getTime() - Date.now()) / 86400000)
+                    : null;
                   const isExpiring = daysLeft !== null && daysLeft < 60;
                   const isExpired = daysLeft !== null && daysLeft < 0;
                   return (
-                    <tr key={s.id} className={`hover:bg-slate-50 ${isExpiring ? 'bg-amber-50/40' : ''}`}>
+                    <tr
+                      key={s.id}
+                      className={`hover:bg-slate-50 ${isExpiring ? 'bg-amber-50/40' : ''}`}
+                    >
                       <td className="px-4 py-3">
-                        <Link to={`/app/services/${s.id}`} className="font-medium text-slate-800 hover:text-brand-600">
+                        <Link
+                          to={`/app/services/${s.id}`}
+                          className="font-medium text-slate-800 hover:text-brand-600"
+                        >
                           {s.domain ?? s.name}
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[s.status]?.cls ?? ''}`}>
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[s.status]?.cls ?? ''}`}
+                        >
                           {STATUS[s.status]?.label ?? s.status}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-xs text-slate-600">{fmtDate(s.nextDue)}</div>
                         {daysLeft !== null && (
-                          <div className={`text-[11px] ${
-                            isExpired ? 'text-red-600 font-semibold' :
-                            isExpiring ? 'text-amber-600 font-medium' :
-                            'text-slate-400'
-                          }`}>
-                            {isExpired ? `${Math.abs(daysLeft)} gün önce sona erdi` : `${daysLeft} gün kaldı`}
+                          <div
+                            className={`text-[11px] ${
+                              isExpired
+                                ? 'text-red-600 font-semibold'
+                                : isExpiring
+                                  ? 'text-amber-600 font-medium'
+                                  : 'text-slate-400'
+                            }`}
+                          >
+                            {isExpired
+                              ? `${Math.abs(daysLeft)} gün önce sona erdi`
+                              : `${daysLeft} gün kaldı`}
                           </div>
                         )}
                       </td>
@@ -294,13 +346,20 @@ export default function Services() {
                 grouped.vps.map((s) => (
                   <tr key={s.id} className="hover:bg-slate-50">
                     <td className="px-4 py-3">
-                      <Link to={`/app/services/${s.id}`} className="font-medium text-slate-800 hover:text-brand-600">
+                      <Link
+                        to={`/app/services/${s.id}`}
+                        className="font-medium text-slate-800 hover:text-brand-600"
+                      >
                         {s.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-slate-600">{s.hetznerIp ?? '—'}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-slate-600">
+                      {s.hetznerIp ?? '—'}
+                    </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[s.status]?.cls ?? ''}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[s.status]?.cls ?? ''}`}
+                      >
                         {STATUS[s.status]?.label ?? s.status}
                       </span>
                     </td>
@@ -329,8 +388,12 @@ export default function Services() {
 }
 
 function AutoRenewToggle({
-  active, onClick,
-}: { active: boolean; onClick: (e: React.MouseEvent) => void }) {
+  active,
+  onClick,
+}: {
+  active: boolean;
+  onClick: (e: React.MouseEvent) => void;
+}) {
   return (
     <button
       onClick={onClick}

@@ -122,7 +122,7 @@ export default function Settings() {
                 className={inp}
               />
               <p className="mt-1 text-xs text-slate-400">
-                1.3 = %30 kâr · 2.0 = %100 kâr · Mevcut: <strong>%{markupPercent}</strong>
+                1.3 = %30 kâr · 2.0 = %100 kâr · Mevcut:<strong>%{markupPercent}</strong>
               </p>
             </div>
             <div>
@@ -147,7 +147,7 @@ export default function Settings() {
         <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
           <h2 className="font-semibold text-slate-800">Şirket Bilgileri (E-Fatura Satıcı)</h2>
           <p className="text-xs text-slate-500">
-            E-fatura / e-arşiv kesiminde "satıcı" olarak kullanılır. Eksiksiz olmalıdır.
+            E-fatura / e-arşiv kesiminde "satıcı"olarak kullanılır. Eksiksiz olmalıdır.
           </p>
           <div className="grid grid-cols-2 gap-4">
             {COMPANY_FIELDS.map(([key, label]) => (

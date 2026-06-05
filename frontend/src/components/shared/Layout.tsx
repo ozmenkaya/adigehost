@@ -8,24 +8,24 @@ interface NavItem {
 }
 
 const ADMIN_NAV: NavItem[] = [
-  { to: '/admin', label: 'Genel Bakış', icon: '📊' },
-  { to: '/admin/clients', label: 'Müşteriler', icon: '👥' },
-  { to: '/admin/services', label: 'Servisler', icon: '🖥️' },
-  { to: '/admin/products', label: 'Ürünler', icon: '📦' },
-  { to: '/admin/invoices', label: 'Faturalar', icon: '🧾' },
-  { to: '/admin/servers', label: 'Sunucular', icon: '🗄️' },
-  { to: '/admin/integrations', label: 'Entegrasyonlar', icon: '🔌' },
-  { to: '/admin/settings', label: 'Ayarlar', icon: '⚙️' },
-  { to: '/admin/logs', label: 'Loglar', icon: '📜' },
-  { to: '/admin/sync', label: 'Senkronizasyon', icon: '🔄' },
+  { to: '/admin', label: 'Genel Bakış', icon: '' },
+  { to: '/admin/clients', label: 'Müşteriler', icon: '' },
+  { to: '/admin/services', label: 'Servisler', icon: '' },
+  { to: '/admin/products', label: 'Ürünler', icon: '' },
+  { to: '/admin/invoices', label: 'Faturalar', icon: '' },
+  { to: '/admin/servers', label: 'Sunucular', icon: '' },
+  { to: '/admin/integrations', label: 'Entegrasyonlar', icon: '' },
+  { to: '/admin/settings', label: 'Ayarlar', icon: '' },
+  { to: '/admin/logs', label: 'Loglar', icon: '' },
+  { to: '/admin/sync', label: 'Senkronizasyon', icon: '' },
 ];
 
 const CLIENT_NAV: NavItem[] = [
-  { to: '/app', label: 'Panel', icon: '🏠' },
-  { to: '/app/services', label: 'Servislerim', icon: '🖥️' },
-  { to: '/app/domains', label: 'Domain', icon: '🌐' },
-  { to: '/app/cards', label: 'Kartlarım', icon: '💳' },
-  { to: '/app/profile', label: 'Profil', icon: '👤' },
+  { to: '/app', label: 'Panel', icon: '' },
+  { to: '/app/services', label: 'Servislerim', icon: '' },
+  { to: '/app/domains', label: 'Domain', icon: '' },
+  { to: '/app/cards', label: 'Kartlarım', icon: '' },
+  { to: '/app/profile', label: 'Profil', icon: '' },
 ];
 
 export default function Layout() {

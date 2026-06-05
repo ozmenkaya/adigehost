@@ -65,17 +65,13 @@ export default function Invoices() {
     try {
       const r = await api.post(`/admin/invoices/${inv.id}/approve`);
       const prov = r.data.data.provisioned ?? [];
-      const ei = r.data.data.einvoice as
-        | { type?: string; uuid?: string; error?: string }
-        | null;
+      const ei = r.data.data.einvoice as { type?: string; uuid?: string; error?: string } | null;
       const eiMsg = ei?.type
         ? ` ${ei.type === 'efatura' ? 'e-Fatura' : 'e-Arşiv'} kesildi.`
         : ei?.error
           ? ` (e-belge kesilemedi: ${ei.error})`
           : '';
-      const provMsg = prov.length
-        ? ` ${prov.length} servis aktive edildi.`
-        : '';
+      const provMsg = prov.length ? ` ${prov.length} servis aktive edildi.` : '';
       setMsg(`${inv.invoiceNum} ödendi olarak işaretlendi.${provMsg}${eiMsg}`);
       load();
     } catch (e) {
@@ -90,7 +86,10 @@ export default function Invoices() {
   const addItem = () => setCItems((arr) => [...arr, { ...EMPTY_LINE }]);
   const removeItem = (i: number) => setCItems((arr) => arr.filter((_, idx) => idx !== i));
 
-  const subtotal = cItems.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0), 0);
+  const subtotal = cItems.reduce(
+    (s, it) => s + (Number(it.quantity) || 0) * (Number(it.unitPrice) || 0),
+    0,
+  );
   const vat = subtotal * 0.2;
 
   const resetCreate = () => {
@@ -123,7 +122,7 @@ export default function Invoices() {
       });
       setMsg(
         `Fatura oluşturuldu: ${r.data.data.invoiceNum} (${r.data.data.total} TL). ` +
-          '"Ödemeyi Onayla" ile e-fatura/e-arşiv otomatik kesilir.',
+          '"Ödemeyi Onayla"ile e-fatura/e-arşiv otomatik kesilir.',
       );
       resetCreate();
       load();
@@ -214,9 +213,7 @@ export default function Invoices() {
                   onClick={() => removeItem(i)}
                   disabled={cItems.length === 1}
                   className="col-span-1 rounded-lg border border-slate-300 py-2 text-xs text-slate-500 hover:bg-slate-100 disabled:opacity-40"
-                >
-                  ✕
-                </button>
+                ></button>
               </div>
             ))}
             <button
@@ -230,8 +227,8 @@ export default function Invoices() {
 
           <div className="flex items-center justify-between border-t border-slate-100 pt-3 text-sm">
             <div className="text-slate-500">
-              Ara toplam: <b className="text-slate-700">{subtotal.toFixed(2)} TL</b> · KDV %20:{' '}
-              <b className="text-slate-700">{vat.toFixed(2)} TL</b> · Genel toplam:{' '}
+              Ara toplam:<b className="text-slate-700">{subtotal.toFixed(2)} TL</b>· KDV %20:{' '}
+              <b className="text-slate-700">{vat.toFixed(2)} TL</b>· Genel toplam:{' '}
               <b className="text-slate-900">{(subtotal + vat).toFixed(2)} TL</b>
             </div>
             <button

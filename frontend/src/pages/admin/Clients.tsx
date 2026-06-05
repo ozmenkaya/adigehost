@@ -390,7 +390,7 @@ export default function Clients() {
             <Row label="Adres" value={viewing.address} full />
             <Row
               label="İl / İlçe"
-              value={[viewing.city, viewing.district].filter(Boolean).join(' / ')}
+              value={[viewing.city, viewing.district].filter(Boolean).join('/ ')}
             />
             <Row label="Posta Kodu" value={viewing.postalCode} />
             <Row label="Durum" value={viewing.status} />
@@ -556,9 +556,7 @@ function Modal({
             onClick={onClose}
             className="text-slate-400 hover:text-slate-600"
             aria-label="Kapat"
-          >
-            ✕
-          </button>
+          ></button>
         </div>
         {children}
       </div>
