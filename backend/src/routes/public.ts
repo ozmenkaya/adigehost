@@ -15,6 +15,55 @@ import { round2 } from '../utils/helpers';
  */
 export const publicRouter = Router();
 
+// ── Domain transfer uygunluk kontrolü + fiyat (auth gerekmez) ─────────────
+const transferCheckSchema = z.object({
+  body: z.object({
+    domain: z.string().min(4).max(253).regex(/^[a-z0-9.-]+\.[a-z.]{2,}$/i),
+  }),
+});
+
+publicRouter.post(
+  '/domains/transfer-check',
+  validate(transferCheckSchema),
+  asyncHandler(async (req, res) => {
+    const domain = (req.body.domain as string).toLowerCase().trim();
+    const dotIdx = domain.indexOf('.');
+    const sld = domain.slice(0, dotIdx);
+    const tld = domain.slice(dotIdx + 1);
+
+    // 1) Transfer edilebilirlik
+    const ok = await AlantronService.checkTransfer(domain).catch(() => null);
+
+    // 2) Fiyat (yenileme fiyatıyla aynı)
+    const [info, rate, markupStr, vatStr] = await Promise.all([
+      AlantronService.checkAvailability(sld, tld),
+      ExchangeRateService.getUsdToTry(),
+      SettingsService.get('domain_markup', '1.3'),
+      SettingsService.get('vat_rate', '20'),
+    ]);
+    const markup = Math.max(1, Number(markupStr) || 1.3);
+    const vatRate = Number(vatStr);
+    const priceRaw = info.priceUsd ?? info.priceTry;
+    const yearlyExVat = priceRaw != null
+      ? round2((info.currency === 'TRY' ? priceRaw : priceRaw * rate) * markup)
+      : null;
+    const yearlyIncVat = yearlyExVat != null ? round2(yearlyExVat * (1 + vatRate / 100)) : null;
+
+    res.json({
+      success: true,
+      data: {
+        domain,
+        transferable: ok?.transferable ?? false,
+        message: ok?.message ?? 'Sorgu yapılamadı',
+        yearlyExVat,
+        yearlyIncVat,
+        vatRate,
+        currency: 'TRY',
+      },
+    });
+  }),
+);
+
 // ── Şirket bilgileri (yasal sayfalar için) ──────────────────────────────────
 publicRouter.get(
   '/company',

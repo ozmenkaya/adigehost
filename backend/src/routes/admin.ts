@@ -596,14 +596,19 @@ adminRouter.post(
       if (!service) continue;
 
       const renewMatch = /RENEWAL:(\d+):([\w-]+)/.exec(invoice.notes ?? '');
-      const isRenewal =
-        renewMatch !== null && renewMatch[2] === service.id && service.type === 'domain';
+      const transferMatch = /TRANSFER:(\d+):([\w-]+)/.exec(invoice.notes ?? '');
+      const isRenewal = renewMatch !== null && renewMatch[2] === service.id && service.type === 'domain';
+      const isTransfer = transferMatch !== null && transferMatch[2] === service.id && service.type === 'domain';
 
       try {
         if (isRenewal) {
           const years = Number(renewMatch![1]);
           const result = await ProvisioningService.renewDomain(service, years);
           provisioned.push({ serviceId: service.id, type: 'domain_renew', years, ...result });
+        } else if (isTransfer) {
+          const years = Number(transferMatch![1]);
+          const result = await ProvisioningService.transferDomain(service, years);
+          provisioned.push({ serviceId: service.id, type: 'domain_transfer', years, ...result });
         } else if (service.status === 'pending') {
           if (service.type === 'hosting') {
             const result = await ProvisioningService.provisionHosting(service);

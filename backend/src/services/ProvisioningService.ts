@@ -199,6 +199,64 @@ export class ProvisioningService {
   }
 
   /**
+   * Dışarıdan domain transferini başlatır (Alantron transferdomain).
+   * Service.config.authCode kullanılarak çağrı yapılır.
+   * Transfer 5-7 gün sürer, sonra durumu polling ile güncellenir.
+   * Bu çağrı sadece transfer talebini başlatır.
+   */
+  static async transferDomain(
+    service: Service,
+    years: number,
+  ): Promise<{ domain: string; registrycode: number; pending: true }> {
+    if (service.type !== 'domain' || !service.domain) {
+      throw ApiError.badRequest('Geçersiz domain servisi');
+    }
+    const cfg = (service.config ?? {}) as { authCode?: string; transfer?: boolean };
+    if (!cfg.authCode) throw ApiError.badRequest('Transfer auth code yok');
+
+    const user = await User.findByPk(service.userId);
+    if (!user) throw ApiError.notFound('Müşteri bulunamadı');
+    if (!user.address || !user.city || !user.phone) {
+      throw ApiError.badRequest('Transfer için müşteri profili eksik (adres/şehir/telefon)');
+    }
+
+    // Contact oluştur (her transfer için yeni)
+    const phoneRaw = user.phone.replace(/\D/g, '');
+    const phone = phoneRaw.startsWith('90') ? phoneRaw : `90${phoneRaw.replace(/^0/, '')}`;
+    const contactId = await AlantronService.createContact({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      company: user.company ?? user.firstName,
+      email: user.email,
+      address: user.address,
+      city: user.city,
+      country: 'tr',
+      zip: user.postalCode ?? '00000',
+      phone,
+    });
+
+    const result = await AlantronService.transferDomain({
+      domain: service.domain,
+      authCode: cfg.authCode,
+      year: years,
+      contactId,
+    });
+
+    // registrycode'u config'e kaydet — status pending kalır, transfer tamamlanınca admin active yapacak
+    service.config = {
+      ...(service.config ?? {}),
+      registrycode: result.registrycode,
+      authCode: undefined, // güvenlik: artık saklamayalım
+    };
+    await service.save();
+
+    logger.info('Alantron: transfer talebi başlatıldı', {
+      service: service.id, domain: service.domain, registrycode: result.registrycode,
+    });
+    return { domain: service.domain, registrycode: result.registrycode, pending: true };
+  }
+
+  /**
    * Bir domain servisini Alantron üzerinde yeniler (renewdomain).
    * years: 1-10. nextDue ileri alınır.
    */

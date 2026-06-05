@@ -110,12 +110,11 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
         const service = await Service.findByPk(item.serviceId);
         if (!service) continue;
 
-        // Yenileme siparişi mi? (notes alanında "RENEWAL:<years>:<svcId>" işareti)
+        // Yenileme veya transfer siparişi mi? (notes'ta "RENEWAL:n:sid" veya "TRANSFER:n:sid")
         const renewMatch = /RENEWAL:(\d+):([\w-]+)/.exec(invoice.notes ?? '');
-        const isRenewal =
-          renewMatch !== null &&
-          renewMatch[2] === service.id &&
-          service.type === 'domain';
+        const transferMatch = /TRANSFER:(\d+):([\w-]+)/.exec(invoice.notes ?? '');
+        const isRenewal = renewMatch !== null && renewMatch[2] === service.id && service.type === 'domain';
+        const isTransfer = transferMatch !== null && transferMatch[2] === service.id && service.type === 'domain';
 
         try {
           if (isRenewal) {
@@ -123,6 +122,13 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
             provisioned.push({
               type: 'domain_renew',
               ...(await ProvisioningService.renewDomain(service, years)),
+              years,
+            });
+          } else if (isTransfer) {
+            const years = Number(transferMatch![1]);
+            provisioned.push({
+              type: 'domain_transfer',
+              ...(await ProvisioningService.transferDomain(service, years)),
               years,
             });
           } else if (service.status === 'pending') {

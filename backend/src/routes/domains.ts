@@ -228,3 +228,106 @@ domainsRouter.post(
     });
   }),
 );
+
+// --- POST /domains/transfer-order — dışarıdan domain transferi (auth) -------
+const transferOrderSchema = z.object({
+  body: z.object({
+    domain: z.string().min(4).max(253).regex(/^[a-z0-9.-]+\.[a-z.]{2,}$/i),
+    authCode: z.string().min(6).max(64),
+    year: z.coerce.number().int().min(1).max(10).default(1),
+  }),
+});
+
+domainsRouter.post(
+  '/transfer-order',
+  validate(transferOrderSchema),
+  asyncHandler(async (req, res) => {
+    const domain = (req.body.domain as string).toLowerCase().trim();
+    const authCode = req.body.authCode as string;
+    const year = Number(req.body.year ?? 1);
+    const dotIdx = domain.indexOf('.');
+    const sld = domain.slice(0, dotIdx);
+    const tld = domain.slice(dotIdx + 1);
+
+    // 1) Transfer edilebilirlik
+    const xfer = await AlantronService.checkTransfer(domain).catch(() => null);
+    if (!xfer?.transferable) {
+      throw ApiError.badRequest(
+        `Bu domain transfer için müsait değil: ${xfer?.message ?? 'sorgu başarısız'}`,
+      );
+    }
+
+    // 2) Aynı domain panelde var mı?
+    const existing = await Service.findOne({ where: { type: 'domain', domain } });
+    if (existing) throw ApiError.conflict('Bu domain zaten panelde kayıtlı');
+
+    // 3) Fiyat hesapla (yenileme fiyatıyla aynı)
+    const [info, usdTry, markupStr] = await Promise.all([
+      AlantronService.checkAvailability(sld, tld),
+      ExchangeRateService.getUsdToTry(),
+      domainMarkup(),
+    ]);
+    const priceRaw = info.priceUsd ?? info.priceTry;
+    if (priceRaw == null) throw ApiError.badRequest('Domain fiyatı alınamadı');
+    const tryBase = info.currency === 'TRY' ? priceRaw : priceRaw * usdTry;
+    const yearlyPrice = round2(tryBase * markupStr);
+    const totalPrice = round2(yearlyPrice * year);
+
+    // 4) Pending Service oluştur (transfer onayında active olacak)
+    const service = await Service.create({
+      userId: req.user!.sub,
+      type: 'domain',
+      name: domain,
+      domain,
+      status: 'pending',
+      price: yearlyPrice,
+      billingCycle: 'annually',
+      nextDue: new Date(Date.now() + year * 365 * 86400000),
+      config: {
+        period: year,
+        provider: 'alantron',
+        transfer: true,
+        authCode, // ödeme sonrası kullanılacak (callback'te transfer çağrısı için)
+      },
+    });
+
+    // 5) Fatura — notes'a TRANSFER işareti
+    const invoice = await InvoiceService.createForAmount(
+      req.user!.sub,
+      service.id,
+      `Domain transferi: ${domain} (${year} yıl)`,
+      totalPrice,
+    );
+    invoice.notes = `TRANSFER:${year}:${service.id} | ${invoice.notes}`;
+    await invoice.save();
+
+    const bank = await SettingsService.getMany(BANK_KEYS);
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'domain.transfer_order',
+      resource: 'service',
+      resourceId: service.id,
+      details: { domain, year, total: totalPrice },
+      ip: req.ip,
+    });
+
+    void User.findByPk(req.user!.sub).then((u) => {
+      if (!u) return;
+      return NotificationService.sendOrderReceived({
+        to: u.email,
+        firstName: u.firstName,
+        invoiceNum: invoice.invoiceNum,
+        description: `Domain transfer: ${domain} (${year} yıl)`,
+        total: Number(invoice.total),
+        dueDate: new Date(invoice.dueDate),
+      }).catch(() => {});
+    });
+
+    res.status(201).json({
+      success: true,
+      data: { service, invoice, bank },
+      message: 'Transfer talebi alındı. Ödeme onaylandığında transfer başlatılır (5-7 gün sürer).',
+    });
+  }),
+);

@@ -309,6 +309,71 @@ export class AlantronService {
   }
 
   /**
+   * Bir domain'in başka bir registrar'dan Alantron'a transfer edilebilirliğini test eder.
+   * Yanıt: { status: 'basarili' } veya 'hata' + description (örn. domain zaten Alantron'da,
+   * kilitli, son 60 günde transfer edilmiş, vb.)
+   */
+  static async checkTransfer(domain: string): Promise<{
+    transferable: boolean;
+    message: string;
+    raw: Record<string, unknown>;
+  }> {
+    const creds = await getCreds();
+    const data = await get<Record<string, unknown>>(creds, {
+      type: 'checktransfer',
+      domain,
+    });
+    const status = String(data.status ?? '').toLowerCase();
+    const transferable = status === 'basarili' || status === 'success';
+    return {
+      transferable,
+      message: String(data.description ?? data.message ?? (transferable ? 'Transfer edilebilir' : 'Transfer reddedildi')),
+      raw: data,
+    };
+  }
+
+  /**
+   * Dışarıdan domain transferi başlatır.
+   * authCode: Domain'in mevcut registrar'ında atanmış EPP/transfer kodu.
+   * Yanıtta registrycode döner; transfer 5-7 gün sürer (rgpstat).
+   */
+  static async transferDomain(opts: {
+    domain: string;
+    authCode: string;
+    year: number;
+    contactId: number; // owner/admin/billing/tech aynı
+    nameServers?: string[];
+  }): Promise<{
+    registrycode: number;
+    status: string;
+    message: string;
+  }> {
+    const creds = await getCreds();
+    const ns = opts.nameServers ?? ['mptr02.alantron.com', 'mptr04.alantron.com'];
+    const data = await post<Record<string, unknown>>(creds, {
+      type: 'transferdomain',
+      domain: opts.domain,
+      authcode: opts.authCode,
+      year: opts.year,
+      ownerid: opts.contactId,
+      adminid: opts.contactId,
+      billid: opts.contactId,
+      techid: opts.contactId,
+      pdns: ns[0],
+      sdns: ns[1] ?? ns[0],
+      privacy: 'no',
+    });
+    assertOk(data, 'transferdomain');
+    const rc = Number(data.registrycode ?? data.registry_code ?? data.id ?? 0);
+    logger.info('Alantron: transfer başlatıldı', { domain: opts.domain, year: opts.year, registrycode: rc });
+    return {
+      registrycode: rc,
+      status: String(data.status ?? ''),
+      message: String(data.mesaj ?? data.message ?? data.description ?? 'Transfer başlatıldı'),
+    };
+  }
+
+  /**
    * Domain bilgisi (registrycode ile).
    * subtype: 'all' (varsayılan), 'ns', 'dns', 'lock', 'regepoch', 'expepoch'
    * ⚠️  Domain listesi API'si YOK — getdomainlist "method not implemented".
