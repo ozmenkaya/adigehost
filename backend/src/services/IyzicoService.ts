@@ -56,6 +56,7 @@ export interface CheckoutInitResult {
   token: string;
   paymentPageUrl: string;
   conversationId: string;
+  checkoutFormContent: string; // HTML+script — sayfa içine inject etmek için
 }
 
 export class IyzicoService {
@@ -198,6 +199,7 @@ export class IyzicoService {
             token: String(result.token),
             paymentPageUrl: String(result.paymentPageUrl),
             conversationId: String(result.conversationId ?? invoice.id),
+            checkoutFormContent: String(result.checkoutFormContent ?? ''),
           });
         },
       );

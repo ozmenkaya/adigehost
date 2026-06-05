@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
+import IyzicoPaymentModal from '../../components/shared/IyzicoPaymentModal';
 
 interface Service {
   id: string;
@@ -493,6 +494,7 @@ function RenewTab({
   } | null>(null);
   const [loadingPrice, setLoadingPrice] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [iyzicoForm, setIyzicoForm] = useState<string | null>(null);
 
   useEffect(() => {
     setLoadingPrice(true);
@@ -510,6 +512,12 @@ function RenewTab({
       const invoiceId = r.data.data.invoice.id;
       if (payMethod === 'iyzico') {
         const initRes = await api.post('/payments/iyzico/init', { invoiceId });
+        const formContent = initRes.data.data?.checkoutFormContent as string | undefined;
+        if (formContent) {
+          setIyzicoForm(formContent);
+          return;
+        }
+        // Fallback redirect
         const url = initRes.data.data?.paymentPageUrl;
         if (!url) { onError('İyzico ödeme sayfası alınamadı'); return; }
         window.location.href = url;
@@ -623,6 +631,13 @@ function RenewTab({
           Domain bitiş tarihiniz {years} yıl uzar ve fatura e-fatura olarak kesilir.
         </p>
       </div>
+
+      {/* İyzico ödeme modalı */}
+      <IyzicoPaymentModal
+        open={iyzicoForm !== null}
+        checkoutFormContent={iyzicoForm ?? ''}
+        onClose={() => setIyzicoForm(null)}
+      />
     </div>
   );
 }

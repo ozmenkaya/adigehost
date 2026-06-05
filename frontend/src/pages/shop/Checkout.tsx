@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
 import { useCartStore, type CartItem } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
+import IyzicoPaymentModal from '../../components/shared/IyzicoPaymentModal';
 
 type Mode = 'login' | 'register';
 
@@ -39,6 +40,7 @@ export default function Checkout() {
   const [placing, setPlacing] = useState(false);
   const [placeError, setPlaceError] = useState('');
   const [result, setResult] = useState<OrderResult | null>(null);
+  const [iyzicoForm, setIyzicoForm] = useState<string | null>(null);
 
   // Sepet boşsa anasayfaya
   useEffect(() => {
@@ -97,16 +99,22 @@ export default function Checkout() {
       clear();
 
       if (method === 'iyzico') {
-        // 2a) İyzico checkout form başlat → ödeme sayfasına yönlendir
+        // 2a) İyzico checkout form başlat → sayfa içinde modal aç
         const initRes = await api.post('/payments/iyzico/init', {
           invoiceId: orderData.invoice.id,
         });
-        const url = initRes.data.data?.paymentPageUrl as string | undefined;
-        if (!url) {
+        const formContent = initRes.data.data?.checkoutFormContent as string | undefined;
+        if (!formContent) {
+          // Fallback: yine de URL'e yönlendir
+          const url = initRes.data.data?.paymentPageUrl as string | undefined;
+          if (url) {
+            window.location.href = url;
+            return;
+          }
           setPlaceError('İyzico ödeme sayfası alınamadı, lütfen havale ile deneyin');
           return;
         }
-        window.location.href = url;
+        setIyzicoForm(formContent);
         return;
       }
 
@@ -341,6 +349,13 @@ export default function Checkout() {
           </div>
         </div>
       </div>
+
+      {/* İyzico ödeme modalı */}
+      <IyzicoPaymentModal
+        open={iyzicoForm !== null}
+        checkoutFormContent={iyzicoForm ?? ''}
+        onClose={() => setIyzicoForm(null)}
+      />
     </div>
   );
 }
