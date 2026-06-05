@@ -198,7 +198,6 @@ export default function Services() {
                 <th className="px-4 py-3">Alan Adı</th>
                 <th className="px-4 py-3">Durum</th>
                 <th className="px-4 py-3">Bitiş Tarihi</th>
-                <th className="px-4 py-3">Sağlayıcı</th>
                 <th className="px-4 py-3 text-center">Oto. Yen.</th>
                 <th className="px-4 py-3 text-right">İşlem</th>
               </tr>
@@ -206,7 +205,7 @@ export default function Services() {
             <tbody className="divide-y divide-slate-100">
               {grouped.domain.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
+                  <td colSpan={5} className="px-4 py-12 text-center text-slate-400">
                     Henüz domaininiz yok.
                     <Link to="/" className="block mt-2 text-brand-600 hover:underline">
                       + Domain ara veya transfer et
@@ -242,9 +241,6 @@ export default function Services() {
                             {isExpired ? `${Math.abs(daysLeft)} gün önce sona erdi` : `${daysLeft} gün kaldı`}
                           </div>
                         )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500 capitalize">
-                        {s.config?.provider ?? 'alantron'}
                       </td>
                       <td className="px-4 py-3 text-center">
                         <AutoRenewToggle
