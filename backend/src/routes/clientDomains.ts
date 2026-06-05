@@ -1,12 +1,18 @@
 import { Router } from 'express';
 import type { Request } from 'express';
 import { z } from 'zod';
-import { Service } from '../models';
+import { Service, Invoice, InvoiceItem, User } from '../models';
 import { AlantronService } from '../services/AlantronService';
+import { ExchangeRateService } from '../services/ExchangeRateService';
+import { SettingsService, BANK_KEYS } from '../services/SettingsService';
+import { InvoiceService } from '../services/InvoiceService';
+import { NotificationService } from '../services/NotificationService';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
 import { logActivity } from '../services/AuditService';
+import { calculateTotals, round2 } from '../utils/helpers';
+import { env } from '../config/env';
 
 /**
  * Müşterinin kendi domain servisleri üzerinde Alantron işlemleri.
@@ -156,5 +162,138 @@ clientDomainsRouter.delete(
       resourceId: service.id, details: { nameserver: req.params.ns }, ip: req.ip,
     });
     res.json({ success: true, message: 'Child nameserver silindi' });
+  }),
+);
+
+// ── Yenileme fiyatı sorgulama ────────────────────────────────────────────────
+// GET /services/:id/domain/renew-price?years=1  → KDV dahil TL fiyat
+clientDomainsRouter.get(
+  '/renew-price',
+  asyncHandler(async (req, res) => {
+    const { service } = await getOwnedDomain(req);
+    const years = Math.max(1, Math.min(10, Number(req.query.years) || 1));
+    const domain = service.domain ?? service.name;
+    const dotIdx = domain.indexOf('.');
+    const sld = domain.slice(0, dotIdx);
+    const tld = domain.slice(dotIdx + 1);
+
+    const [info, rate, markupStr, vatStr] = await Promise.all([
+      AlantronService.checkAvailability(sld, tld),
+      ExchangeRateService.getUsdToTry(),
+      SettingsService.get('domain_markup', '1.3'),
+      SettingsService.get('vat_rate', '20'),
+    ]);
+    const markup = Math.max(1, Number(markupStr) || 1.3);
+    const vatRate = Number(vatStr);
+    const priceRaw = info.priceUsd ?? info.priceTry;
+    if (priceRaw == null) throw ApiError.badRequest('Fiyat bilgisi alınamadı');
+
+    const tryBase = info.currency === 'TRY' ? priceRaw : priceRaw * rate;
+    const yearlyExVat = round2(tryBase * markup);
+    const totalExVat = round2(yearlyExVat * years);
+    const totals = calculateTotals(totalExVat, vatRate);
+
+    res.json({
+      success: true,
+      data: {
+        domain,
+        years,
+        yearlyExVat,
+        yearlyIncVat: round2(yearlyExVat * (1 + vatRate / 100)),
+        subtotal: totals.subtotal,
+        tax: totals.tax,
+        total: totals.total,
+        vatRate,
+        currency: 'TRY',
+      },
+    });
+  }),
+);
+
+// ── Yenileme siparişi oluştur (havale veya iyzico ile ödenir) ───────────────
+const renewOrderSchema = z.object({
+  body: z.object({ years: z.coerce.number().int().min(1).max(10) }),
+});
+
+clientDomainsRouter.post(
+  '/renew-order',
+  validate(renewOrderSchema),
+  asyncHandler(async (req, res) => {
+    const { service } = await getOwnedDomain(req);
+    const years = req.body.years as number;
+    const domain = service.domain ?? service.name;
+    const dotIdx = domain.indexOf('.');
+    const sld = domain.slice(0, dotIdx);
+    const tld = domain.slice(dotIdx + 1);
+
+    // Fiyat hesapla (sunucu tarafında yeniden doğrulama)
+    const [info, rate, markupStr, vatStr] = await Promise.all([
+      AlantronService.checkAvailability(sld, tld),
+      ExchangeRateService.getUsdToTry(),
+      SettingsService.get('domain_markup', '1.3'),
+      SettingsService.get('vat_rate', String(env.VAT_RATE)),
+    ]);
+    const markup = Math.max(1, Number(markupStr) || 1.3);
+    const vatRate = Number(vatStr);
+    const priceRaw = info.priceUsd ?? info.priceTry;
+    if (priceRaw == null) throw ApiError.badRequest('Yenileme fiyatı alınamadı');
+
+    const tryBase = info.currency === 'TRY' ? priceRaw : priceRaw * rate;
+    const subtotal = round2(round2(tryBase * markup) * years);
+    const { tax, total } = calculateTotals(subtotal, vatRate);
+
+    const dueDays = Number(await SettingsService.get('payment_due_days', '7'));
+    const invoice = await Invoice.create({
+      userId: service.userId,
+      invoiceNum: await InvoiceService.nextInvoiceNumber(),
+      status: 'unpaid',
+      subtotal,
+      tax,
+      total,
+      dueDate: new Date(Date.now() + dueDays * 86400000),
+      notes: `Domain yenileme: ${domain} (${years} yıl)`,
+    });
+
+    // metadata: { type: 'renew', years } → callback bunu görürse renewDomain çağırır
+    await InvoiceItem.create({
+      invoiceId: invoice.id,
+      serviceId: service.id,
+      description: `${domain} domain yenileme (${years} yıl)`,
+      quantity: 1,
+      unitPrice: subtotal,
+      total: subtotal,
+    });
+    // Faturanın notes alanına da renew işareti
+    invoice.notes = `RENEWAL:${years}:${service.id} | ${invoice.notes}`;
+    await invoice.save();
+
+    const bank = await SettingsService.getMany(BANK_KEYS);
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'domain.renew_order',
+      resource: 'service',
+      resourceId: service.id,
+      details: { years, domain, total },
+      ip: req.ip,
+    });
+
+    // Müşteriye bildirim
+    void User.findByPk(service.userId).then((u) => {
+      if (!u) return;
+      return NotificationService.sendOrderReceived({
+        to: u.email, firstName: u.firstName,
+        invoiceNum: invoice.invoiceNum,
+        description: `${domain} yenileme (${years} yıl)`,
+        total: Number(invoice.total),
+        dueDate: new Date(invoice.dueDate),
+      }).catch(() => {});
+    });
+
+    res.status(201).json({
+      success: true,
+      data: { invoice, bank, years, domain },
+      message: 'Yenileme talebi oluşturuldu. Ödeme sonrası domain otomatik yenilenir.',
+    });
   }),
 );

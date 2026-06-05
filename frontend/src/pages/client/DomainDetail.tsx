@@ -21,7 +21,7 @@ interface DomainInfo {
   childNameServers: Array<{ ns: string; ip: string }>;
 }
 
-type Tab = 'nameservers' | 'dns' | 'security' | 'info';
+type Tab = 'renew' | 'nameservers' | 'dns' | 'security' | 'info';
 
 export default function DomainDetail() {
   const { id } = useParams();
@@ -63,6 +63,7 @@ export default function DomainDetail() {
   const isExpiring = daysLeft !== null && daysLeft < 30;
 
   const tabs: Array<{ key: Tab; label: string; icon: string }> = [
+    { key: 'renew', label: 'Yenile', icon: '↻' },
     { key: 'nameservers', label: 'Nameserver', icon: '🌐' },
     { key: 'dns', label: 'Child DNS', icon: '🔗' },
     { key: 'security', label: 'Güvenlik', icon: '🔒' },
@@ -110,6 +111,16 @@ export default function DomainDetail() {
           </button>
         ))}
       </div>
+
+      {/* ── YENİLE ─────────────────────────────────────────────── */}
+      {tab === 'renew' && (
+        <RenewTab
+          serviceId={id!}
+          domain={domain}
+          currentExpiry={expiry}
+          onError={(e) => flash(e, true)}
+        />
+      )}
 
       {/* ── NAMESERVER ─────────────────────────────────────────── */}
       {tab === 'nameservers' && info && (
@@ -462,6 +473,156 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
     <div>
       <dt className="text-xs uppercase text-slate-400">{label}</dt>
       <dd className={mono ? 'font-mono text-slate-800' : 'font-medium text-slate-800'}>{value}</dd>
+    </div>
+  );
+}
+
+// ── Yenile sekmesi ───────────────────────────────────────────────────────────
+function RenewTab({
+  serviceId, domain, currentExpiry, onError,
+}: {
+  serviceId: string;
+  domain: string;
+  currentExpiry?: string | null;
+  onError: (e: string) => void;
+}) {
+  const [years, setYears] = useState(1);
+  const [price, setPrice] = useState<{
+    yearlyExVat: number; yearlyIncVat: number;
+    subtotal: number; tax: number; total: number; vatRate: number;
+  } | null>(null);
+  const [loadingPrice, setLoadingPrice] = useState(true);
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    setLoadingPrice(true);
+    api.get(`/services/${serviceId}/domain/renew-price`, { params: { years } })
+      .then((r) => setPrice(r.data.data))
+      .catch((e) => onError(getApiErrorMessage(e)))
+      .finally(() => setLoadingPrice(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceId, years]);
+
+  const create = async (payMethod: 'iyzico' | 'havale') => {
+    setCreating(true);
+    try {
+      const r = await api.post(`/services/${serviceId}/domain/renew-order`, { years });
+      const invoiceId = r.data.data.invoice.id;
+      if (payMethod === 'iyzico') {
+        const initRes = await api.post('/payments/iyzico/init', { invoiceId });
+        const url = initRes.data.data?.paymentPageUrl;
+        if (!url) { onError('İyzico ödeme sayfası alınamadı'); return; }
+        window.location.href = url;
+      } else {
+        // Havale: panelin fatura sayfasına yönlendir (havale bilgileri orada)
+        window.location.href = `/app?paid=havale&invoice=${r.data.data.invoice.invoiceNum}`;
+      }
+    } catch (e) {
+      onError(getApiErrorMessage(e));
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const expiryDate = currentExpiry ? new Date(currentExpiry) : null;
+  const newExpiry = expiryDate ? new Date(expiryDate) : null;
+  if (newExpiry) newExpiry.setFullYear(newExpiry.getFullYear() + years);
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="font-bold text-slate-800 mb-1">Domain Yenile</h2>
+        <p className="text-xs text-slate-500 mb-4">
+          <code className="bg-slate-100 px-1.5 py-0.5 rounded">{domain}</code> alan adınızı uzatın.
+          Ödeme onaylandığında Alantron'a otomatik yansır.
+        </p>
+
+        {/* Yıl seçimi */}
+        <div className="mb-4">
+          <label className="block text-xs font-medium text-slate-600 mb-2">Yenileme Süresi</label>
+          <div className="grid grid-cols-5 gap-2">
+            {[1, 2, 3, 5, 10].map((y) => (
+              <button
+                key={y}
+                onClick={() => setYears(y)}
+                className={`rounded-xl py-3 text-sm font-semibold border-2 transition-colors ${
+                  years === y
+                    ? 'border-brand-600 bg-brand-50 text-brand-700'
+                    : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                }`}
+              >
+                <div className="text-base font-bold">{y}</div>
+                <div className="text-[10px] text-slate-500">yıl</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Fiyat */}
+        {loadingPrice ? (
+          <div className="rounded-xl bg-slate-50 p-4 text-center text-slate-400 text-sm">
+            Fiyat hesaplanıyor…
+          </div>
+        ) : price ? (
+          <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 space-y-2">
+            <div className="flex justify-between text-sm text-slate-600">
+              <span>Yıllık fiyat (KDV dahil)</span>
+              <span className="font-medium">{price.yearlyIncVat.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+            </div>
+            <div className="flex justify-between text-sm text-slate-600">
+              <span>{years} yıl × KDV hariç</span>
+              <span>{price.subtotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+            </div>
+            <div className="flex justify-between text-sm text-slate-600">
+              <span>KDV %{price.vatRate}</span>
+              <span>{price.tax.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</span>
+            </div>
+            <div className="flex justify-between font-bold text-slate-900 pt-2 border-t border-slate-200">
+              <span>Toplam</span>
+              <span className="text-xl text-brand-700">
+                {price.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+              </span>
+            </div>
+
+            {expiryDate && newExpiry && (
+              <div className="pt-2 mt-2 border-t border-slate-200 text-xs text-slate-500 flex items-center gap-2">
+                <span>📅 Yeni bitiş tarihi:</span>
+                <span className="font-semibold text-green-700">
+                  {newExpiry.toLocaleDateString('tr-TR')}
+                </span>
+                <span className="text-slate-400">
+                  (şu an: {expiryDate.toLocaleDateString('tr-TR')})
+                </span>
+              </div>
+            )}
+          </div>
+        ) : null}
+
+        {/* Ödeme butonları */}
+        <div className="mt-4 space-y-2">
+          <button
+            onClick={() => create('iyzico')}
+            disabled={creating || !price}
+            className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60 flex items-center justify-center gap-2"
+          >
+            {creating ? '…' : '💳 Kredi Kartı ile Hemen Yenile'}
+          </button>
+          <button
+            onClick={() => create('havale')}
+            disabled={creating || !price}
+            className="w-full rounded-xl bg-amber-500 py-2.5 text-sm font-bold text-white hover:bg-amber-600 disabled:opacity-60"
+          >
+            🏦 Havale / EFT ile Yenile
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
+        <p>
+          ℹ️ Ödeme onaylandığı anda Alantron'a renewal isteği gönderilir.
+          Domain bitiş tarihiniz {years} yıl uzar ve fatura e-fatura olarak kesilir.
+        </p>
+      </div>
     </div>
   );
 }

@@ -197,4 +197,38 @@ export class ProvisioningService {
     });
     return { domain: service.domain, provider: 'domainnameapi' };
   }
+
+  /**
+   * Bir domain servisini Alantron üzerinde yeniler (renewdomain).
+   * years: 1-10. nextDue ileri alınır.
+   */
+  static async renewDomain(
+    service: Service,
+    years: number,
+  ): Promise<{ domain: string; provider: string; newExpiry: Date }> {
+    if (service.type !== 'domain' || !service.domain) {
+      throw ApiError.badRequest('Geçersiz domain servisi');
+    }
+    const cfg = (service.config ?? {}) as { registrycode?: number; provider?: string };
+    if (!cfg.registrycode) {
+      throw ApiError.badRequest('Bu domain için Alantron registrycode kaydedilmemiş');
+    }
+
+    const currentExpiry = service.nextDue ?? new Date();
+    const expEpoch = Math.floor(new Date(currentExpiry).getTime() / 1000);
+
+    await AlantronService.renew(cfg.registrycode, years, expEpoch);
+
+    // nextDue ileri al
+    const newExpiry = new Date(currentExpiry);
+    newExpiry.setFullYear(newExpiry.getFullYear() + years);
+    service.nextDue = newExpiry;
+    if (service.status === 'suspended') service.status = 'active';
+    await service.save();
+
+    logger.info('Alantron: domain yenilendi', {
+      service: service.id, domain: service.domain, years, newExpiry,
+    });
+    return { domain: service.domain, provider: 'alantron', newExpiry };
+  }
 }

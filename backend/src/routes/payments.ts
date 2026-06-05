@@ -108,18 +108,36 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
       for (const item of items) {
         if (!item.serviceId) continue;
         const service = await Service.findByPk(item.serviceId);
-        if (!service || service.status !== 'pending') continue;
+        if (!service) continue;
+
+        // Yenileme siparişi mi? (notes alanında "RENEWAL:<years>:<svcId>" işareti)
+        const renewMatch = /RENEWAL:(\d+):([\w-]+)/.exec(invoice.notes ?? '');
+        const isRenewal =
+          renewMatch !== null &&
+          renewMatch[2] === service.id &&
+          service.type === 'domain';
+
         try {
-          if (service.type === 'hosting') {
-            provisioned.push({ type: 'hosting', ...(await ProvisioningService.provisionHosting(service)) });
-          } else if (service.type === 'vps') {
-            provisioned.push({ type: 'vps', ...(await ProvisioningService.provisionVps(service)) });
-          } else if (service.type === 'domain') {
-            provisioned.push({ type: 'domain', ...(await ProvisioningService.provisionDomain(service)) });
+          if (isRenewal) {
+            const years = Number(renewMatch![1]);
+            provisioned.push({
+              type: 'domain_renew',
+              ...(await ProvisioningService.renewDomain(service, years)),
+              years,
+            });
+          } else if (service.status === 'pending') {
+            if (service.type === 'hosting') {
+              provisioned.push({ type: 'hosting', ...(await ProvisioningService.provisionHosting(service)) });
+            } else if (service.type === 'vps') {
+              provisioned.push({ type: 'vps', ...(await ProvisioningService.provisionVps(service)) });
+            } else if (service.type === 'domain') {
+              provisioned.push({ type: 'domain', ...(await ProvisioningService.provisionDomain(service)) });
+            }
           }
         } catch (e) {
           logger.error('Provisioning hatası (iyzico callback)', {
             service: service.id,
+            isRenewal,
             error: (e as Error).message,
           });
         }

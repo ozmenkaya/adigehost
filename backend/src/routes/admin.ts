@@ -587,21 +587,39 @@ adminRouter.post(
     await invoice.save();
 
     // Faturaya bağlı bekleyen servisleri provision et (hosting → cPanel, vps → Hetzner).
+    // Yenileme siparişiyse (notes'ta RENEWAL:<years>:<svcId>) renewDomain çağrılır.
     const items = (invoice.get('items') as InvoiceItem[]) ?? [];
     const provisioned: Array<Record<string, unknown>> = [];
     for (const item of items) {
       if (!item.serviceId) continue;
       const service = await Service.findByPk(item.serviceId);
-      if (!service || service.status !== 'pending') continue;
-      if (service.type === 'hosting') {
-        const result = await ProvisioningService.provisionHosting(service);
-        provisioned.push({ serviceId: service.id, type: 'hosting', ...result });
-      } else if (service.type === 'vps') {
-        const result = await ProvisioningService.provisionVps(service);
-        provisioned.push({ serviceId: service.id, type: 'vps', ...result });
-      } else if (service.type === 'domain') {
-        const result = await ProvisioningService.provisionDomain(service);
-        provisioned.push({ serviceId: service.id, type: 'domain', ...result });
+      if (!service) continue;
+
+      const renewMatch = /RENEWAL:(\d+):([\w-]+)/.exec(invoice.notes ?? '');
+      const isRenewal =
+        renewMatch !== null && renewMatch[2] === service.id && service.type === 'domain';
+
+      try {
+        if (isRenewal) {
+          const years = Number(renewMatch![1]);
+          const result = await ProvisioningService.renewDomain(service, years);
+          provisioned.push({ serviceId: service.id, type: 'domain_renew', years, ...result });
+        } else if (service.status === 'pending') {
+          if (service.type === 'hosting') {
+            const result = await ProvisioningService.provisionHosting(service);
+            provisioned.push({ serviceId: service.id, type: 'hosting', ...result });
+          } else if (service.type === 'vps') {
+            const result = await ProvisioningService.provisionVps(service);
+            provisioned.push({ serviceId: service.id, type: 'vps', ...result });
+          } else if (service.type === 'domain') {
+            const result = await ProvisioningService.provisionDomain(service);
+            provisioned.push({ serviceId: service.id, type: 'domain', ...result });
+          }
+        }
+      } catch (e) {
+        logger.error('Approve provisioning hatası', {
+          service: service.id, isRenewal, error: (e as Error).message,
+        });
       }
     }
 
