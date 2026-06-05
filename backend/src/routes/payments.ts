@@ -55,11 +55,10 @@ paymentsRouter.post(
   }),
 );
 
-// ── POST /payments/iyzico/callback (iyzico → bize POST) ─────────────────────
-// iyzico application/x-www-form-urlencoded ile { token } gönderir.
-paymentsRouter.post(
-  '/iyzico/callback',
-  asyncHandler(async (req, res) => {
+// ── GET|POST /payments/iyzico/callback ──────────────────────────────────────
+// iyzico genelde browser ile POST (form) gönderir; ama bazı senaryolarda
+// GET redirect de olabiliyor. Her ikisini de kabul ediyoruz.
+const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
     const token = (req.body?.token ?? req.query?.token) as string | undefined;
     if (!token) {
       return res.redirect(`${env.FRONTEND_URL}/payment-result?status=error&msg=token_yok`);
@@ -179,8 +178,10 @@ paymentsRouter.post(
         `${env.FRONTEND_URL}/payment-result?status=error&msg=${encodeURIComponent((err as Error).message)}`,
       );
     }
-  }),
-);
+});
+
+paymentsRouter.post('/iyzico/callback', iyzicoCallbackHandler);
+paymentsRouter.get('/iyzico/callback', iyzicoCallbackHandler);
 
 // ── GET /payments/iyzico/verify (frontend için manuel doğrulama) ────────────
 paymentsRouter.get(
