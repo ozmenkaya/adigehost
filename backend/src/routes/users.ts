@@ -117,6 +117,52 @@ usersRouter.delete(
   }),
 );
 
+// --- PUT /users/me/cards/:id/default — varsayılan kart yap ---
+usersRouter.put(
+  '/me/cards/:id/default',
+  asyncHandler(async (req, res) => {
+    const card = await SavedCard.findOne({
+      where: { id: req.params.id, userId: req.user!.sub },
+    });
+    if (!card) throw ApiError.notFound('Kart bulunamadı');
+    // Diğer kartların default'unu kaldır
+    await SavedCard.update(
+      { isDefault: false },
+      { where: { userId: req.user!.sub } },
+    );
+    card.isDefault = true;
+    await card.save();
+    res.json({ success: true, message: 'Varsayılan kart güncellendi' });
+  }),
+);
+
+// --- PUT /users/me/services/:id/auto-renew — otomatik yenileme aç/kapa ---
+const autoRenewSchema = z.object({ body: z.object({ autoRenew: z.boolean() }) });
+usersRouter.put(
+  '/me/services/:id/auto-renew',
+  validate(autoRenewSchema),
+  asyncHandler(async (req, res) => {
+    const service = await Service.findOne({
+      where: { id: req.params.id, userId: req.user!.sub },
+    });
+    if (!service) throw ApiError.notFound('Servis bulunamadı');
+    service.autoRenew = req.body.autoRenew;
+    await service.save();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'user.service_auto_renew',
+      resource: 'service',
+      resourceId: service.id,
+      details: { autoRenew: req.body.autoRenew },
+      ip: req.ip,
+    });
+    res.json({
+      success: true,
+      message: req.body.autoRenew ? 'Otomatik yenileme açıldı' : 'Otomatik yenileme kapatıldı',
+    });
+  }),
+);
+
 // --- PUT /users/me/consents — KVKK rıza güncelleme ---
 const consentsSchema = z.object({
   body: z.object({

@@ -5,6 +5,7 @@ import { IyzicoService } from '../services/IyzicoService';
 import { ProvisioningService } from '../services/ProvisioningService';
 import { EInvoiceService } from '../services/EInvoiceService';
 import { NotificationService } from '../services/NotificationService';
+import { AutoRenewService } from '../services/AutoRenewService';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
@@ -90,6 +91,16 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
       invoice.paymentMethod = 'iyzico';
       invoice.iyzicoPaymentId = result.paymentId ?? null;
       await invoice.save();
+
+      // Kart saklandıysa SavedCard'a kaydet (sonraki abone tahsilatları için)
+      if (result.savedCard) {
+        try {
+          await AutoRenewService.saveCardFromCheckout(invoice.userId, result.savedCard);
+          logger.info('Kart saklandı', { user: invoice.userId, last4: result.savedCard.lastFourDigits });
+        } catch (e) {
+          logger.error('Kart kaydetme hatası', { error: (e as Error).message });
+        }
+      }
 
       // Servisleri provision et
       const items = (invoice.get('items') as InvoiceItem[]) ?? [];

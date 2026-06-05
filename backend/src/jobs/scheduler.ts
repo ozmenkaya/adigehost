@@ -1,6 +1,7 @@
 import cron from 'node-cron';
 import { logger } from '../config/logger';
 import { ServerManager } from '../services/ServerManager';
+import { AutoRenewService } from '../services/AutoRenewService';
 
 /**
  * Zamanlanmış görevler (node-cron). index.ts içinde startScheduler() ile başlatılır.
@@ -15,9 +16,16 @@ export function startScheduler(): void {
     return;
   }
 
-  // Otomatik tahsilat: her ayın 1'i 02:00 (UTC) — TODO: CronService.runBilling()
-  cron.schedule('0 2 1 * *', () => {
-    logger.info('[cron] Aylık tahsilat tetiklendi (iskelet)');
+  // Otomatik yenileme tahsilatları: her gece 02:00 (UTC)
+  // Vadesi 3 gün içinde dolan tüm autoRenew servisleri saklı kartla çekilir.
+  cron.schedule('0 2 * * *', async () => {
+    logger.info('[cron] Otomatik yenileme tahsilatı başladı');
+    try {
+      const result = await AutoRenewService.runDaily();
+      logger.info('[cron] Otomatik yenileme tamamlandı', result);
+    } catch (err) {
+      logger.error('[cron] Otomatik yenileme hatası', { error: (err as Error).message });
+    }
   });
 
   // Sunucu kapasite senkronu: her gece 03:00

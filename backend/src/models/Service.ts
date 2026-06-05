@@ -28,6 +28,7 @@ export class Service extends Model<InferAttributes<Service>, InferCreationAttrib
   declare price: number;
   declare billingCycle: CreationOptional<BillingCycle>;
   declare nextDue: CreationOptional<Date | null>;
+  declare autoRenew: CreationOptional<boolean>;
   declare domain: CreationOptional<string | null>;
   declare config: CreationOptional<Record<string, unknown> | null>;
   declare createdAt: CreationOptional<Date>;
@@ -58,6 +59,7 @@ Service.init(
       defaultValue: 'monthly',
     },
     nextDue: { type: DataTypes.DATEONLY, allowNull: true },
+    autoRenew: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     domain: { type: DataTypes.STRING(100), allowNull: true },
     config: { type: DataTypes.JSON, allowNull: true },
     createdAt: DataTypes.DATE,
