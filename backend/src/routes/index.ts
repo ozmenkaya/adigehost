@@ -16,6 +16,7 @@ import { integrationsRouter } from './integrations';
 import { webhooksRouter } from './webhooks';
 import { publicRouter } from './public';
 import { cartRouter } from './cart';
+import { paymentsRouter } from './payments';
 
 export const router = Router();
 
@@ -28,6 +29,16 @@ router.use('/webhooks', webhooksRouter);
 
 // Herkese açık — satış sayfası (auth gerekmez)
 router.use('/public', publicRouter);
+
+// Ödeme uçları — init auth gerektirir, callback/verify token tabanlı (auth yok)
+router.use(
+  '/payments',
+  (req, res, next) => {
+    if (req.path === '/iyzico/init') return authenticate(req, res, next);
+    next();
+  },
+  paymentsRouter,
+);
 
 // Kimlik doğrulama gerektiren müşteri uçları
 router.use('/users', authenticate, usersRouter);

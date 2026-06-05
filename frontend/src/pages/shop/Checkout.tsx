@@ -73,7 +73,7 @@ export default function Checkout() {
     }
   };
 
-  const placeOrder = async () => {
+  const placeOrder = async (method: 'havale' | 'iyzico') => {
     if (!isLoggedIn) return;
     if (!allHostingDomainsFilled) {
       setPlaceError('Lütfen her hosting paketi için domain adı girin');
@@ -82,6 +82,7 @@ export default function Checkout() {
     setPlacing(true);
     setPlaceError('');
     try {
+      // 1) Sipariş oluştur (her iki yöntem için ortak)
       const payload = {
         items: items.map((i) => ({
           type: i.type,
@@ -92,8 +93,25 @@ export default function Checkout() {
         })),
       };
       const r = await api.post('/cart/checkout', payload);
-      setResult(r.data.data);
+      const orderData = r.data.data;
       clear();
+
+      if (method === 'iyzico') {
+        // 2a) İyzico checkout form başlat → ödeme sayfasına yönlendir
+        const initRes = await api.post('/payments/iyzico/init', {
+          invoiceId: orderData.invoice.id,
+        });
+        const url = initRes.data.data?.paymentPageUrl as string | undefined;
+        if (!url) {
+          setPlaceError('İyzico ödeme sayfası alınamadı, lütfen havale ile deneyin');
+          return;
+        }
+        window.location.href = url;
+        return;
+      }
+
+      // 2b) Havale: sonuç ekranı göster
+      setResult(orderData);
     } catch (err) {
       setPlaceError(getApiErrorMessage(err));
     } finally {
@@ -280,15 +298,43 @@ export default function Checkout() {
                 {placeError && (
                   <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{placeError}</div>
                 )}
+
+                <div className="text-xs font-medium text-slate-600 uppercase tracking-wider text-center mb-1">
+                  Ödeme Yöntemi Seçin
+                </div>
+
+                {/* Kart ile öde (iyzico) */}
                 <button
-                  onClick={placeOrder}
+                  onClick={() => placeOrder('iyzico')}
                   disabled={placing || items.length === 0}
-                  className="w-full rounded-xl bg-amber-500 py-3 text-base font-bold text-white hover:bg-amber-600 disabled:opacity-60"
+                  className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  {placing ? 'İşleniyor…' : 'Siparişi Tamamla →'}
+                  {placing ? '…' : (
+                    <>
+                      💳 Kredi Kartı ile Öde
+                    </>
+                  )}
                 </button>
-                <p className="text-xs text-center text-slate-500">
-                  Ödeme havale/EFT ile alınır. Sipariş sonrası IBAN bilgilerini göreceksiniz.
+                <p className="text-xs text-center text-slate-500 -mt-1">
+                  iyzico güvencesiyle • 3D Secure • Anında aktivasyon
+                </p>
+
+                <div className="flex items-center gap-2 my-1">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-xs text-slate-400">VEYA</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                {/* Havale ile öde */}
+                <button
+                  onClick={() => placeOrder('havale')}
+                  disabled={placing || items.length === 0}
+                  className="w-full rounded-xl bg-amber-500 py-3 text-base font-bold text-white hover:bg-amber-600 disabled:opacity-60 flex items-center justify-center gap-2"
+                >
+                  {placing ? '…' : '🏦 Havale / EFT ile Öde'}
+                </button>
+                <p className="text-xs text-center text-slate-500 -mt-1">
+                  IBAN bilgilerini göreceksiniz • Ödeme onayı sonrası aktivasyon
                 </p>
               </div>
             )}
