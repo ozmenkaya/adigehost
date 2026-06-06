@@ -26,11 +26,17 @@ const checkoutSchema = z.object({
   body: z.object({
     items: z.array(
       z.object({
-        type: z.enum(['hosting', 'domain']),
+        type: z.enum(['hosting', 'domain', 'vps']),
         productId: z.string().uuid().optional(),
         domain: z.string().max(253).optional(),
         billingCycle: z.enum(['monthly', 'quarterly', 'annually']).optional(),
         period: z.coerce.number().int().min(1).max(10).optional(),
+        // VPS özelleştirici için
+        vpsServerType: z.string().max(32).optional(),
+        vpsLocation: z.string().max(16).optional(),
+        vpsImage: z.string().max(64).optional(),
+        vpsWithIpv4: z.boolean().optional(),
+        vpsHostname: z.string().max(63).optional(),
       }),
     ).min(1).max(20),
   }),
@@ -131,6 +137,59 @@ cartRouter.post(
         createdServices.push(svc);
         invoiceLines.push({
           description: `Domain: ${domain} (${period} yıl)`,
+          quantity: 1,
+          unitPrice: linePrice,
+          serviceId: svc.id,
+        });
+        subtotal += linePrice;
+      } else if (item.type === 'vps') {
+        // ─── VPS: Hetzner Cloud özelleştirici siparişi ───────────────
+        if (!item.vpsServerType || !item.vpsLocation || !item.vpsImage || !item.vpsHostname) {
+          throw ApiError.badRequest('VPS için tüm seçenekler (serverType, location, image, hostname) gerekli');
+        }
+        // Hostname doğrulama
+        if (!/^[a-z0-9-]+$/.test(item.vpsHostname)) {
+          throw ApiError.badRequest('Hostname yalnızca harf, rakam ve tire içerebilir');
+        }
+        // Fiyatı Hetzner API + güncel ayarlardan yeniden hesapla
+        const { HetznerService } = await import('../services/HetznerService');
+        const serverTypes = await HetznerService.listServerTypes();
+        const st = serverTypes.find((s) => s.name === item.vpsServerType);
+        if (!st) throw ApiError.badRequest(`Geçersiz sunucu tipi: ${item.vpsServerType}`);
+        const locPrice = st.prices?.find((p) => p.location === item.vpsLocation);
+        if (!locPrice) throw ApiError.badRequest(`Bu lokasyonda sunucu yok: ${item.vpsLocation}`);
+
+        const eurTry = await ExchangeRateService.getEurToTry();
+        const vpsMarkup = Math.max(1, Number(await SettingsService.get('vps_markup', '1.4')) || 1.4);
+
+        const eurServer = Number(locPrice.price_monthly.gross);
+        const eurIpv4 = item.vpsWithIpv4 ? 0.6 : 0;
+        const totalEur = eurServer + eurIpv4;
+        const linePrice = round2(totalEur * eurTry * vpsMarkup); // KDV hariç
+
+        const svc = await Service.create({
+          userId,
+          type: 'vps',
+          name: item.vpsHostname,
+          domain: null,
+          status: 'pending',
+          price: linePrice,
+          billingCycle: 'monthly',
+          nextDue: new Date(Date.now() + 30 * 86400000),
+          hetznerPlan: st.name,
+          hetznerLocation: item.vpsLocation,
+          hetznerOs: item.vpsImage,
+          config: {
+            hostname: item.vpsHostname,
+            withIpv4: item.vpsWithIpv4 !== false,
+            cores: st.cores,
+            memory: st.memory,
+            disk: st.disk,
+          },
+        });
+        createdServices.push(svc);
+        invoiceLines.push({
+          description: `VPS ${st.name.toUpperCase()} (${st.cores} CPU · ${st.memory}GB RAM · ${st.disk}GB SSD · ${item.vpsLocation.toUpperCase()}) — ${item.vpsHostname}`,
           quantity: 1,
           unitPrice: linePrice,
           serviceId: svc.id,

@@ -86,13 +86,23 @@ export default function Checkout() {
     try {
       // 1) Sipariş oluştur (her iki yöntem için ortak)
       const payload = {
-        items: items.map((i) => ({
-          type: i.type,
-          productId: i.productId,
-          domain: i.type === 'hosting' ? hostingDomains[i.id] : i.domain,
-          billingCycle: i.billingCycle,
-          period: i.period,
-        })),
+        items: items.map((i) => {
+          const base: Record<string, unknown> = {
+            type: i.type,
+            productId: i.productId,
+            domain: i.type === 'hosting' ? hostingDomains[i.id] : i.domain,
+            billingCycle: i.billingCycle,
+            period: i.period,
+          };
+          if (i.type === 'vps' && i.meta) {
+            base.vpsServerType = i.meta.serverType;
+            base.vpsLocation = i.meta.location;
+            base.vpsImage = i.meta.image;
+            base.vpsWithIpv4 = i.meta.withIpv4;
+            base.vpsHostname = i.domain; // hostname domain alanında tutuluyor
+          }
+          return base;
+        }),
       };
       const r = await api.post('/cart/checkout', payload);
       const orderData = r.data.data;

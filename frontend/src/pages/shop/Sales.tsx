@@ -547,6 +547,31 @@ export default function Sales() {
         </section>
       )}
 
+      {/* VPS CTA */}
+      <section className="bg-gradient-to-r from-slate-900 to-brand-900 py-16 px-4">
+        <div className="mx-auto max-w-4xl text-center">
+          <h2 className="text-3xl font-extrabold text-white mb-3">
+            Kendi VPS'inizi Yapılandırın
+          </h2>
+          <p className="text-slate-300 mb-6 text-lg">
+            CPU, RAM, disk ve lokasyonu seçin — Hetzner Cloud altyapısında dakikalar içinde teslim.
+          </p>
+          <a
+            href="/vps"
+            className="inline-block rounded-xl bg-amber-400 px-8 py-3.5 font-bold text-slate-900 hover:bg-amber-300"
+          >
+            VPS Yapılandır
+          </a>
+          <div className="mt-6 flex flex-wrap justify-center gap-3 text-xs">
+            {['Frankfurt', 'Nürnberg', 'Helsinki', 'Ashburn', 'Singapur'].map((c) => (
+              <span key={c} className="rounded-full bg-white/10 px-3 py-1 text-slate-200">
+                {c}
+              </span>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Neden AdigeHost */}
       <section className="bg-white border-t border-slate-100 py-16 px-4">
         <div className="mx-auto max-w-4xl">

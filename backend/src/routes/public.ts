@@ -64,6 +64,90 @@ publicRouter.post(
   }),
 );
 
+// ── Hetzner VPS özelleştirici (anasayfa için) ─────────────────────────────
+publicRouter.get(
+  '/vps/options',
+  asyncHandler(async (_req, res) => {
+    const { HetznerService } = await import('../services/HetznerService');
+    const [serverTypesRaw, locationsRaw, imagesRaw, usdTry, eurTry] = await Promise.all([
+      HetznerService.listServerTypes(),
+      HetznerService.listLocations() as Promise<Array<{ name: string; city: string; country: string; description: string }>>,
+      HetznerService.listImages() as Promise<Array<{ name: string; description: string; os_flavor: string; os_version: string; type: string }>>,
+      ExchangeRateService.getUsdToTry(),
+      ExchangeRateService.getEurToTry(),
+    ]);
+
+    const markupStr = await SettingsService.get('vps_markup', '1.4');
+    const markup = Math.max(1, Number(markupStr) || 1.4);
+    const vatRate = Number(await SettingsService.get('vat_rate', '20'));
+    const vatMult = 1 + vatRate / 100;
+
+    // Server types: fiyatları TRY'ye çevir, location bazlı
+    const serverTypes = (serverTypesRaw as Array<{
+      id: number; name: string; description: string; cores: number;
+      memory: number; disk: number; cpu_type: string; architecture: string;
+      prices: Array<{ location: string; price_monthly: { gross: string }; price_hourly: { gross: string } }>;
+    }>).map((st) => ({
+      id: st.id,
+      name: st.name,
+      description: st.description,
+      cores: st.cores,
+      memory: st.memory,
+      disk: st.disk,
+      cpuType: st.cpu_type,
+      architecture: st.architecture,
+      // Location bazlı TL fiyatlar (KDV dahil)
+      pricesByLocation: Object.fromEntries(
+        st.prices.map((p) => {
+          // Hetzner EUR cinsinden gross fatura — markup + KDV
+          const eurMonthly = Number(p.price_monthly.gross);
+          const tlExVat = round2(eurMonthly * eurTry * markup);
+          const tlIncVat = round2(tlExVat * vatMult);
+          return [p.location, { monthlyExVat: tlExVat, monthlyIncVat: tlIncVat, eurOriginal: eurMonthly }];
+        }),
+      ),
+    }));
+
+    // IPv4 fiyatı sabit ~0.6 EUR/ay
+    const ipv4PriceEur = 0.6;
+    const ipv4TlIncVat = round2(ipv4PriceEur * eurTry * markup * vatMult);
+
+    // Lokasyonlar (sade)
+    const locations = (locationsRaw as Array<{ name: string; city: string; country: string; description: string }>).map((l) => ({
+      name: l.name,
+      city: l.city,
+      country: l.country,
+      description: l.description,
+    }));
+
+    // OS image'leri — sadece system, type=system, son sürümler
+    const images = (imagesRaw as Array<{ name: string; description: string; os_flavor: string; os_version: string; type: string; architecture: string }>)
+      .filter((i) => i.type === 'system' && i.name)
+      .map((i) => ({
+        name: i.name,
+        description: i.description,
+        osFlavor: i.os_flavor,
+        osVersion: i.os_version,
+        architecture: i.architecture,
+      }));
+
+    res.json({
+      success: true,
+      data: {
+        serverTypes,
+        locations,
+        images,
+        ipv4: { monthlyIncVat: ipv4TlIncVat, eurOriginal: ipv4PriceEur },
+        currency: 'TRY',
+        vatRate,
+        usdTry,
+        eurTry,
+        markup,
+      },
+    });
+  }),
+);
+
 // ── Şirket bilgileri (yasal sayfalar için) ──────────────────────────────────
 publicRouter.get(
   '/company',

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type CartItemType = 'hosting' | 'domain';
+export type CartItemType = 'hosting' | 'domain' | 'vps';
 
 export interface CartItem {
   id: string; // productId veya domain adı
