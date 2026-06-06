@@ -102,7 +102,15 @@ export default function Domains() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">
-      <h1 className="text-2xl font-bold text-slate-900">Domain Kaydı</h1>
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <h1 className="text-2xl font-bold text-slate-900">Domain Kaydı</h1>
+        <a
+          href="/app/domains/transfer"
+          className="rounded-lg border border-brand-300 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+        >
+          Dışarıdan Transfer Et →
+        </a>
+      </div>
       <form onSubmit={search} className="flex gap-2">
         <input
           required

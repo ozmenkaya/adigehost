@@ -22,6 +22,7 @@ import ServiceDetail from './pages/client/ServiceDetail';
 import Domains from './pages/client/Domains';
 import Profile from './pages/client/Profile';
 import Cards from './pages/client/Cards';
+import DomainTransfer from './pages/client/DomainTransfer';
 // Shop (public)
 import Sales from './pages/shop/Sales';
 import Checkout from './pages/shop/Checkout';
@@ -88,6 +89,7 @@ export default function App() {
         <Route path="services/:id" element={<ServiceDetail />} />
         <Route path="order/hosting" element={<OrderHosting />} />
         <Route path="domains" element={<Domains />} />
+        <Route path="domains/transfer" element={<DomainTransfer />} />
         <Route path="profile" element={<Profile />} />
         <Route path="cards" element={<Cards />} />
       </Route>

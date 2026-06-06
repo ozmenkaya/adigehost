@@ -139,18 +139,6 @@ export default function Sales() {
   const [domainError, setDomainError] = useState('');
   const [addedMsg, setAddedMsg] = useState('');
   // Transfer tab state
-  const [heroTab, setHeroTab] = useState<'register' | 'transfer'>('register');
-  const [xferDomain, setXferDomain] = useState('');
-  const [xferAuthCode, setXferAuthCode] = useState('');
-  const [xferYears, setXferYears] = useState(1);
-  const [xferCheck, setXferCheck] = useState<{
-    transferable: boolean;
-    message: string;
-    yearlyIncVat: number | null;
-  } | null>(null);
-  const [xferBusy, setXferBusy] = useState(false);
-  const [xferError, setXferError] = useState('');
-  const [xferSuccess, setXferSuccess] = useState('');
 
   useEffect(() => {
     api.get('/public/products').then((r) => setProducts(r.data.data ?? []));
@@ -292,44 +280,17 @@ export default function Sales() {
         </div>
       </header>
 
-      {/* Hero — Domain arama / Transfer */}
+      {/* Hero — Domain arama */}
       <section className="bg-gradient-to-br from-brand-700 to-brand-900 py-16 px-4">
         <div className="mx-auto max-w-2xl text-center">
           <h1 className="text-4xl font-extrabold text-white mb-3">
-            {heroTab === 'register'
-              ? 'Hayalinizin Alan Adını Bulun'
-              : "Domaininizi AdigeHost'a Taşıyın"}
+            Hayalinizin Alan Adını Bulun
           </h1>
           <p className="text-brand-200 mb-6 text-lg">
-            {heroTab === 'register'
-              ? 'Domain kayıt, yenileme ve transfer — hızlı ve güvenli.'
-              : 'Mevcut domaininizi bize aktarın — 1 yıllık ücretsiz uzatma hediyemizdir.'}
+            Domain kayıt, yenileme ve transfer — hızlı ve güvenli.
           </p>
 
-          {/* Sekme */}
-          <div className="inline-flex bg-white/10 rounded-xl p-1 mb-6">
-            <button
-              onClick={() => setHeroTab('register')}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                heroTab === 'register' ? 'bg-white text-brand-700' : 'text-white hover:bg-white/10'
-              }`}
-            >
-              Domain Ara
-            </button>
-            <button
-              onClick={() => setHeroTab('transfer')}
-              className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                heroTab === 'transfer' ? 'bg-white text-brand-700' : 'text-white hover:bg-white/10'
-              }`}
-            >
-              ↗ Domain Transfer Et
-            </button>
-          </div>
-
-          {/* Domain Ara */}
-          {heroTab === 'register' && (
-            <>
-              <form onSubmit={searchDomain} className="flex gap-2">
+          <form onSubmit={searchDomain} className="flex gap-2">
                 <input
                   value={domainName}
                   onChange={(e) => setDomainName(e.target.value.replace(/\s/g, '').toLowerCase())}
@@ -378,195 +339,7 @@ export default function Sales() {
                   +30 daha
                 </span>
               </div>
-            </>
-          )}
 
-          {/* Domain Transfer */}
-          {heroTab === 'transfer' && (
-            <div className="bg-white rounded-2xl p-6 text-left shadow-xl">
-              {!xferCheck && (
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setXferError('');
-                    setXferSuccess('');
-                    setXferBusy(true);
-                    try {
-                      const r = await api.post('/public/domains/transfer-check', {
-                        domain: xferDomain.trim().toLowerCase(),
-                      });
-                      setXferCheck(r.data.data);
-                    } catch (err) {
-                      setXferError(getApiErrorMessage(err));
-                    } finally {
-                      setXferBusy(false);
-                    }
-                  }}
-                  className="space-y-3"
-                >
-                  <label className="block">
-                    <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                      Domain Adı
-                    </span>
-                    <input
-                      required
-                      value={xferDomain}
-                      onChange={(e) =>
-                        setXferDomain(e.target.value.replace(/\s/g, '').toLowerCase())
-                      }
-                      placeholder="ornek.com"
-                      className="mt-1 w-full rounded-xl border-2 border-slate-200 px-4 py-3 text-base text-slate-900 outline-none focus:border-brand-500"
-                    />
-                  </label>
-                  <button
-                    disabled={xferBusy}
-                    className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60"
-                  >
-                    {xferBusy ? 'Kontrol ediliyor…' : 'Transfer Edilebilir mi? Sorgula'}
-                  </button>
-                  {xferError && <p className="text-sm text-red-600">{xferError}</p>}
-                  <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-900">
-                    <p className="font-semibold mb-1">Transfer için ön hazırlık:</p>
-                    <ol className="list-decimal ml-4 space-y-0.5">
-                      <li>
-                        Mevcut registrar'da domain<b>kilidini açın</b>
-                      </li>
-                      <li>
-                        <b>EPP/Auth kodu</b>nu alın
-                      </li>
-                      <li>
-                        Privacy WHOIS varsa<b>geçici olarak kapatın</b>
-                      </li>
-                    </ol>
-                  </div>
-                </form>
-              )}
-
-              {xferCheck && !xferSuccess && (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="font-bold text-slate-800 text-lg">{xferDomain}</div>
-                    {xferCheck.transferable ? (
-                      <div className="text-green-600 text-sm font-semibold mt-1">
-                        Transfer edilebilir
-                      </div>
-                    ) : (
-                      <div className="text-red-600 text-sm font-semibold mt-1">
-                        {xferCheck.message}
-                      </div>
-                    )}
-                  </div>
-
-                  {xferCheck.transferable && xferCheck.yearlyIncVat && (
-                    <>
-                      <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900 text-center">
-                        Yıllık fiyat:
-                        <b>
-                          {xferCheck.yearlyIncVat.toLocaleString('tr-TR', {
-                            minimumFractionDigits: 2,
-                          })}{' '}
-                          ₺
-                        </b>
-                        (KDV dahil)
-                      </div>
-
-                      <label className="block">
-                        <span className="text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                          EPP / Auth Kodu
-                        </span>
-                        <input
-                          required
-                          value={xferAuthCode}
-                          onChange={(e) => setXferAuthCode(e.target.value)}
-                          placeholder="Mevcut registrar'dan alın"
-                          className="mt-1 w-full rounded-xl border-2 border-slate-200 px-4 py-2.5 text-sm font-mono outline-none focus:border-brand-500"
-                        />
-                      </label>
-
-                      <div className="grid grid-cols-5 gap-2">
-                        {[1, 2, 3, 5, 10].map((y) => (
-                          <button
-                            key={y}
-                            onClick={() => setXferYears(y)}
-                            type="button"
-                            className={`rounded-lg py-2 text-sm font-semibold border-2 ${
-                              xferYears === y
-                                ? 'border-brand-600 bg-brand-50 text-brand-700'
-                                : 'border-slate-200 text-slate-600'
-                            }`}
-                          >
-                            {y} yıl
-                          </button>
-                        ))}
-                      </div>
-
-                      <button
-                        disabled={xferBusy || !xferAuthCode}
-                        onClick={async () => {
-                          if (!user) {
-                            navigate('/login?next=/');
-                            return;
-                          }
-                          setXferBusy(true);
-                          setXferError('');
-                          try {
-                            const r = await api.post('/domains/transfer-order', {
-                              domain: xferDomain,
-                              authCode: xferAuthCode,
-                              year: xferYears,
-                            });
-                            setXferSuccess(
-                              r.data.message + 'Fatura: ' + r.data.data.invoice.invoiceNum,
-                            );
-                          } catch (err) {
-                            setXferError(getApiErrorMessage(err));
-                          } finally {
-                            setXferBusy(false);
-                          }
-                        }}
-                        className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60"
-                      >
-                        {xferBusy
-                          ? ''
-                          : user
-                            ? `Transfer Talebi Oluştur (${xferYears} yıl)`
-                            : 'Giriş Yap ve Devam Et'}
-                      </button>
-                      {xferError && <p className="text-sm text-red-600">{xferError}</p>}
-                    </>
-                  )}
-
-                  <button
-                    onClick={() => {
-                      setXferCheck(null);
-                      setXferDomain('');
-                      setXferAuthCode('');
-                    }}
-                    type="button"
-                    className="w-full text-sm text-slate-500 hover:text-slate-700"
-                  >
-                    ← Başka domain sorgula
-                  </button>
-                </div>
-              )}
-
-              {xferSuccess && (
-                <div className="text-center space-y-3 py-4">
-                  <div className="text-4xl"></div>
-                  <p className="text-green-700 font-semibold">{xferSuccess}</p>
-                  <p className="text-xs text-slate-500">
-                    Ödeme onaylandığında transfer başlatılır. Süreç 5-7 gün sürer.
-                  </p>
-                  <button
-                    onClick={() => navigate('/app')}
-                    className="rounded-xl bg-brand-600 px-5 py-2 text-sm font-bold text-white"
-                  >
-                    Panele Git →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </section>
 
