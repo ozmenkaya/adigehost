@@ -68,10 +68,8 @@ export default function VPSConfigurator() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  const [arch, setArch] = useState<'x86' | 'arm'>('x86');
-  const [cpuType, setCpuType] = useState<'shared' | 'dedicated'>('shared');
   const [stIdx, setStIdx] = useState(0);
-  const [location, setLocation] = useState('nbg1');
+  const [location, setLocation] = useState('fsn1');
   const [image, setImage] = useState('ubuntu-24.04');
   const [withIpv4, setWithIpv4] = useState(true);
   const [hostname, setHostname] = useState('');
@@ -91,23 +89,24 @@ export default function VPSConfigurator() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Filtrelenmiş server type'lar
+  // Tüm server type'ları akıllı sırala: CPU ASC, RAM ASC
+  // Böylece slider en küçükten en büyüğe doğru ilerler (arch/cpuType karışık olabilir)
   const filteredTypes = useMemo(() => {
     if (!opts) return [];
-    return opts.serverTypes
-      .filter((st) => st.architecture === arch && st.cpuType === cpuType)
-      .sort((a, b) => a.cores - b.cores || a.memory - b.memory);
-  }, [opts, arch, cpuType]);
+    return [...opts.serverTypes].sort((a, b) => {
+      // CPU çekirdek sayısına göre
+      if (a.cores !== b.cores) return a.cores - b.cores;
+      // Sonra RAM
+      if (a.memory !== b.memory) return a.memory - b.memory;
+      // Sonra disk
+      return a.disk - b.disk;
+    });
+  }, [opts]);
 
   // Geçerli server type
   const currentType = filteredTypes[stIdx];
 
-  // Lokasyon değişince stIdx hala geçerli mi kontrol
-  useEffect(() => {
-    if (stIdx >= filteredTypes.length) setStIdx(0);
-  }, [filteredTypes, stIdx]);
-
-  // Server type değişince: seçili lokasyon bu type'da yoksa otomatik desteklenen ilkine geç
+  // Server type değişince: seçili lokasyon bu type'da yoksa desteklenen ilkine geç
   useEffect(() => {
     if (!currentType) return;
     if (!currentType.pricesByLocation[location]) {
@@ -116,11 +115,17 @@ export default function VPSConfigurator() {
     }
   }, [currentType, location]);
 
-  // Filtrelenmiş images (architecture eşleşmeli)
+  // Filtrelenmiş images: mevcut server type'ın mimarisine uygun
   const filteredImages = useMemo(() => {
-    if (!opts) return [];
-    return opts.images.filter((i) => i.architecture === arch || !i.architecture);
-  }, [opts, arch]);
+    if (!opts || !currentType) return opts?.images ?? [];
+    return opts.images.filter((i) => i.architecture === currentType.architecture || !i.architecture);
+  }, [opts, currentType]);
+
+  // Lokasyon etiketi (sade gösterim için)
+  const locationLabel = useMemo(() => {
+    const loc = opts?.locations.find((l) => l.name === location);
+    return loc ? locLabel(loc.name, loc.city, loc.country) : location;
+  }, [opts, location]);
 
   // Fiyat hesabı
   const serverPrice = currentType?.pricesByLocation[location]?.monthlyIncVat ?? 0;
@@ -212,68 +217,32 @@ export default function VPSConfigurator() {
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Sol — Yapılandırma */}
           <div className="lg:col-span-2 space-y-6">
-            {/* CPU Türü */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-5">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-                CPU Mimarisi
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setArch('x86')}
-                  className={`rounded-xl py-3 px-4 border-2 font-semibold ${
-                    arch === 'x86'
-                      ? 'border-brand-600 bg-brand-50 text-brand-700'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  Intel / AMD
-                </button>
-                <button
-                  onClick={() => setArch('arm')}
-                  className={`rounded-xl py-3 px-4 border-2 font-semibold ${
-                    arch === 'arm'
-                      ? 'border-brand-600 bg-brand-50 text-brand-700'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  ARM (Ampere)
-                </button>
-              </div>
-
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setCpuType('shared')}
-                  className={`rounded-xl py-2.5 px-4 border-2 text-sm font-semibold ${
-                    cpuType === 'shared'
-                      ? 'border-brand-600 bg-brand-50 text-brand-700'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  Paylaşımlı CPU
-                </button>
-                <button
-                  onClick={() => setCpuType('dedicated')}
-                  className={`rounded-xl py-2.5 px-4 border-2 text-sm font-semibold ${
-                    cpuType === 'dedicated'
-                      ? 'border-brand-600 bg-brand-50 text-brand-700'
-                      : 'border-slate-200 text-slate-600 hover:border-slate-300'
-                  }`}
-                >
-                  Dedicated CPU
-                </button>
-              </div>
-            </div>
-
             {/* Server Type Slider */}
             <div className="rounded-2xl bg-white border border-slate-200 p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Sunucu Büyüklüğü
                 </div>
                 {currentType && (
-                  <span className="rounded-full bg-brand-100 text-brand-700 px-3 py-0.5 text-xs font-bold">
-                    {currentType.name.toUpperCase()}
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="rounded-full bg-brand-100 text-brand-700 px-3 py-0.5 text-xs font-bold">
+                      {currentType.name.toUpperCase()}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      currentType.cpuType === 'dedicated'
+                        ? 'bg-purple-100 text-purple-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      {currentType.cpuType === 'dedicated' ? 'Dedicated' : 'Paylaşımlı'}
+                    </span>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      currentType.architecture === 'arm'
+                        ? 'bg-amber-100 text-amber-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {currentType.architecture === 'arm' ? 'ARM (Ampere)' : 'Intel / AMD'}
+                    </span>
+                  </div>
                 )}
               </div>
 
@@ -312,42 +281,6 @@ export default function VPSConfigurator() {
                     </div>
                   )}
                 </>
-              )}
-            </div>
-
-            {/* Lokasyon */}
-            <div className="rounded-2xl bg-white border border-slate-200 p-5">
-              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">
-                Sunucu Lokasyonu
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {opts?.locations.map((l) => {
-                  const available = !!currentType?.pricesByLocation[l.name];
-                  const isSelected = location === l.name;
-                  return (
-                    <button
-                      key={l.name}
-                      onClick={() => available && setLocation(l.name)}
-                      disabled={!available}
-                      title={!available ? `${currentType?.name?.toUpperCase()} bu lokasyonda mevcut değil` : ''}
-                      className={`rounded-xl border-2 px-3 py-2.5 text-sm font-medium text-left ${
-                        !available
-                          ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed line-through'
-                          : isSelected
-                            ? 'border-brand-600 bg-brand-50'
-                            : 'border-slate-200 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="font-semibold">{locLabel(l.name, l.city, l.country)}</div>
-                      <div className="text-[10px] text-slate-400">{l.name.toUpperCase()}</div>
-                    </button>
-                  );
-                })}
-              </div>
-              {currentType && (
-                <p className="text-xs text-slate-400 mt-2">
-                  {currentType.name.toUpperCase()} mevcut: {Object.keys(currentType.pricesByLocation).length} lokasyon
-                </p>
               )}
             </div>
 
@@ -426,6 +359,9 @@ export default function VPSConfigurator() {
                   </div>
                   <div className="text-xs text-slate-500">
                     {currentType.cores} CPU · {currentType.memory} GB RAM · {currentType.disk} GB SSD
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">
+                    Lokasyon: {locationLabel}
                   </div>
                 </div>
               )}
