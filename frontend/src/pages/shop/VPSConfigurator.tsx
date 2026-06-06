@@ -107,6 +107,15 @@ export default function VPSConfigurator() {
     if (stIdx >= filteredTypes.length) setStIdx(0);
   }, [filteredTypes, stIdx]);
 
+  // Server type değişince: seçili lokasyon bu type'da yoksa otomatik desteklenen ilkine geç
+  useEffect(() => {
+    if (!currentType) return;
+    if (!currentType.pricesByLocation[location]) {
+      const firstAvailable = Object.keys(currentType.pricesByLocation)[0];
+      if (firstAvailable) setLocation(firstAvailable);
+    }
+  }, [currentType, location]);
+
   // Filtrelenmiş images (architecture eşleşmeli)
   const filteredImages = useMemo(() => {
     if (!opts) return [];
@@ -312,21 +321,34 @@ export default function VPSConfigurator() {
                 Sunucu Lokasyonu
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {opts?.locations.map((l) => (
-                  <button
-                    key={l.name}
-                    onClick={() => setLocation(l.name)}
-                    className={`rounded-xl border-2 px-3 py-2.5 text-sm font-medium text-left ${
-                      location === l.name
-                        ? 'border-brand-600 bg-brand-50'
-                        : 'border-slate-200 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="font-semibold text-slate-800">{locLabel(l.name, l.city, l.country)}</div>
-                    <div className="text-[10px] text-slate-400">{l.name.toUpperCase()}</div>
-                  </button>
-                ))}
+                {opts?.locations.map((l) => {
+                  const available = !!currentType?.pricesByLocation[l.name];
+                  const isSelected = location === l.name;
+                  return (
+                    <button
+                      key={l.name}
+                      onClick={() => available && setLocation(l.name)}
+                      disabled={!available}
+                      title={!available ? `${currentType?.name?.toUpperCase()} bu lokasyonda mevcut değil` : ''}
+                      className={`rounded-xl border-2 px-3 py-2.5 text-sm font-medium text-left ${
+                        !available
+                          ? 'border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed line-through'
+                          : isSelected
+                            ? 'border-brand-600 bg-brand-50'
+                            : 'border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="font-semibold">{locLabel(l.name, l.city, l.country)}</div>
+                      <div className="text-[10px] text-slate-400">{l.name.toUpperCase()}</div>
+                    </button>
+                  );
+                })}
               </div>
+              {currentType && (
+                <p className="text-xs text-slate-400 mt-2">
+                  {currentType.name.toUpperCase()} mevcut: {Object.keys(currentType.pricesByLocation).length} lokasyon
+                </p>
+              )}
             </div>
 
             {/* İşletim Sistemi */}
