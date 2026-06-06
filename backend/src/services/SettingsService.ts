@@ -43,6 +43,11 @@ export const DOMAIN_KEYS = [
   'vat_rate',         // KDV oranı (ör. 20)
 ];
 
+/** VPS (Hetzner Cloud) fiyatlama ayarları. */
+export const VPS_KEYS = [
+  'vps_markup',       // kâr marjı çarpanı (ör. 1.4 = %40)
+];
+
 /** Satıcı (şirket) bilgisi anahtarları (group: company) — e-fatura "satıcı" alanları. */
 export const COMPANY_KEYS = [
   'company_title', // ünvan

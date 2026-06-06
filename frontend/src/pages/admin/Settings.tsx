@@ -27,6 +27,9 @@ export default function Settings() {
     domain_markup: '1.3',
     vat_rate: '20',
   });
+  const [vps, setVps] = useState<Record<string, string>>({
+    vps_markup: '1.4',
+  });
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
@@ -37,6 +40,7 @@ export default function Settings() {
         setBank((b) => ({ ...b, ...r.data.data.bank }));
         setCompany(r.data.data.company ?? {});
         setDomain((d) => ({ ...d, ...(r.data.data.domain ?? {}) }));
+        setVps((v) => ({ ...v, ...(r.data.data.vps ?? {}) }));
       })
       .catch((e) => setError(getApiErrorMessage(e)));
   }, []);
@@ -46,7 +50,7 @@ export default function Settings() {
     setMsg('');
     setError('');
     try {
-      await api.put('/admin/settings', { bank, company, domain });
+      await api.put('/admin/settings', { bank, company, domain, vps });
       setMsg('Ayarlar kaydedildi');
     } catch (e) {
       setError(getApiErrorMessage(e));
@@ -140,6 +144,41 @@ export default function Settings() {
                 Fiyatlar müşteriye KDV dahil gösterilir.
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* ── VPS Fiyatlama ── */}
+        <div className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+          <h2 className="font-semibold text-slate-800">VPS Fiyatlama (Hetzner Cloud)</h2>
+          <p className="text-xs text-slate-500">
+            Hetzner Cloud'un EUR fiyatları üzerine uygulanan kâr marjı. KDV oranı yukarıdaki
+            domain ayarından alınır.
+          </p>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Kâr Marjı (Hetzner Çarpanı)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="1"
+              max="10"
+              value={vps.vps_markup ?? '1.4'}
+              onChange={(e) => setVps({ ...vps, vps_markup: e.target.value })}
+              className={inp}
+            />
+            <p className="mt-1 text-xs text-slate-400">
+              1.4 = %40 kâr · 2.0 = %100 kâr · Mevcut:{' '}
+              <strong>
+                %{(() => {
+                  const m = parseFloat(vps.vps_markup || '1.4');
+                  return isNaN(m) ? 40 : Math.round((m - 1) * 100);
+                })()}
+              </strong>
+            </p>
+            <p className="mt-2 text-xs text-slate-500 italic">
+              Formül: <code>(EUR fiyat) × USD/TRY × çarpan × (1 + KDV)</code>
+            </p>
           </div>
         </div>
 
