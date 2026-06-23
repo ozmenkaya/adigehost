@@ -66,6 +66,7 @@ export default function Products() {
   const [editId, setEditId] = useState<string | null>(null);
   const [showCat, setShowCat] = useState(false);
   const [catForm, setCatForm] = useState({ ...EMPTY_CAT });
+  const [catEditId, setCatEditId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ ...EMPTY });
 
@@ -93,18 +94,38 @@ export default function Products() {
   const submitCategory = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
+    const body = {
+      name: catForm.name,
+      description: catForm.description || null,
+      sortOrder: Number(catForm.sortOrder) || 0,
+      isActive: catForm.isActive,
+    };
     try {
-      await api.post('/admin/categories', {
-        name: catForm.name,
-        description: catForm.description || null,
-        sortOrder: Number(catForm.sortOrder) || 0,
-        isActive: catForm.isActive,
-      });
+      if (catEditId) {
+        await api.put(`/admin/categories/${catEditId}`, body);
+      } else {
+        await api.post('/admin/categories', body);
+      }
       setCatForm({ ...EMPTY_CAT });
+      setCatEditId(null);
       loadCategories();
+      load(); // ürün tablosundaki kategori adları güncellensin
     } catch (e) {
       setError(getApiErrorMessage(e));
     }
+  };
+  const startEditCategory = (c: Category) => {
+    setCatEditId(c.id);
+    setCatForm({
+      name: c.name,
+      description: c.description ?? '',
+      sortOrder: String(c.sortOrder),
+      isActive: c.isActive,
+    });
+  };
+  const cancelEditCategory = () => {
+    setCatEditId(null);
+    setCatForm({ ...EMPTY_CAT });
   };
   const toggleCategory = async (c: Category) => {
     await api.put(`/admin/categories/${c.id}`, { isActive: !c.isActive });
@@ -269,7 +290,12 @@ export default function Products() {
           ) : (
             <ul className="divide-y divide-slate-100 rounded-xl border border-slate-100">
               {categories.map((c) => (
-                <li key={c.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                <li
+                  key={c.id}
+                  className={`flex items-center gap-3 px-3 py-2 text-sm ${
+                    catEditId === c.id ? 'bg-brand-50' : ''
+                  }`}
+                >
                   <span className="w-6 text-center text-xs text-slate-400">{c.sortOrder}</span>
                   <div className="flex-1">
                     <div className="font-medium text-slate-800">{c.name}</div>
@@ -286,6 +312,12 @@ export default function Products() {
                     {c.isActive ? 'Görünür' : 'Gizli'}
                   </button>
                   <button
+                    onClick={() => startEditCategory(c)}
+                    className="rounded-lg border border-brand-300 px-2.5 py-1 text-xs text-brand-700 hover:bg-brand-50"
+                  >
+                    Düzenle
+                  </button>
+                  <button
                     onClick={() => removeCategory(c.id)}
                     className="rounded-lg border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
                   >
@@ -296,31 +328,45 @@ export default function Products() {
             </ul>
           )}
 
-          {/* Yeni kategori */}
-          <form onSubmit={submitCategory} className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
-            <input
-              required
-              placeholder="Kategori adı (örn. WordPress Hosting)"
-              value={catForm.name}
-              onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
-              className={`flex-1 min-w-[180px] ${inputCls}`}
-            />
-            <input
-              placeholder="Açıklama (opsiyonel)"
-              value={catForm.description}
-              onChange={(e) => setCatForm({ ...catForm, description: e.target.value })}
-              className={`flex-1 min-w-[180px] ${inputCls}`}
-            />
-            <input
-              type="number"
-              placeholder="Sıra"
-              value={catForm.sortOrder}
-              onChange={(e) => setCatForm({ ...catForm, sortOrder: e.target.value })}
-              className={`w-20 ${inputCls}`}
-            />
-            <button className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
-              Ekle
-            </button>
+          {/* Yeni / düzenle kategori */}
+          <form onSubmit={submitCategory} className="space-y-2 border-t border-slate-100 pt-3">
+            {catEditId && (
+              <div className="text-xs font-semibold text-brand-700">Kategoriyi düzenle</div>
+            )}
+            <div className="flex flex-wrap items-end gap-2">
+              <input
+                required
+                placeholder="Kategori adı (örn. WordPress Hosting)"
+                value={catForm.name}
+                onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
+                className={`flex-1 min-w-[180px] ${inputCls}`}
+              />
+              <input
+                placeholder="Açıklama (opsiyonel)"
+                value={catForm.description}
+                onChange={(e) => setCatForm({ ...catForm, description: e.target.value })}
+                className={`flex-1 min-w-[180px] ${inputCls}`}
+              />
+              <input
+                type="number"
+                placeholder="Sıra"
+                value={catForm.sortOrder}
+                onChange={(e) => setCatForm({ ...catForm, sortOrder: e.target.value })}
+                className={`w-20 ${inputCls}`}
+              />
+              <button className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700">
+                {catEditId ? 'Güncelle' : 'Ekle'}
+              </button>
+              {catEditId && (
+                <button
+                  type="button"
+                  onClick={cancelEditCategory}
+                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  İptal
+                </button>
+              )}
+            </div>
           </form>
         </div>
       )}
