@@ -10,6 +10,7 @@ import { Consent } from './Consent';
 import { ActivityLog } from './ActivityLog';
 import { Setting } from './Setting';
 import { Product } from './Product';
+import { Category } from './Category';
 import { Integration } from './Integration';
 
 /**
@@ -26,6 +27,10 @@ Service.belongsTo(Server, { foreignKey: 'serverId', as: 'server' });
 
 Product.belongsTo(Server, { foreignKey: 'serverId', as: 'server' });
 Service.belongsTo(Product, { foreignKey: 'productId', as: 'product' });
+
+// Category -> Products
+Category.hasMany(Product, { foreignKey: 'categoryId', as: 'products' });
+Product.belongsTo(Category, { foreignKey: 'categoryId', as: 'category' });
 
 User.hasMany(Invoice, { foreignKey: 'userId', as: 'invoices' });
 Invoice.belongsTo(User, { foreignKey: 'userId', as: 'user' });
@@ -75,6 +80,7 @@ export {
   ActivityLog,
   Setting,
   Product,
+  Category,
   Integration,
 };
 
@@ -94,5 +100,6 @@ export const models = {
   ActivityLog,
   Setting,
   Product,
+  Category,
   Integration,
 };

@@ -10,6 +10,7 @@ import {
   Server,
   ActivityLog,
   Product,
+  Category,
 } from '../models';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
@@ -464,7 +465,10 @@ adminRouter.get(
   '/products',
   asyncHandler(async (_req, res) => {
     const products = await Product.findAll({
-      include: [{ model: Server, as: 'server', attributes: ['id', 'name'] }],
+      include: [
+        { model: Server, as: 'server', attributes: ['id', 'name'] },
+        { model: Category, as: 'category', attributes: ['id', 'name'] },
+      ],
       order: [
         ['type', 'ASC'],
         ['sortOrder', 'ASC'],
@@ -477,6 +481,7 @@ adminRouter.get(
 const productSchema = z.object({
   name: z.string().min(2).max(120),
   type: z.enum(['hosting', 'vps']).default('hosting'),
+  categoryId: z.string().uuid().nullable().optional(),
   whmPackage: z.string().max(120).optional(),
   serverId: z.string().uuid().nullable().optional(),
   priceMonthly: z.number().nonnegative(),
@@ -530,6 +535,103 @@ adminRouter.delete(
     if (!product) throw ApiError.notFound('Ürün bulunamadı');
     await product.destroy();
     res.json({ success: true, message: 'Ürün silindi' });
+  }),
+);
+
+// ============ Kategoriler ============
+
+/** Ada göre URL/anahtar dostu slug üret. */
+function slugify(name: string): string {
+  const map: Record<string, string> = {
+    ç: 'c', ğ: 'g', ı: 'i', İ: 'i', ö: 'o', ş: 's', ü: 'u',
+  };
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[çğıİöşü]/g, (c) => map[c] ?? c)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 140) || 'kategori';
+}
+
+// --- GET /admin/categories — tüm kategoriler (ürün sayısı ile) ---
+adminRouter.get(
+  '/categories',
+  asyncHandler(async (_req, res) => {
+    const categories = await Category.findAll({
+      order: [
+        ['sortOrder', 'ASC'],
+        ['name', 'ASC'],
+      ],
+    });
+    res.json({ success: true, data: categories });
+  }),
+);
+
+const categorySchema = z.object({
+  name: z.string().min(2).max(120),
+  description: z.string().max(2000).nullable().optional(),
+  isActive: z.boolean().default(true),
+  sortOrder: z.number().int().default(0),
+});
+
+adminRouter.post(
+  '/categories',
+  validate(z.object({ body: categorySchema })),
+  asyncHandler(async (req, res) => {
+    const base = slugify(req.body.name);
+    // Slug benzersizliğini garanti et
+    let slug = base;
+    for (let i = 2; await Category.findOne({ where: { slug } }); i += 1) {
+      slug = `${base}-${i}`;
+    }
+    const category = await Category.create({ ...req.body, slug });
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.category_create',
+      resource: 'category',
+      resourceId: category.id,
+      ip: req.ip,
+    });
+    res.status(201).json({ success: true, data: category });
+  }),
+);
+
+adminRouter.put(
+  '/categories/:id',
+  validate(z.object({ body: categorySchema.partial() })),
+  asyncHandler(async (req, res) => {
+    const category = await Category.findByPk(req.params.id);
+    if (!category) throw ApiError.notFound('Kategori bulunamadı');
+    category.set(req.body);
+    await category.save();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.category_update',
+      resource: 'category',
+      resourceId: category.id,
+      ip: req.ip,
+    });
+    res.json({ success: true, data: category });
+  }),
+);
+
+adminRouter.delete(
+  '/categories/:id',
+  asyncHandler(async (req, res) => {
+    const category = await Category.findByPk(req.params.id);
+    if (!category) throw ApiError.notFound('Kategori bulunamadı');
+    // Bağlı ürünleri silme — sadece kategorisiz bırak
+    await Product.update({ categoryId: null }, { where: { categoryId: category.id } });
+    await category.destroy();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.category_delete',
+      resource: 'category',
+      resourceId: req.params.id,
+      ip: req.ip,
+    });
+    res.json({ success: true, message: 'Kategori silindi' });
   }),
 );
 

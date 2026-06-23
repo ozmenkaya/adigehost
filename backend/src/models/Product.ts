@@ -15,6 +15,7 @@ export class Product extends Model<InferAttributes<Product>, InferCreationAttrib
   declare id: CreationOptional<string>;
   declare name: string; // müşteriye gösterilen ad ("Başlangıç Hosting")
   declare type: CreationOptional<'hosting' | 'vps'>;
+  declare categoryId: CreationOptional<string | null>; // ait olduğu kategori (null = kategorisiz)
   declare whmPackage: CreationOptional<string | null>; // WHM paket adı
   declare serverId: CreationOptional<string | null>; // tercih edilen sunucu (null = otomatik)
   declare priceMonthly: number;
@@ -33,6 +34,7 @@ Product.init(
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     name: { type: DataTypes.STRING(120), allowNull: false },
     type: { type: DataTypes.ENUM('hosting', 'vps'), allowNull: false, defaultValue: 'hosting' },
+    categoryId: { type: DataTypes.UUID, allowNull: true },
     whmPackage: { type: DataTypes.STRING(120), allowNull: true },
     serverId: { type: DataTypes.UUID, allowNull: true },
     priceMonthly: { type: DataTypes.DECIMAL(10, 2), allowNull: false },
@@ -48,6 +50,6 @@ Product.init(
   {
     sequelize,
     tableName: 'products',
-    indexes: [{ fields: ['is_active'] }, { fields: ['type'] }],
+    indexes: [{ fields: ['is_active'] }, { fields: ['type'] }, { fields: ['category_id'] }],
   },
 );

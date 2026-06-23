@@ -8,11 +8,19 @@ interface Product {
   id: string;
   name: string;
   type: string;
+  categoryId: string | null;
   priceMonthly: number;
   priceAnnually: number | null;
   setupFee: number | null;
   specs: Record<string, string> | null;
   description: string | null;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
 }
 
 interface DomainResult {
@@ -127,12 +135,166 @@ function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
   );
 }
 
+/** Tek bir ürün/paket kartı — hosting sepete eklenir, VPS yapılandırıcıya yönlendirir. */
+function ProductCard({
+  p,
+  isPopular,
+  isInCart,
+  onAddHosting,
+  onConfigureVps,
+}: {
+  p: Product;
+  isPopular: boolean;
+  isInCart: (id: string) => boolean;
+  onAddHosting: (p: Product, cycle: 'monthly' | 'annually') => void;
+  onConfigureVps: () => void;
+}) {
+  const monthly = Math.round(Number(p.priceMonthly) * 1.2 * 100) / 100;
+  const annually = p.priceAnnually ? Math.round(Number(p.priceAnnually) * 1.2 * 100) / 100 : null;
+  const specs = p.specs ?? {};
+  const isVps = p.type === 'vps';
+
+  return (
+    <div
+      className={`relative rounded-2xl border p-6 flex flex-col ${
+        isPopular
+          ? 'border-brand-400 bg-white shadow-xl ring-2 ring-brand-500'
+          : 'border-slate-200 bg-white shadow-sm'
+      }`}
+    >
+      {isPopular && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-600 px-4 py-1 text-xs font-bold text-white">
+          En Popüler
+        </div>
+      )}
+      <h3 className="text-xl font-bold text-slate-900">{p.name}</h3>
+      {p.description && <p className="text-sm text-slate-500 mt-1">{p.description}</p>}
+
+      <div className="mt-4 mb-5">
+        <div className="text-3xl font-extrabold text-brand-700">
+          {tr(monthly)}
+          <span className="text-base font-normal text-slate-500">₺/ay</span>
+        </div>
+        {annually && (
+          <div className="text-sm text-green-600 font-medium mt-0.5">
+            Yıllık: {tr(annually)} ₺ — {Math.round((1 - annually / (monthly * 12)) * 100)}% indirim
+          </div>
+        )}
+        <div className="text-xs text-slate-400 mt-0.5">KDV dahil</div>
+      </div>
+
+      {/* Özellikler */}
+      {Object.keys(specs).length > 0 && (
+        <ul className="space-y-2 mb-6 flex-1">
+          {Object.entries(specs).map(([k, v]) => (
+            <li key={k} className="flex items-center gap-2 text-sm text-slate-700">
+              <span className="text-brand-500">•</span>
+              <span>
+                <b>{k}:</b> {String(v)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Butonlar */}
+      <div className="space-y-2 mt-auto">
+        {isVps ? (
+          <button
+            onClick={onConfigureVps}
+            className="w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700"
+          >
+            VPS Yapılandır →
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => onAddHosting(p, 'monthly')}
+              disabled={isInCart(`hosting:${p.id}:monthly`)}
+              className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${
+                isInCart(`hosting:${p.id}:monthly`)
+                  ? 'bg-green-100 text-green-700 cursor-default'
+                  : isPopular
+                    ? 'bg-brand-600 text-white hover:bg-brand-700'
+                    : 'border border-brand-500 text-brand-700 hover:bg-brand-50'
+              }`}
+            >
+              {isInCart(`hosting:${p.id}:monthly`) ? 'Sepette' : 'Aylık Seç'}
+            </button>
+            {annually && (
+              <button
+                onClick={() => onAddHosting(p, 'annually')}
+                disabled={isInCart(`hosting:${p.id}:annually`)}
+                className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${
+                  isInCart(`hosting:${p.id}:annually`)
+                    ? 'bg-green-100 text-green-700 cursor-default'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                {isInCart(`hosting:${p.id}:annually`) ? 'Sepette' : `Yıllık Seç — ${tr(annually)} ₺`}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Başlık + ürün kartı ızgarası — hem kategori bölümleri hem de kategorisiz ürünler için. */
+function ProductSection({
+  title,
+  subtitle,
+  items,
+  isInCart,
+  onAddHosting,
+  onConfigureVps,
+}: {
+  title: string;
+  subtitle?: string | null;
+  items: Product[];
+  isInCart: (id: string) => boolean;
+  onAddHosting: (p: Product, cycle: 'monthly' | 'annually') => void;
+  onConfigureVps: () => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <section className="mx-auto max-w-5xl px-4 py-16">
+      <div className="text-center mb-10">
+        <h2 className="text-3xl font-extrabold text-slate-900">{title}</h2>
+        {subtitle && <p className="text-slate-500 mt-2">{subtitle}</p>}
+      </div>
+      <div
+        className={`grid gap-6 ${
+          items.length === 1
+            ? 'max-w-sm mx-auto'
+            : items.length === 2
+              ? 'sm:grid-cols-2'
+              : 'sm:grid-cols-2 lg:grid-cols-3'
+        }`}
+      >
+        {items.map((p, idx) => (
+          <ProductCard
+            key={p.id}
+            p={p}
+            isPopular={idx === 1 && items.length >= 3 && p.type === 'hosting'}
+            isInCart={isInCart}
+            onAddHosting={onAddHosting}
+            onConfigureVps={onConfigureVps}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function Sales() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { add, items } = useCartStore();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [domainName, setDomainName] = useState('');
   const [domainResults, setDomainResults] = useState<DomainResult[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -142,6 +304,7 @@ export default function Sales() {
 
   useEffect(() => {
     api.get('/public/products').then((r) => setProducts(r.data.data ?? []));
+    api.get('/public/categories').then((r) => setCategories(r.data.data ?? []));
   }, []);
 
   const searchDomain = async (e: FormEvent) => {
@@ -250,7 +413,15 @@ export default function Sales() {
   };
 
   const isInCart = (id: string) => items.some((i) => i.id === id);
-  const hostingProducts = products.filter((p) => p.type === 'hosting');
+  const goVps = () => navigate('/vps');
+
+  // Yalnızca ürünü olan aktif kategoriler bölüm olur (sortOrder zaten backend'de uygulanır)
+  const categorySections = categories
+    .map((c) => ({ category: c, items: products.filter((p) => p.categoryId === c.id) }))
+    .filter((s) => s.items.length > 0);
+
+  // Kategorisi olmayan hosting ürünleri eski "Hosting Paketleri" bölümünde kalır
+  const uncategorizedHosting = products.filter((p) => p.type === 'hosting' && !p.categoryId);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -442,110 +613,28 @@ export default function Sales() {
         </section>
       )}
 
-      {/* Hosting Paketleri */}
-      {hostingProducts.length > 0 && (
-        <section className="mx-auto max-w-5xl px-4 py-16">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-extrabold text-slate-900">Hosting Paketleri</h2>
-            <p className="text-slate-500 mt-2">
-              WordPress için optimize edilmiş, hızlı ve güvenli.
-            </p>
-          </div>
+      {/* Kategori bölümleri — her aktif kategori ayrı başlık olarak */}
+      {categorySections.map((s) => (
+        <ProductSection
+          key={s.category.id}
+          title={s.category.name}
+          subtitle={s.category.description}
+          items={s.items}
+          isInCart={isInCart}
+          onAddHosting={addHosting}
+          onConfigureVps={goVps}
+        />
+      ))}
 
-          <div
-            className={`grid gap-6 ${hostingProducts.length === 1 ? 'max-w-sm mx-auto' : hostingProducts.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'}`}
-          >
-            {hostingProducts.map((p, idx) => {
-              const isPopular = idx === 1 && hostingProducts.length >= 3;
-              const monthly = Math.round(Number(p.priceMonthly) * 1.2 * 100) / 100;
-              const annually = p.priceAnnually
-                ? Math.round(Number(p.priceAnnually) * 1.2 * 100) / 100
-                : null;
-              const specs = p.specs ?? {};
-
-              return (
-                <div
-                  key={p.id}
-                  className={`relative rounded-2xl border p-6 flex flex-col ${
-                    isPopular
-                      ? 'border-brand-400 bg-white shadow-xl ring-2 ring-brand-500'
-                      : 'border-slate-200 bg-white shadow-sm'
-                  }`}
-                >
-                  {isPopular && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-brand-600 px-4 py-1 text-xs font-bold text-white">
-                      En Popüler
-                    </div>
-                  )}
-                  <h3 className="text-xl font-bold text-slate-900">{p.name}</h3>
-                  {p.description && <p className="text-sm text-slate-500 mt-1">{p.description}</p>}
-
-                  <div className="mt-4 mb-5">
-                    <div className="text-3xl font-extrabold text-brand-700">
-                      {tr(monthly)}
-                      <span className="text-base font-normal text-slate-500">₺/ay</span>
-                    </div>
-                    {annually && (
-                      <div className="text-sm text-green-600 font-medium mt-0.5">
-                        Yıllık: {tr(annually)} ₺ —{' '}
-                        {Math.round((1 - annually / (monthly * 12)) * 100)}% indirim
-                      </div>
-                    )}
-                    <div className="text-xs text-slate-400 mt-0.5">KDV dahil</div>
-                  </div>
-
-                  {/* Özellikler */}
-                  {Object.keys(specs).length > 0 && (
-                    <ul className="space-y-2 mb-6 flex-1">
-                      {Object.entries(specs).map(([k, v]) => (
-                        <li key={k} className="flex items-center gap-2 text-sm text-slate-700">
-                          <span className="text-brand-500"></span>
-                          <span>
-                            <b>{k}:</b>
-                            {v}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-
-                  {/* Butonlar */}
-                  <div className="space-y-2 mt-auto">
-                    <button
-                      onClick={() => addHosting(p, 'monthly')}
-                      disabled={isInCart(`hosting:${p.id}:monthly`)}
-                      className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${
-                        isInCart(`hosting:${p.id}:monthly`)
-                          ? 'bg-green-100 text-green-700 cursor-default'
-                          : isPopular
-                            ? 'bg-brand-600 text-white hover:bg-brand-700'
-                            : 'border border-brand-500 text-brand-700 hover:bg-brand-50'
-                      }`}
-                    >
-                      {isInCart(`hosting:${p.id}:monthly`) ? 'Sepette' : 'Aylık Seç'}
-                    </button>
-                    {annually && (
-                      <button
-                        onClick={() => addHosting(p, 'annually')}
-                        disabled={isInCart(`hosting:${p.id}:annually`)}
-                        className={`w-full rounded-xl py-2.5 text-sm font-semibold transition-colors ${
-                          isInCart(`hosting:${p.id}:annually`)
-                            ? 'bg-green-100 text-green-700 cursor-default'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        {isInCart(`hosting:${p.id}:annually`)
-                          ? 'Sepette'
-                          : `Yıllık Seç — ${tr(annually)} ₺`}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+      {/* Kategorisiz hosting paketleri */}
+      <ProductSection
+        title="Hosting Paketleri"
+        subtitle="WordPress için optimize edilmiş, hızlı ve güvenli."
+        items={uncategorizedHosting}
+        isInCart={isInCart}
+        onAddHosting={addHosting}
+        onConfigureVps={goVps}
+      />
 
       {/* VPS CTA */}
       <section className="bg-gradient-to-r from-slate-900 to-brand-900 py-16 px-4">

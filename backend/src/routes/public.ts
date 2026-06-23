@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Product } from '../models';
+import { Product, Category } from '../models';
 import { DomainService } from '../services/DomainService';
 import { AlantronService } from '../services/AlantronService';
 import { ExchangeRateService } from '../services/ExchangeRateService';
@@ -174,10 +174,23 @@ publicRouter.get(
   asyncHandler(async (_req, res) => {
     const products = await Product.findAll({
       where: { isActive: true },
-      attributes: ['id', 'name', 'type', 'priceMonthly', 'priceAnnually', 'setupFee', 'specs', 'description'],
+      attributes: ['id', 'name', 'type', 'categoryId', 'priceMonthly', 'priceAnnually', 'setupFee', 'specs', 'description'],
       order: [['type', 'ASC'], ['sortOrder', 'ASC'], ['priceMonthly', 'ASC']],
     });
     res.json({ success: true, data: products });
+  }),
+);
+
+// ── Kategoriler (satış sayfası bölümleri) ────────────────────────────────────
+publicRouter.get(
+  '/categories',
+  asyncHandler(async (_req, res) => {
+    const categories = await Category.findAll({
+      where: { isActive: true },
+      attributes: ['id', 'name', 'description', 'sortOrder'],
+      order: [['sortOrder', 'ASC'], ['name', 'ASC']],
+    });
+    res.json({ success: true, data: categories });
   }),
 );
 
