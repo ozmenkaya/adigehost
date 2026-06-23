@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
 import { useCartStore, type CartItem } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
+import { SERVICES } from '../../data/services';
 
 interface Product {
   id: string;
@@ -511,6 +512,40 @@ export default function Sales() {
                 </span>
               </div>
 
+        </div>
+      </section>
+
+      {/* Çözümler — hizmet kartları */}
+      <section className="mx-auto max-w-6xl px-4 py-16">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl font-extrabold text-slate-900">
+            Tüm İhtiyaçlarınız Tek Çatı Altında
+          </h2>
+          <p className="text-slate-500 mt-2">
+            İhtiyacınız olan hizmeti seçin — gerisini AdigeHost halletsin.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {SERVICES.map((s) => (
+            <a
+              key={s.slug}
+              href={s.href}
+              className="group flex flex-col items-start gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:border-brand-300 hover:shadow-lg"
+            >
+              <span
+                className={`flex h-12 w-12 items-center justify-center rounded-xl ${s.accent}`}
+              >
+                {s.icon}
+              </span>
+              <div className="flex-1">
+                <div className="font-bold text-slate-900">{s.title}</div>
+                <div className="mt-1 text-sm leading-relaxed text-slate-500">{s.tagline}</div>
+              </div>
+              <span className="text-sm font-semibold text-brand-600 transition group-hover:translate-x-1">
+                Keşfet →
+              </span>
+            </a>
+          ))}
         </div>
       </section>
 
