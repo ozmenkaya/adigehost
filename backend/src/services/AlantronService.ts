@@ -402,7 +402,13 @@ export class AlantronService {
   static async getDomainExpiry(registrycode: number): Promise<Date | null> {
     try {
       const data = await this.getDomain(registrycode, 'expepoch');
-      const epoch = data.expepoch ?? data.exp_epoch;
+      // Alantron yanıtı registrycode anahtarı altında iç içe gelir:
+      // { "<registrycode>": { expepoch: 1234567890 } }
+      const details = (data[String(registrycode)] ?? data.details ?? data) as Record<
+        string,
+        unknown
+      >;
+      const epoch = details.expepoch ?? details.exp_epoch ?? data.expepoch;
       if (epoch) return new Date(Number(epoch) * 1000);
       return null;
     } catch {

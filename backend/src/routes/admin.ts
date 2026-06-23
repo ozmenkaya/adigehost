@@ -1201,3 +1201,29 @@ adminRouter.get(
     res.json({ success: true, data });
   }),
 );
+
+/**
+ * POST /admin/sync/alantron/refresh
+ * Panele kayıtlı tüm Alantron domainlerinin bitiş tarihi / kilit / NS bilgisini
+ * Alantron API'sinden tek tek çekip DB'yi günceller (toplu senkron).
+ */
+adminRouter.post(
+  '/sync/alantron/refresh',
+  asyncHandler(async (req, res) => {
+    const { DomainSyncService } = await import('../services/DomainSyncService');
+    const summary = await DomainSyncService.syncAlantron();
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.domain_sync',
+      resource: 'service',
+      details: {
+        updated: summary.updated,
+        unchanged: summary.unchanged,
+        notManaged: summary.notManaged.length,
+        errors: summary.errors.length,
+      },
+      ip: req.ip,
+    });
+    res.json({ success: true, data: summary });
+  }),
+);

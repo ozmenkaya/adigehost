@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { logger } from '../config/logger';
 import { ServerManager } from '../services/ServerManager';
 import { AutoRenewService } from '../services/AutoRenewService';
+import { DomainSyncService } from '../services/DomainSyncService';
 
 /**
  * Zamanlanmış görevler (node-cron). index.ts içinde startScheduler() ile başlatılır.
@@ -34,9 +35,20 @@ export function startScheduler(): void {
     void ServerManager.syncAll();
   });
 
-  // Domain bitiş hatırlatma: her gün 09:00 — TODO: domain_yaklasan e-postaları
-  cron.schedule('0 9 * * *', () => {
-    logger.info('[cron] Domain bitiş kontrolü tetiklendi (iskelet)');
+  // Alantron domain senkronu: her gün 09:00 — bitiş tarihi / kilit / NS tazele
+  cron.schedule('0 9 * * *', async () => {
+    logger.info('[cron] Alantron domain senkronu başladı');
+    try {
+      const result = await DomainSyncService.syncAlantron();
+      logger.info('[cron] Alantron domain senkronu tamamlandı', {
+        updated: result.updated,
+        unchanged: result.unchanged,
+        notManaged: result.notManaged.length,
+        errors: result.errors.length,
+      });
+    } catch (err) {
+      logger.error('[cron] Alantron domain senkronu hatası', { error: (err as Error).message });
+    }
   });
 
   logger.info('✅ Zamanlayıcı (cron) başlatıldı');

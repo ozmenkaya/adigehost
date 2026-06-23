@@ -51,6 +51,8 @@ export default function Sync() {
   const [alDomains, setAlDomains] = useState<AlantronDomain[]>([]);
   const [alLoading, setAlLoading] = useState(false);
   const [alNote, setAlNote] = useState('');
+  const [alSyncing, setAlSyncing] = useState(false);
+  const [alSyncMsg, setAlSyncMsg] = useState('');
 
   const loadWhm = async () => {
     setWhmLoading(true);
@@ -75,6 +77,30 @@ export default function Sync() {
       setAlNote(getApiErrorMessage(e));
     } finally {
       setAlLoading(false);
+    }
+  };
+
+  const syncAlantron = async () => {
+    setAlSyncing(true);
+    setAlSyncMsg('');
+    try {
+      const r = await api.post('/admin/sync/alantron/refresh');
+      const s = r.data.data as {
+        total: number;
+        updated: number;
+        unchanged: number;
+        notManaged: string[];
+        errors: { domain: string; message: string }[];
+      };
+      let msg = `${s.total} domain tarandı · ${s.updated} güncellendi · ${s.unchanged} zaten güncel`;
+      if (s.notManaged.length) msg += ` · ⚠ ${s.notManaged.length} yönetilmiyor (${s.notManaged.join(', ')})`;
+      if (s.errors.length) msg += ` · ${s.errors.length} hata`;
+      setAlSyncMsg(msg);
+      await loadAlantron();
+    } catch (e) {
+      setAlSyncMsg(getApiErrorMessage(e));
+    } finally {
+      setAlSyncing(false);
     }
   };
 
@@ -341,13 +367,27 @@ export default function Sync() {
                   {alDomains.length}
                 </span>
               </span>
-              <button
-                onClick={() => void loadAlantron()}
-                className="text-xs text-brand-600 hover:text-brand-700"
-              >
-                Yenile
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => void syncAlantron()}
+                  disabled={alSyncing}
+                  className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  {alSyncing ? 'Senkronize ediliyor…' : 'Alantron\'dan Güncelle'}
+                </button>
+                <button
+                  onClick={() => void loadAlantron()}
+                  className="text-xs text-brand-600 hover:text-brand-700"
+                >
+                  Yenile
+                </button>
+              </div>
             </div>
+            {alSyncMsg && (
+              <div className="border-b border-slate-100 bg-slate-50 px-4 py-2 text-xs text-slate-600">
+                {alSyncMsg}
+              </div>
+            )}
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
                 <tr>
