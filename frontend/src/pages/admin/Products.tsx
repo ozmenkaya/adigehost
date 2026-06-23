@@ -9,6 +9,7 @@ interface Product {
   whmPackage: string | null;
   priceMonthly: number;
   priceAnnually: number | null;
+  description: string | null;
   isActive: boolean;
   specs: { serverType?: string; location?: string } | null;
   server?: { name: string } | null;
@@ -62,6 +63,7 @@ export default function Products() {
   const [packages, setPackages] = useState<Pkg[]>([]);
   const [hetznerTypes, setHetznerTypes] = useState<HetznerType[]>([]);
   const [show, setShow] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [showCat, setShowCat] = useState(false);
   const [catForm, setCatForm] = useState({ ...EMPTY_CAT });
   const [error, setError] = useState('');
@@ -143,33 +145,79 @@ export default function Products() {
     if (type === 'vps') loadHetznerTypes('nbg1');
   };
 
+  const closeForm = () => {
+    setForm({ ...EMPTY });
+    setEditId(null);
+    setShow(false);
+  };
+
+  const openAdd = () => {
+    setEditId(null);
+    setError('');
+    setForm({ ...EMPTY });
+    switchType('hosting');
+    setShow(true);
+  };
+
+  // Mevcut ürünü forma yükle (düzenleme modu).
+  const startEdit = (p: Product) => {
+    setEditId(p.id);
+    setShow(true);
+    setShowCat(false);
+    setError('');
+    setForm({
+      type: (p.type as 'hosting' | 'vps') ?? 'hosting',
+      name: p.name,
+      categoryId: p.categoryId ?? '',
+      serverId: '',
+      whmPackage: p.whmPackage ?? '',
+      serverType: p.specs?.serverType ?? '',
+      location: p.specs?.location ?? 'nbg1',
+      priceMonthly: String(p.priceMonthly ?? ''),
+      priceAnnually: p.priceAnnually != null ? String(p.priceAnnually) : '',
+      description: p.description ?? '',
+      isActive: p.isActive,
+    });
+  };
+
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    const payload: Record<string, unknown> = {
-      name: form.name,
-      type: form.type,
-      categoryId: form.categoryId || null,
-      priceMonthly: Number(form.priceMonthly),
-      priceAnnually: form.priceAnnually ? Number(form.priceAnnually) : null,
-      description: form.description || null,
-      isActive: form.isActive,
-    };
-    if (form.type === 'hosting') {
-      payload.serverId = form.serverId || null;
-      payload.whmPackage = form.whmPackage || undefined;
-    } else {
-      payload.serverId = null;
-      payload.specs = {
-        serverType: form.serverType,
-        location: form.location,
-        image: 'ubuntu-22.04',
-      };
-    }
     try {
-      await api.post('/admin/products', payload);
-      setForm({ ...EMPTY });
-      setShow(false);
+      if (editId) {
+        // Düzenleme: yalnızca değiştirilebilir alanlar (tür/paket/spec kuruluşta sabit)
+        await api.put(`/admin/products/${editId}`, {
+          name: form.name,
+          categoryId: form.categoryId || null,
+          priceMonthly: Number(form.priceMonthly),
+          priceAnnually: form.priceAnnually ? Number(form.priceAnnually) : null,
+          description: form.description || null,
+          isActive: form.isActive,
+        });
+      } else {
+        const payload: Record<string, unknown> = {
+          name: form.name,
+          type: form.type,
+          categoryId: form.categoryId || null,
+          priceMonthly: Number(form.priceMonthly),
+          priceAnnually: form.priceAnnually ? Number(form.priceAnnually) : null,
+          description: form.description || null,
+          isActive: form.isActive,
+        };
+        if (form.type === 'hosting') {
+          payload.serverId = form.serverId || null;
+          payload.whmPackage = form.whmPackage || undefined;
+        } else {
+          payload.serverId = null;
+          payload.specs = {
+            serverType: form.serverType,
+            location: form.location,
+            image: 'ubuntu-22.04',
+          };
+        }
+        await api.post('/admin/products', payload);
+      }
+      closeForm();
       load();
     } catch (e) {
       setError(getApiErrorMessage(e));
@@ -200,10 +248,7 @@ export default function Products() {
             {showCat ? 'Kategorileri Kapat' : 'Kategoriler'}
           </button>
           <button
-            onClick={() => {
-              setShow((v) => !v);
-              if (!show) switchType('hosting');
-            }}
+            onClick={() => (show ? closeForm() : openAdd())}
             className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm text-white hover:bg-brand-700"
           >
             {show ? 'Kapat' : '+ Ürün Ekle'}
@@ -285,21 +330,27 @@ export default function Products() {
           onSubmit={submit}
           className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4"
         >
-          {/* Tür seçimi */}
-          <div className="flex gap-2">
-            {(['hosting', 'vps'] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => switchType(t)}
-                className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
-                  form.type === t ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {t === 'hosting' ? 'Hosting (WHM)' : 'VPS (Hetzner)'}
-              </button>
-            ))}
-          </div>
+          {editId ? (
+            <div className="text-sm font-semibold text-slate-700">
+              Ürünü Düzenle <span className="font-normal text-slate-400">({form.type.toUpperCase()})</span>
+            </div>
+          ) : (
+            /* Tür seçimi */
+            <div className="flex gap-2">
+              {(['hosting', 'vps'] as const).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  onClick={() => switchType(t)}
+                  className={`rounded-lg px-4 py-1.5 text-sm font-medium ${
+                    form.type === t ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
+                  }`}
+                >
+                  {t === 'hosting' ? 'Hosting (WHM)' : 'VPS (Hetzner)'}
+                </button>
+              ))}
+            </div>
+          )}
 
           <input
             required
@@ -322,73 +373,83 @@ export default function Products() {
             ))}
           </select>
 
+          {editId && (
+            <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
+              {form.type === 'hosting'
+                ? `WHM paketi: ${form.whmPackage || '—'}`
+                : `VPS: ${form.serverType || '—'} / ${form.location}`}{' '}
+              <span className="text-slate-400">(kuruluşta belirlendi, değiştirilemez)</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            {form.type === 'hosting' ? (
-              <>
-                <select
-                  value={form.serverId}
-                  onChange={(e) => pullPackages(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="">Sunucu seç (paketleri çek)</option>
-                  {servers.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={form.whmPackage}
-                  onChange={(e) => setForm({ ...form, whmPackage: e.target.value })}
-                  className={inputCls}
-                >
-                  <option value="">WHM paketi seç</option>
-                  {packages.map((p) => (
-                    <option key={p.name} value={p.name}>
-                      {p.name} {p.QUOTA ? `(disk: ${p.QUOTA})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </>
-            ) : (
-              <>
-                <select
-                  value={form.location}
-                  onChange={(e) => {
-                    setForm({ ...form, location: e.target.value, serverType: '' });
-                    loadHetznerTypes(e.target.value);
-                  }}
-                  className={inputCls}
-                >
-                  {LOCATIONS.map((l) => (
-                    <option key={l} value={l}>
-                      {l}
-                    </option>
-                  ))}
-                </select>
-                <select
-                  value={form.serverType}
-                  onChange={(e) => {
-                    const t = hetznerTypes.find((x) => x.name === e.target.value);
-                    setForm({
-                      ...form,
-                      serverType: e.target.value,
-                      priceMonthly: t?.priceMonthlyTRY
-                        ? String(t.priceMonthlyTRY)
-                        : form.priceMonthly,
-                    });
-                  }}
-                  className={inputCls}
-                >
-                  <option value="">Hetzner tipi seç</option>
-                  {hetznerTypes.map((t) => (
-                    <option key={t.name} value={t.name}>
-                      {t.name} — {t.cores}vCPU {t.memory}GB {t.disk}GB (~{t.priceMonthlyTRY} TL)
-                    </option>
-                  ))}
-                </select>
-              </>
-            )}
+            {!editId &&
+              (form.type === 'hosting' ? (
+                <>
+                  <select
+                    value={form.serverId}
+                    onChange={(e) => pullPackages(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">Sunucu seç (paketleri çek)</option>
+                    {servers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={form.whmPackage}
+                    onChange={(e) => setForm({ ...form, whmPackage: e.target.value })}
+                    className={inputCls}
+                  >
+                    <option value="">WHM paketi seç</option>
+                    {packages.map((p) => (
+                      <option key={p.name} value={p.name}>
+                        {p.name} {p.QUOTA ? `(disk: ${p.QUOTA})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ) : (
+                <>
+                  <select
+                    value={form.location}
+                    onChange={(e) => {
+                      setForm({ ...form, location: e.target.value, serverType: '' });
+                      loadHetznerTypes(e.target.value);
+                    }}
+                    className={inputCls}
+                  >
+                    {LOCATIONS.map((l) => (
+                      <option key={l} value={l}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={form.serverType}
+                    onChange={(e) => {
+                      const t = hetznerTypes.find((x) => x.name === e.target.value);
+                      setForm({
+                        ...form,
+                        serverType: e.target.value,
+                        priceMonthly: t?.priceMonthlyTRY
+                          ? String(t.priceMonthlyTRY)
+                          : form.priceMonthly,
+                      });
+                    }}
+                    className={inputCls}
+                  >
+                    <option value="">Hetzner tipi seç</option>
+                    {hetznerTypes.map((t) => (
+                      <option key={t.name} value={t.name}>
+                        {t.name} — {t.cores}vCPU {t.memory}GB {t.disk}GB (~{t.priceMonthlyTRY} TL)
+                      </option>
+                    ))}
+                  </select>
+                </>
+              ))}
             <input
               required
               type="number"
@@ -422,14 +483,25 @@ export default function Products() {
             />
             Satışa açık (müşteriler görebilir)
           </label>
-          {form.type === 'vps' && (
+          {form.type === 'vps' && !editId && (
             <p className="text-xs text-amber-600">
               Not: VPS siparişi ödeme onayında gerçek Hetzner sunucusu oluşturur (ücretli).
             </p>
           )}
-          <button className="w-full rounded-lg bg-brand-600 py-2 text-sm font-medium text-white hover:bg-brand-700">
-            Kaydet
-          </button>
+          <div className="flex gap-2">
+            <button className="flex-1 rounded-lg bg-brand-600 py-2 text-sm font-medium text-white hover:bg-brand-700">
+              {editId ? 'Güncelle' : 'Kaydet'}
+            </button>
+            {editId && (
+              <button
+                type="button"
+                onClick={closeForm}
+                className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                İptal
+              </button>
+            )}
+          </div>
         </form>
       )}
 
@@ -478,12 +550,20 @@ export default function Products() {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => remove(p.id)}
-                      className="rounded-lg border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
-                    >
-                      Sil
-                    </button>
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => startEdit(p)}
+                        className="rounded-lg border border-brand-300 px-2.5 py-1 text-xs text-brand-700 hover:bg-brand-50"
+                      >
+                        Düzenle
+                      </button>
+                      <button
+                        onClick={() => remove(p.id)}
+                        className="rounded-lg border border-red-300 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        Sil
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
