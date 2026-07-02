@@ -92,7 +92,9 @@ cartRouter.post(
           name: item.domain ?? product.name,
           domain: item.domain ?? null,
           status: 'pending',
-          price: Number(product.priceMonthly),
+          // Yenileme tahsilatı bu tutar üzerinden yapılır → dönem fiyatı (yıllık
+          // indirim dahil), aylık değil. Kurulum ücreti (setup) tek seferlik, hariç.
+          price: base,
           billingCycle: cycle,
           nextDue: new Date(Date.now() + (cycle === 'annually' ? 365 : cycle === 'quarterly' ? 90 : 30) * 86400000),
         });

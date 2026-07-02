@@ -34,6 +34,30 @@ export function formatInvoiceNumber(
   return `${prefix}-${year}-${String(sequence).padStart(5, '0')}`;
 }
 
+/** Faturalama döngüsü → ay sayısı. */
+export const CYCLE_MONTHS: Record<string, number> = { monthly: 1, quarterly: 3, annually: 12 };
+
+/**
+ * Bir tarihi faturalama döngüsü kadar ileri alır (bir sonraki vade).
+ * annually → +1 yıl, quarterly → +3 ay, aksi → +1 ay.
+ */
+export function advanceBillingDate(from: Date, cycle: string | null | undefined): Date {
+  const d = new Date(from);
+  if (cycle === 'annually') d.setFullYear(d.getFullYear() + 1);
+  else if (cycle === 'quarterly') d.setMonth(d.getMonth() + 3);
+  else d.setMonth(d.getMonth() + 1);
+  return d;
+}
+
+/**
+ * Ödeme sonrası yeni vade: mevcut vade gelecekteyse ondan, geçmişteyse
+ * bugünden bir döngü ileri (gecikmiş ödemede vade geçmişte kalmasın).
+ */
+export function nextDueAfterPayment(currentDue: Date | null, cycle: string | null | undefined, now = new Date()): Date {
+  const base = currentDue && currentDue.getTime() > now.getTime() ? currentDue : now;
+  return advanceBillingDate(base, cycle);
+}
+
 /** Basit slug. */
 export function slugify(text: string): string {
   return text

@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import { logger } from '../config/logger';
 import { ServerManager } from '../services/ServerManager';
 import { AutoRenewService } from '../services/AutoRenewService';
+import { RenewalService } from '../services/RenewalService';
 import { DomainSyncService } from '../services/DomainSyncService';
 import { DunningService } from '../services/DunningService';
 
@@ -27,6 +28,18 @@ export function startScheduler(): void {
       logger.info('[cron] Otomatik yenileme tamamlandı', result);
     } catch (err) {
       logger.error('[cron] Otomatik yenileme hatası', { error: (err as Error).message });
+    }
+  });
+
+  // Yenileme faturası üretimi: her gece 02:30 — otomatik tahsilattan sonra, dunning'den önce.
+  // autoRenew=false (havale/manuel) hosting/VPS servisleri için vade yaklaşınca fatura üretir.
+  cron.schedule('30 2 * * *', async () => {
+    logger.info('[cron] Yenileme faturası üretimi başladı');
+    try {
+      const result = await RenewalService.runDaily();
+      logger.info('[cron] Yenileme faturası üretimi tamamlandı', result);
+    } catch (err) {
+      logger.error('[cron] Yenileme faturası üretimi hatası', { error: (err as Error).message });
     }
   });
 

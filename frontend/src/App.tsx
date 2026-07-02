@@ -21,6 +21,7 @@ import OrderHosting from './pages/client/OrderHosting';
 import OrderVPS from './pages/client/OrderVPS';
 import SshKeys from './pages/client/SshKeys';
 import ServiceDetail from './pages/client/ServiceDetail';
+import ClientInvoices from './pages/client/Invoices';
 import Domains from './pages/client/Domains';
 import Profile from './pages/client/Profile';
 import Cards from './pages/client/Cards';
@@ -93,6 +94,7 @@ export default function App() {
         <Route index element={<ClientDashboard />} />
         <Route path="services" element={<ClientServices />} />
         <Route path="services/:id" element={<ServiceDetail />} />
+        <Route path="invoices" element={<ClientInvoices />} />
         <Route path="order/hosting" element={<OrderHosting />} />
         <Route path="order/vps" element={<OrderVPS />} />
         <Route path="ssh-keys" element={<SshKeys />} />

@@ -266,6 +266,15 @@ servicesRouter.post(
     const serviceName =
       product.type === 'hosting' ? domain! : (req.body.name as string) || product.name;
 
+    // Yenileme tahsilatı service.price üzerinden yapılır → dönem fiyatı (yıllık
+    // indirim dahil), aylık değil. Kurulum ücreti tek seferlik olduğu için hariç.
+    const cycleMonths = billingCycle === 'annually' ? 12 : billingCycle === 'quarterly' ? 3 : 1;
+    const periodPrice =
+      billingCycle === 'annually' && product.priceAnnually != null
+        ? Number(product.priceAnnually)
+        : Number(product.priceMonthly) * cycleMonths;
+    const cycleDays = billingCycle === 'annually' ? 365 : billingCycle === 'quarterly' ? 90 : 30;
+
     // Bekleyen servis (henüz provision edilmez — ödeme onayında açılır).
     const service = await Service.create({
       userId: req.user!.sub,
@@ -275,9 +284,9 @@ servicesRouter.post(
       name: serviceName,
       domain: product.type === 'hosting' ? domain : null,
       status: 'pending',
-      price: Number(product.priceMonthly),
+      price: periodPrice,
       billingCycle,
-      nextDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      nextDue: new Date(Date.now() + cycleDays * 24 * 60 * 60 * 1000),
     });
 
     const invoice = await InvoiceService.createForOrder(service, product, billingCycle);

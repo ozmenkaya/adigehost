@@ -25,6 +25,7 @@ import { EInvoiceService } from '../services/EInvoiceService';
 import { WHMService } from '../services/WHMService';
 import { InvoiceService } from '../services/InvoiceService';
 import { NotificationService } from '../services/NotificationService';
+import { nextDueAfterPayment } from '../utils/helpers';
 import { hashPassword } from '../security/password';
 import { randomBytes } from 'node:crypto';
 
@@ -766,9 +767,18 @@ adminRouter.post(
             provisioned.push({ serviceId: service.id, type: 'domain', ...result });
           }
         } else if (service.status === 'suspended') {
-          // Ödenmemiş fatura yüzünden askıya alınmış servis → ödeme onaylandı, geri aç.
+          // Ödenmemiş fatura yüzünden askıya alınmış servis → ödeme onaylandı, geri aç + dönemi ilerlet.
           await ServiceLifecycleService.unsuspend(service.id);
+          const due = service.nextDue ? new Date(service.nextDue as unknown as string) : null;
+          service.nextDue = nextDueAfterPayment(due, service.billingCycle);
+          await service.save();
           provisioned.push({ serviceId: service.id, type: 'reactivated' });
+        } else if (service.status === 'active') {
+          // Aktif servisin yenileme faturası onaylandı → dönemi ileri al.
+          const due = service.nextDue ? new Date(service.nextDue as unknown as string) : null;
+          service.nextDue = nextDueAfterPayment(due, service.billingCycle);
+          await service.save();
+          provisioned.push({ serviceId: service.id, type: 'renewed' });
         }
       } catch (e) {
         logger.error('Approve provisioning hatası', {

@@ -8,7 +8,7 @@ import { ServiceLifecycleService } from './ServiceLifecycleService';
 import { SettingsService } from './SettingsService';
 import { encrypt, decrypt } from '../security/encryption';
 import { logActivity } from './AuditService';
-import { calculateTotals, round2 } from '../utils/helpers';
+import { calculateTotals, round2, advanceBillingDate } from '../utils/helpers';
 import { logger } from '../config/logger';
 import { env } from '../config/env';
 
@@ -27,14 +27,6 @@ import { env } from '../config/env';
 
 const MAX_ATTEMPTS = 3;
 const LOOKAHEAD_DAYS = 3;
-
-function nextDueAfterCycle(current: Date, cycle: string | null): Date {
-  const d = new Date(current);
-  if (cycle === 'annually') d.setFullYear(d.getFullYear() + 1);
-  else if (cycle === 'quarterly') d.setMonth(d.getMonth() + 3);
-  else d.setMonth(d.getMonth() + 1);
-  return d;
-}
 
 export class AutoRenewService {
   /**
@@ -110,7 +102,10 @@ export class AutoRenewService {
       invoice.iyzicoPaymentId = result.paymentId ?? null;
       await invoice.save();
 
-      service.nextDue = nextDueAfterCycle(service.nextDue ?? new Date(), service.billingCycle);
+      service.nextDue = advanceBillingDate(
+        service.nextDue ? new Date(service.nextDue as unknown as string) : new Date(),
+        service.billingCycle,
+      );
       // Önceki başarısız deneme sayacını sıfırla
       service.config = { ...(service.config ?? {}), renewAttempts: 0 };
       await service.save();

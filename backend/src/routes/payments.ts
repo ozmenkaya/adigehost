@@ -7,6 +7,7 @@ import { EInvoiceService } from '../services/EInvoiceService';
 import { NotificationService } from '../services/NotificationService';
 import { AutoRenewService } from '../services/AutoRenewService';
 import { ServiceLifecycleService } from '../services/ServiceLifecycleService';
+import { nextDueAfterPayment } from '../utils/helpers';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
@@ -141,9 +142,19 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
               provisioned.push({ type: 'domain', ...(await ProvisioningService.provisionDomain(service)) });
             }
           } else if (service.status === 'suspended') {
-            // Ödenmemiş fatura yüzünden askıya alınmış servis → ödeme geldi, geri aç.
+            // Ödenmemiş fatura yüzünden askıya alınmış servis → ödeme geldi, geri aç
+            // ve dönemi ilerlet (gecikmiş yenileme ödendi).
             await ServiceLifecycleService.unsuspend(service.id);
+            const due = service.nextDue ? new Date(service.nextDue as unknown as string) : null;
+            service.nextDue = nextDueAfterPayment(due, service.billingCycle);
+            await service.save();
             provisioned.push({ type: 'reactivated', serviceId: service.id });
+          } else if (service.status === 'active') {
+            // Aktif servisin yenileme faturası ödendi → dönemi ileri al.
+            const due = service.nextDue ? new Date(service.nextDue as unknown as string) : null;
+            service.nextDue = nextDueAfterPayment(due, service.billingCycle);
+            await service.save();
+            provisioned.push({ type: 'renewed', serviceId: service.id });
           }
         } catch (e) {
           logger.error('Provisioning hatası (iyzico callback)', {
