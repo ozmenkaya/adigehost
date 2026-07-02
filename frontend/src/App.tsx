@@ -18,6 +18,8 @@ import Sync from './pages/admin/Sync';
 import ClientDashboard from './pages/client/Dashboard';
 import ClientServices from './pages/client/Services';
 import OrderHosting from './pages/client/OrderHosting';
+import OrderVPS from './pages/client/OrderVPS';
+import SshKeys from './pages/client/SshKeys';
 import ServiceDetail from './pages/client/ServiceDetail';
 import Domains from './pages/client/Domains';
 import Profile from './pages/client/Profile';
@@ -92,6 +94,8 @@ export default function App() {
         <Route path="services" element={<ClientServices />} />
         <Route path="services/:id" element={<ServiceDetail />} />
         <Route path="order/hosting" element={<OrderHosting />} />
+        <Route path="order/vps" element={<OrderVPS />} />
+        <Route path="ssh-keys" element={<SshKeys />} />
         <Route path="domains" element={<Domains />} />
         <Route path="domains/transfer" element={<DomainTransfer />} />
         <Route path="profile" element={<Profile />} />

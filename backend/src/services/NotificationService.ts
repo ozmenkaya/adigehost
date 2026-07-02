@@ -181,7 +181,9 @@ export class NotificationService {
       cpanelUser?: string;
       cpanelUrl?: string;
       ipAddress?: string;
+      ipv6?: string;
       password?: string;
+      sshKeyUsed?: boolean;
     }>;
   }): Promise<void> {
     const paidDate = opts.paidAt.toLocaleString('tr-TR', {
@@ -215,8 +217,18 @@ export class NotificationService {
           }
           if (p.type === 'vps') {
             return `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:14px;margin:8px 0">
-              <p style="margin:0 0 6px;font-weight:600">🖥 VPS Sunucu</p>
-              ${p.ipAddress ? `<p style="margin:2px 0;font-size:13px">IP: <code>${esc(p.ipAddress)}</code></p>` : ''}
+              <p style="margin:0 0 6px;font-weight:600">🖥 VPS Sunucu — Giriş Bilgileri</p>
+              ${p.ipAddress ? `<p style="margin:2px 0;font-size:13px">IPv4: <code>${esc(p.ipAddress)}</code></p>` : ''}
+              ${p.ipv6 ? `<p style="margin:2px 0;font-size:13px">IPv6: <code>${esc(p.ipv6)}</code></p>` : ''}
+              <p style="margin:2px 0;font-size:13px">Kullanıcı: <code>root</code></p>
+              ${
+                p.sshKeyUsed
+                  ? `<p style="margin:2px 0;font-size:13px">Giriş: <strong>SSH anahtarınızla</strong> bağlanın (parola oluşturulmadı).</p>`
+                  : p.password
+                    ? `<p style="margin:2px 0;font-size:13px">Root parola: <code>${esc(p.password)}</code></p>
+              <p style="margin:6px 0 0;font-size:12px;color:#b45309">⚠ Güvenlik için ilk girişte parolanızı değiştirin. Bağlanmak için: <code>ssh root@${esc(p.ipAddress ?? 'SUNUCU_IP')}</code></p>`
+                    : ''
+              }
             </div>`;
           }
           if (p.type === 'domain') {
@@ -247,6 +259,116 @@ export class NotificationService {
       `Ödeme Alındı — ${opts.invoiceNum} (${tr(opts.total)} ₺)`,
       html,
     );
+  }
+
+  // ── Ödeme Hatırlatma (vade yaklaşıyor / geçti) ───────────────────────────
+
+  static async sendPaymentReminder(opts: {
+    to: string;
+    firstName: string;
+    invoiceNum: string;
+    total: number;
+    dueDate: Date;
+    daysUntilDue: number; // negatif ise vade geçmiş
+  }): Promise<void> {
+    const due = opts.dueDate.toLocaleDateString('tr-TR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const bank = await bankHtml();
+    const overdue = opts.daysUntilDue < 0;
+    const when = overdue
+      ? `Son ödeme tarihi <strong>${Math.abs(opts.daysUntilDue)} gün</strong> önce doldu`
+      : opts.daysUntilDue === 0
+        ? 'Son ödeme tarihi <strong>bugün</strong>'
+        : `Son ödeme tarihine <strong>${opts.daysUntilDue} gün</strong> kaldı`;
+    const box = overdue
+      ? 'background:#fef2f2;border:1px solid #fca5a5;color:#991b1b'
+      : 'background:#fefce8;border:1px solid #fde047;color:#854d0e';
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <div style="${box};border-radius:8px;padding:16px;margin:16px 0">
+        <p style="margin:0 0 6px;font-weight:600">${when}.</p>
+        <p style="margin:0;font-size:14px"><strong>${esc(opts.invoiceNum)}</strong> — ${tr(opts.total)} ₺ · Vade: ${esc(due)}</p>
+      </div>
+      ${overdue ? '<p style="font-size:13px;color:#991b1b">Ödeme yapılmazsa hizmetiniz kısa süre içinde askıya alınacaktır. Kesintiyi önlemek için lütfen ödemenizi tamamlayın.</p>' : ''}
+      <p style="font-weight:600;margin:16px 0 4px">Havale / EFT Bilgileri</p>
+      <p style="margin:0 0 4px;font-size:13px;color:#64748b">Açıklama kısmına <strong>${esc(opts.invoiceNum)}</strong> yazın.</p>
+      ${bank}`;
+    const html = wrapHtml(
+      overdue ? `Ödemeniz Gecikti — ${esc(opts.invoiceNum)}` : `Ödeme Hatırlatması — ${esc(opts.invoiceNum)}`,
+      body,
+      { label: 'Öde / Panele Git', url: `${env.FRONTEND_URL}/invoices` },
+    );
+    await deliver(
+      opts.to,
+      `${overdue ? 'Ödemeniz gecikti' : 'Ödeme hatırlatması'} — ${opts.invoiceNum} (${tr(opts.total)} ₺)`,
+      html,
+    );
+  }
+
+  // ── Servis Askıya Alındı ─────────────────────────────────────────────────
+
+  static async sendServiceSuspended(opts: {
+    to: string;
+    firstName: string;
+    serviceName: string;
+    reason: string;
+  }): Promise<void> {
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:16px;margin:16px 0">
+        <p style="margin:0 0 6px;font-weight:600;color:#991b1b">⏸ Hizmetiniz askıya alındı</p>
+        <p style="margin:0;font-size:14px;color:#7f1d1d"><strong>${esc(opts.serviceName)}</strong></p>
+        <p style="margin:6px 0 0;font-size:13px;color:#b91c1c">Neden: ${esc(opts.reason)}</p>
+      </div>
+      <p style="font-size:14px">Ödemenizi tamamladığınızda hizmetiniz <strong>otomatik olarak</strong> yeniden aktive edilir. Verileriniz belirli bir süre korunur; bu süre sonunda hizmet kalıcı olarak sonlandırılabilir.</p>`;
+    const html = wrapHtml('Hizmet Askıya Alındı', body, {
+      label: 'Ödeme Yap',
+      url: `${env.FRONTEND_URL}/invoices`,
+    });
+    await deliver(opts.to, `Hizmetiniz askıya alındı — ${opts.serviceName}`, html);
+  }
+
+  // ── Servis Yeniden Aktive ────────────────────────────────────────────────
+
+  static async sendServiceReactivated(opts: {
+    to: string;
+    firstName: string;
+    serviceName: string;
+  }): Promise<void> {
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:16px;margin:16px 0">
+        <p style="margin:0 0 6px;font-weight:600;color:#166534">✅ Hizmetiniz yeniden aktif</p>
+        <p style="margin:0;font-size:14px;color:#15803d"><strong>${esc(opts.serviceName)}</strong></p>
+      </div>
+      <p style="font-size:14px">Ödemeniz alındı ve hizmetiniz yeniden çalışır duruma getirildi. İlginiz için teşekkür ederiz.</p>`;
+    const html = wrapHtml('Hizmet Yeniden Aktif', body, {
+      label: 'Panelime Git',
+      url: `${env.FRONTEND_URL}/services`,
+    });
+    await deliver(opts.to, `Hizmetiniz yeniden aktif — ${opts.serviceName}`, html);
+  }
+
+  // ── Servis Sonlandırıldı ─────────────────────────────────────────────────
+
+  static async sendServiceTerminated(opts: {
+    to: string;
+    firstName: string;
+    serviceName: string;
+    reason: string;
+  }): Promise<void> {
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <div style="background:#f8fafc;border:1px solid #cbd5e1;border-radius:8px;padding:16px;margin:16px 0">
+        <p style="margin:0 0 6px;font-weight:600;color:#334155">Hizmetiniz sonlandırıldı</p>
+        <p style="margin:0;font-size:14px;color:#475569"><strong>${esc(opts.serviceName)}</strong></p>
+        <p style="margin:6px 0 0;font-size:13px;color:#64748b">Neden: ${esc(opts.reason)}</p>
+      </div>
+      <p style="font-size:13px;color:#64748b">Bu hizmete ait sunucu/hesap ve veriler kaldırılmıştır. Yeni bir hizmet almak isterseniz panelimizden sipariş verebilirsiniz.</p>`;
+    const html = wrapHtml('Hizmet Sonlandırıldı', body, {
+      label: 'Yeni Sipariş',
+      url: `${env.FRONTEND_URL}`,
+    });
+    await deliver(opts.to, `Hizmetiniz sonlandırıldı — ${opts.serviceName}`, html);
   }
 
   // ── Yeni Sipariş Alındı (self-servis) ────────────────────────────────────

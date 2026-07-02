@@ -23,5 +23,7 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
+    // noVNC (rfb) top-level await kullanır → es2022 hedefi gerekir.
+    target: 'es2022',
   },
 });

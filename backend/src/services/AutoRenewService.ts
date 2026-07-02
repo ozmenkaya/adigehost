@@ -4,6 +4,7 @@ import { IyzicoService } from './IyzicoService';
 import { InvoiceService } from './InvoiceService';
 import { EInvoiceService } from './EInvoiceService';
 import { NotificationService } from './NotificationService';
+import { ServiceLifecycleService } from './ServiceLifecycleService';
 import { SettingsService } from './SettingsService';
 import { encrypt, decrypt } from '../security/encryption';
 import { logActivity } from './AuditService';
@@ -166,10 +167,6 @@ export class AutoRenewService {
     const cfg = (service.config ?? {}) as Record<string, unknown>;
     const attempts = Number(cfg.renewAttempts ?? 0) + 1;
     service.config = { ...cfg, renewAttempts: attempts, lastRenewError: reason };
-    if (attempts >= MAX_ATTEMPTS) {
-      service.status = 'suspended';
-      logger.warn('Otomatik yenileme — servis askıya alındı', { service: service.id, attempts });
-    }
     await service.save();
 
     await logActivity({
@@ -179,6 +176,16 @@ export class AutoRenewService {
       resourceId: service.id,
       details: { reason, attempts, suspended: attempts >= MAX_ATTEMPTS },
     });
+
+    // Son deneme de başarısızsa gerçek askıya alma (Hetzner powerOff / WHM suspend).
+    // ServiceLifecycleService servisi yeniden yükleyip suspended + suspendedAt işler.
+    if (attempts >= MAX_ATTEMPTS) {
+      logger.warn('Otomatik yenileme — servis askıya alınıyor', { service: service.id, attempts });
+      await ServiceLifecycleService.suspend(
+        service.id,
+        `Otomatik tahsilat ${MAX_ATTEMPTS} kez başarısız: ${reason}`,
+      );
+    }
   }
 
   /**

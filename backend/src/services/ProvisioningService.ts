@@ -12,6 +12,7 @@ import { User } from '../models/User';
 import { ApiError } from '../utils/ApiError';
 import { logger } from '../config/logger';
 import { slugify } from '../utils/helpers';
+import { encryptNullable } from '../security/encryption';
 
 /** Alan adından geçerli cPanel kullanıcı adı üretir (≤16, harfle başlar, [a-z0-9]). */
 export function generateCpanelUser(domain: string): string {
@@ -82,38 +83,92 @@ export class ProvisioningService {
    * Bir VPS servisini Hetzner'da oluşturur.
    * serverType/location/image bilgisi ürünün specs alanından okunur.
    */
-  static async provisionVps(
-    service: Service,
-  ): Promise<{ ip: string | null; rootPassword: string | null }> {
+  static async provisionVps(service: Service): Promise<{
+    ipAddress: string | null;
+    ipv6: string | null;
+    rootPassword: string | null;
+    sshKeyUsed: boolean;
+  }> {
     if (service.type !== 'vps') throw ApiError.badRequest('Servis VPS türünde değil');
+
+    // Yapılandırma iki kaynaktan gelebilir:
+    //  1) Configurator/sepet siparişi → service.hetznerPlan/Location/Os + service.config
+    //  2) Eski ürün-tabanlı sipariş → Product.specs
     const product = service.productId ? await Product.findByPk(service.productId) : null;
     const specs = (product?.specs ?? {}) as {
       serverType?: string;
       location?: string;
       image?: string;
     };
-    if (!specs.serverType) throw ApiError.badRequest('Ürün VPS yapılandırması (serverType) eksik');
+    const cfg = (service.config ?? {}) as {
+      withIpv4?: boolean;
+      sshKey?: string;
+      backups?: boolean;
+      userData?: string;
+    };
+    const serverType = service.hetznerPlan ?? specs.serverType;
+    const location = service.hetznerLocation ?? specs.location ?? 'nbg1';
+    const image = service.hetznerOs ?? specs.image ?? 'ubuntu-22.04';
+    if (!serverType) throw ApiError.badRequest('VPS yapılandırması (serverType) eksik');
+
+    // SSH anahtarı (opsiyonel) — başarısız olursa root parola ile devam
+    let sshKeys: number[] | undefined;
+    if (cfg.sshKey && cfg.sshKey.trim()) {
+      try {
+        sshKeys = [await HetznerService.ensureSshKey(cfg.sshKey, `adigehost-${service.id}`)];
+      } catch (e) {
+        logger.warn('SSH anahtarı eklenemedi, root parola ile devam ediliyor', {
+          service: service.id,
+          error: (e as Error).message,
+        });
+      }
+    }
 
     const name = `${slugify(service.name)}-${Date.now().toString(36)}`;
     const { server, rootPassword } = await HetznerService.createServer({
       name,
-      serverType: specs.serverType,
-      image: specs.image ?? 'ubuntu-22.04',
-      location: specs.location ?? 'nbg1',
+      serverType,
+      image,
+      location,
+      enableIpv4: cfg.withIpv4 !== false,
+      sshKeys,
+      userData: cfg.userData?.trim() ? cfg.userData : undefined,
       startAfterCreate: true,
     });
+
+    // Otomatik yedekleme (opsiyonel, +%20) — başarısız olursa sunucu yine de aktif
+    if (cfg.backups) {
+      try {
+        await HetznerService.enableBackup(server.id);
+      } catch (e) {
+        logger.warn('Yedekleme etkinleştirilemedi', {
+          service: service.id,
+          error: (e as Error).message,
+        });
+      }
+    }
+
+    const sshKeyUsed = !!(sshKeys && sshKeys.length);
 
     service.status = 'active';
     service.hetznerId = server.id;
     service.hetznerIp = server.public_net?.ipv4?.ip ?? null;
     service.hetznerIpv6 = server.public_net?.ipv6?.ip ?? null;
-    service.hetznerPlan = specs.serverType;
-    service.hetznerLocation = specs.location ?? null;
-    service.hetznerOs = specs.image ?? 'ubuntu-22.04';
+    service.hetznerPlan = serverType;
+    service.hetznerLocation = location;
+    service.hetznerOs = image;
+    // Root parolayı panelde tekrar gösterebilmek için AES-256-GCM ile şifreli sakla.
+    // (Hetzner API'de root_password yalnızca oluşturmada bir kez döner.)
+    service.config = {
+      ...(cfg as Record<string, unknown>),
+      rootPasswordEnc: encryptNullable(rootPassword),
+      sshKeyUsed,
+    };
+    service.changed('config', true);
     await service.save();
 
-    logger.info('VPS provision edildi', { service: service.id, hetznerId: server.id });
-    return { ip: service.hetznerIp, rootPassword };
+    logger.info('VPS provision edildi', { service: service.id, hetznerId: server.id, sshKeyUsed });
+    return { ipAddress: service.hetznerIp, ipv6: service.hetznerIpv6, rootPassword, sshKeyUsed };
   }
 
   /**

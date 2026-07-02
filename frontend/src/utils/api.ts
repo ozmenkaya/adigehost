@@ -26,7 +26,14 @@ api.interceptors.response.use(
         return api(original);
       } catch (refreshErr) {
         isRefreshing = false;
-        // Refresh başarısız — login'e yönlendir
+        // Refresh başarısız — kalıcı auth durumunu temizle, yoksa /login
+        // localStorage'daki eski isAuthenticated'ı görüp tekrar /admin'e
+        // yönlendirir ve sonsuz döngüye girer.
+        try {
+          localStorage.removeItem('adigehost-auth');
+        } catch {
+          /* storage erişilemez olabilir */
+        }
         if (window.location.pathname !== '/login') {
           window.location.href = '/login';
         }

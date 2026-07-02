@@ -22,7 +22,13 @@ export function createQueue<T = unknown>(name: string): Queue.Queue<T> {
   return queue;
 }
 
+/** Faturalama/yaşam döngüsü kuyruğu iş yükü. */
+export type BillingJob =
+  | { type: 'suspend'; serviceId: string; reason: string }
+  | { type: 'unsuspend'; serviceId: string }
+  | { type: 'terminate'; serviceId: string; reason: string };
+
 // Tanımlı kuyruklar (işleyiciler kodlama fazında eklenecek)
 export const emailQueue = createQueue('email');
 export const provisioningQueue = createQueue('provisioning');
-export const billingQueue = createQueue('billing');
+export const billingQueue = createQueue<BillingJob>('billing');

@@ -3,6 +3,7 @@ import { logger } from '../config/logger';
 import { ServerManager } from '../services/ServerManager';
 import { AutoRenewService } from '../services/AutoRenewService';
 import { DomainSyncService } from '../services/DomainSyncService';
+import { DunningService } from '../services/DunningService';
 
 /**
  * Zamanlanmış görevler (node-cron). index.ts içinde startScheduler() ile başlatılır.
@@ -26,6 +27,18 @@ export function startScheduler(): void {
       logger.info('[cron] Otomatik yenileme tamamlandı', result);
     } catch (err) {
       logger.error('[cron] Otomatik yenileme hatası', { error: (err as Error).message });
+    }
+  });
+
+  // Borç takip (dunning): her gün 08:00 (UTC) — hatırlatma → askıya al → sonlandır.
+  // Otomatik tahsilattan (02:00) sonra çalışır; başarısız yenilemeler önce denenmiş olur.
+  cron.schedule('0 8 * * *', async () => {
+    logger.info('[cron] Borç takip (dunning) başladı');
+    try {
+      const result = await DunningService.runDaily();
+      logger.info('[cron] Borç takip tamamlandı', result);
+    } catch (err) {
+      logger.error('[cron] Borç takip hatası', { error: (err as Error).message });
     }
   });
 

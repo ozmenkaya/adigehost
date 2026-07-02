@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../../utils/api';
 import HostingDetail from './HostingDetail';
 import DomainDetail from './DomainDetail';
+import VpsDetail from './VpsDetail';
 
 /**
  * Servis tipine göre uygun detay sayfasını gösterir.
@@ -26,5 +27,6 @@ export default function ServiceDetail() {
 
   if (type === 'hosting') return <HostingDetail />;
   if (type === 'domain') return <DomainDetail />;
+  if (type === 'vps') return <VpsDetail />;
   return <div className="text-slate-500">Bu servis tipi için detay sayfası yok ({type})</div>;
 }

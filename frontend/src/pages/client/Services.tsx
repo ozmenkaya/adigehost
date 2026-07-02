@@ -114,6 +114,12 @@ export default function Services() {
             + Hosting Sipariş
           </Link>
           <Link
+            to="/app/order/vps"
+            className="rounded-lg border border-brand-300 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
+          >
+            + VPS Kur
+          </Link>
+          <Link
             to="/"
             className="rounded-lg border border-brand-300 px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50"
           >
@@ -340,6 +346,9 @@ export default function Services() {
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center text-slate-400">
                     VPS hizmetiniz yok.
+                    <Link to="/app/order/vps" className="block mt-2 text-brand-600 hover:underline">
+                      + VPS yapılandır ve kur
+                    </Link>
                   </td>
                 </tr>
               ) : (

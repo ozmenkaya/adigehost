@@ -6,6 +6,7 @@ import { ProvisioningService } from '../services/ProvisioningService';
 import { EInvoiceService } from '../services/EInvoiceService';
 import { NotificationService } from '../services/NotificationService';
 import { AutoRenewService } from '../services/AutoRenewService';
+import { ServiceLifecycleService } from '../services/ServiceLifecycleService';
 import { validate } from '../middleware/validate';
 import { asyncHandler } from '../utils/asyncHandler';
 import { ApiError } from '../utils/ApiError';
@@ -139,6 +140,10 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
             } else if (service.type === 'domain') {
               provisioned.push({ type: 'domain', ...(await ProvisioningService.provisionDomain(service)) });
             }
+          } else if (service.status === 'suspended') {
+            // Ödenmemiş fatura yüzünden askıya alınmış servis → ödeme geldi, geri aç.
+            await ServiceLifecycleService.unsuspend(service.id);
+            provisioned.push({ type: 'reactivated', serviceId: service.id });
           }
         } catch (e) {
           logger.error('Provisioning hatası (iyzico callback)', {
@@ -194,6 +199,9 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
             cpanelUser: p.cpanelUser ? String(p.cpanelUser) : undefined,
             cpanelUrl: p.cpanelUrl ? String(p.cpanelUrl) : undefined,
             ipAddress: p.ipAddress ? String(p.ipAddress) : undefined,
+            ipv6: p.ipv6 ? String(p.ipv6) : undefined,
+            password: p.rootPassword ? String(p.rootPassword) : undefined,
+            sshKeyUsed: p.sshKeyUsed === true,
           })),
         }).catch(() => {});
       });

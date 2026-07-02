@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
+import PageBackdrop from '../../components/shop/PageBackdrop';
 
 const EMPTY = {
   firstName: '',
@@ -43,41 +44,54 @@ export default function Register() {
 
   if (done) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-lg">
-          <h1 className="text-xl font-bold text-green-700">Kaydınız alındı</h1>
-          <p className="mt-2 text-sm text-slate-600">
-            E-posta adresinize doğrulama linki gönderildi. Doğruladıktan sonra giriş yapabilirsiniz.
-          </p>
-          <button
-            onClick={() => navigate('/login')}
-            className="mt-4 rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-          >
-            Giriş sayfasına dön
-          </button>
+      <PageBackdrop>
+        <div className="flex min-h-screen items-center justify-center px-4">
+          <div className="glass w-full max-w-md animate-fade-up rounded-3xl p-8 text-center">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400/30 to-teal-500/20 ring-1 ring-emerald-400/40">
+              <svg viewBox="0 0 24 24" className="h-8 w-8 text-emerald-300" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m4 12 5 5L20 6" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-white">Kaydınız alındı</h1>
+            <p className="mt-2 text-sm text-slate-400">
+              E-posta adresinize doğrulama linki gönderildi. Doğruladıktan sonra giriş yapabilirsiniz.
+            </p>
+            <button onClick={() => navigate('/login')} className="btn-neon mt-5">
+              Giriş sayfasına dön
+            </button>
+          </div>
         </div>
-      </div>
+      </PageBackdrop>
     );
   }
 
-  const inp =
-    'w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-brand-500';
+  const inp = 'field text-sm';
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-8">
-      <div className="w-full max-w-xl rounded-2xl bg-white p-8 shadow-lg">
-        <div className="mb-4">
-          <Link to="/" className="text-sm text-slate-500 hover:text-brand-600">
-            ← Anasayfaya Dön
-          </Link>
-        </div>
-        <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold text-brand-700">AdigeHost</h1>
-          <p className="mt-1 text-sm text-slate-500">Yeni Hesap Oluştur</p>
-        </div>
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
-        )}
+    <PageBackdrop>
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
+        <div className="glass w-full max-w-xl animate-fade-up rounded-3xl p-8">
+          <div className="mb-6">
+            <Link to="/" className="text-sm text-slate-400 transition hover:text-white">
+              ← Anasayfaya Dön
+            </Link>
+          </div>
+          <div className="mb-6 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-neon-violet text-white shadow-[0_0_24px_-4px_rgba(59,130,246,0.9)]">
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3 3 20h18L12 3Z" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white">
+              ADIGE<span className="font-light text-slate-400">HOST</span>
+            </h1>
+            <p className="mt-1 text-sm text-slate-400">Yeni Hesap Oluştur</p>
+          </div>
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
 
         <form onSubmit={submit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -122,13 +136,14 @@ export default function Register() {
           </div>
 
           {/* Fatura bilgileri */}
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-2 text-sm font-medium text-slate-700">Fatura Bilgileri</div>
-            <div className="mb-3 flex gap-4 text-sm">
+          <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+            <div className="mb-2 text-sm font-medium text-slate-200">Fatura Bilgileri</div>
+            <div className="mb-3 flex gap-4 text-sm text-slate-300">
               {(['individual', 'corporate'] as const).map((t) => (
                 <label key={t} className="flex items-center gap-1.5">
                   <input
                     type="radio"
+                    className="accent-brand-500"
                     checked={f.identityType === t}
                     onChange={() => set('identityType', t)}
                   />
@@ -190,22 +205,19 @@ export default function Register() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-brand-600 py-2.5 font-medium text-white transition hover:bg-brand-700 disabled:opacity-60"
-          >
+          <button type="submit" disabled={loading} className="btn-neon w-full disabled:opacity-60">
             {loading ? 'Kaydediliyor…' : 'Hesap Oluştur'}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-slate-500">
+        <p className="mt-4 text-center text-sm text-slate-400">
           Zaten hesabınız var mı?{' '}
-          <Link to="/login" className="font-medium text-brand-600 hover:underline">
+          <Link to="/login" className="font-medium text-brand-300 hover:text-brand-200 hover:underline">
             Giriş yapın
           </Link>
         </p>
+        </div>
       </div>
-    </div>
+    </PageBackdrop>
   );
 }

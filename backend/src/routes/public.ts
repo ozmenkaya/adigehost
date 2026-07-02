@@ -112,6 +112,14 @@ publicRouter.get(
     const ipv4PriceEur = 0.6;
     const ipv4TlIncVat = round2(ipv4PriceEur * eurTry * markup * vatMult);
 
+    // Volume (blok depolama) GB başına aylık fiyat
+    const volumeEurPerGb = Number(await SettingsService.get('vps_volume_eur_per_gb', '0.0572')) || 0.0572;
+    const volumePerGbIncVat = round2(volumeEurPerGb * eurTry * markup * vatMult);
+
+    // Floating IP aylık fiyat
+    const floatingIpEur = Number(await SettingsService.get('vps_floating_ip_eur', '1.19')) || 1.19;
+    const floatingIpIncVat = round2(floatingIpEur * eurTry * markup * vatMult);
+
     // Lokasyonlar (sade)
     const locations = (locationsRaw as Array<{ name: string; city: string; country: string; description: string }>).map((l) => ({
       name: l.name,
@@ -138,6 +146,8 @@ publicRouter.get(
         locations,
         images,
         ipv4: { monthlyIncVat: ipv4TlIncVat, eurOriginal: ipv4PriceEur },
+        volume: { perGbIncVat: volumePerGbIncVat, eurPerGb: volumeEurPerGb },
+        floatingIp: { monthlyIncVat: floatingIpIncVat, eurOriginal: floatingIpEur },
         currency: 'TRY',
         vatRate,
         usdTry,

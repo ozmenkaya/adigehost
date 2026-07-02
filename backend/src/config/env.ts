@@ -78,7 +78,7 @@ const envSchema = z.object({
   SMTP_SECURE: boolFromString.default('false'),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().default('AdigeHost <noreply@adigehost.com>'),
+  SMTP_FROM: z.string().default('AdigeHost <noreply@adigehost.tr>'),
 
   // Admin seed
   ADMIN_EMAIL: z.string().email().optional(),

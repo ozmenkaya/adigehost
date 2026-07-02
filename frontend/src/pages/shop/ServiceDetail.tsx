@@ -1,6 +1,9 @@
 import { Link, Navigate, useParams } from 'react-router-dom';
-import { useAuthStore } from '../../store/authStore';
 import { SERVICE_BY_SLUG } from '../../data/services';
+import PageBackdrop from '../../components/shop/PageBackdrop';
+import ShopHeader from '../../components/shop/ShopHeader';
+import ShopFooter from '../../components/shop/ShopFooter';
+import Reveal from '../../components/shop/Reveal';
 
 /**
  * Hizmet detay sayfası — /hizmet/:slug
@@ -63,7 +66,6 @@ const SERVICE_CONTENT: Record<string, ServiceContent> = {
 
 export default function ServiceDetail() {
   const { slug = '' } = useParams();
-  const { user } = useAuthStore();
   const service = SERVICE_BY_SLUG[slug];
   const content = SERVICE_CONTENT[slug];
 
@@ -71,89 +73,58 @@ export default function ServiceDetail() {
   if (!service || !content) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
-        <div className="mx-auto max-w-6xl flex items-center justify-between px-4 py-4">
-          <Link to="/" className="text-2xl font-bold text-brand-700">
-            AdigeHost
-          </Link>
-          <div className="flex items-center gap-3">
-            {user ? (
-              <a href="/app" className="text-sm text-brand-600 hover:underline">
-                Panelim →
-              </a>
-            ) : (
-              <>
-                <a href="/login" className="text-sm text-slate-600 hover:text-brand-600">
-                  Giriş Yap
-                </a>
-                <a
-                  href="/register"
-                  className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
-                >
-                  Kayıt Ol
-                </a>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+    <PageBackdrop>
+      <ShopHeader />
 
       {/* Hero */}
-      <section className="bg-gradient-to-br from-brand-700 to-brand-900 py-16 px-4">
-        <div className="mx-auto max-w-3xl text-center">
-          <span className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 text-white">
-            <span className="[&>svg]:h-9 [&>svg]:w-9">{service.icon}</span>
+      <section className="relative px-4 pt-20 pb-12">
+        <div className="pointer-events-none absolute left-1/2 top-6 h-64 w-[70%] -translate-x-1/2 rounded-full bg-brand-600/20 blur-[110px]" />
+        <div className="relative mx-auto max-w-3xl text-center">
+          <span className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-neon-violet text-white shadow-[0_0_40px_-6px_rgba(59,130,246,0.9)] animate-float">
+            <span className="[&>svg]:h-10 [&>svg]:w-10">{service.icon}</span>
           </span>
-          <h1 className="text-4xl font-extrabold text-white mb-3">{service.title}</h1>
-          <p className="text-brand-100 text-lg">{content.subtitle}</p>
+          <h1 className="mb-3 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">
+            {service.title}
+          </h1>
+          <p className="text-lg text-slate-400">{content.subtitle}</p>
         </div>
       </section>
 
       {/* İçerik */}
-      <section className="mx-auto max-w-3xl px-4 py-14">
-        <p className="text-lg leading-relaxed text-slate-600">{content.intro}</p>
+      <section className="mx-auto max-w-3xl px-4 pb-16">
+        <Reveal>
+          <p className="text-lg leading-relaxed text-slate-300">{content.intro}</p>
+        </Reveal>
 
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          {content.bullets.map((b) => (
-            <div
-              key={b}
-              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm"
-            >
-              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-green-600">
-                ✓
-              </span>
-              {b}
-            </div>
+          {content.bullets.map((b, i) => (
+            <Reveal key={b} delay={i * 80}>
+              <div className="flex items-center gap-3 rounded-xl glass px-4 py-3 text-sm font-medium text-slate-200">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-300 ring-1 ring-emerald-400/30">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m4 12 5 5L20 6" />
+                  </svg>
+                </span>
+                {b}
+              </div>
+            </Reveal>
           ))}
         </div>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href={content.cta.href}
-            className="rounded-xl bg-brand-600 px-7 py-3.5 font-bold text-white hover:bg-brand-700"
-          >
+          <a href={content.cta.href} className="btn-neon">
             {content.cta.label}
           </a>
           <Link
             to="/"
-            className="rounded-xl border border-slate-300 px-7 py-3.5 font-semibold text-slate-600 hover:bg-white"
+            className="rounded-xl border border-white/15 px-7 py-3.5 font-semibold text-slate-200 transition hover:bg-white/5"
           >
             ← Ana Sayfa
           </Link>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-slate-800 text-slate-400 text-sm py-8 px-4">
-        <div className="mx-auto max-w-5xl flex flex-col md:flex-row justify-between items-center gap-2">
-          <div>© {new Date().getFullYear()} AdigeHost — Tüm hakları saklıdır.</div>
-          <a href="mailto:destek@adigehost.tr" className="hover:text-white">
-            destek@adigehost.tr
-          </a>
-        </div>
-      </footer>
-    </div>
+      <ShopFooter />
+    </PageBackdrop>
   );
 }

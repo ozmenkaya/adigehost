@@ -17,6 +17,7 @@ import { webhooksRouter } from './webhooks';
 import { publicRouter } from './public';
 import { cartRouter } from './cart';
 import { paymentsRouter } from './payments';
+import { sshKeysRouter } from './sshKeys';
 
 export const router = Router();
 
@@ -50,6 +51,7 @@ router.use('/tickets', authenticate, ticketsRouter);
 router.use('/hetzner', authenticate, hetznerRouter);
 router.use('/whm', authenticate, whmRouter);
 router.use('/cart', authenticate, cartRouter);
+router.use('/ssh-keys', authenticate, sshKeysRouter);
 
 // Admin uçları
 router.use('/servers', authenticate, requireAdmin, serversRouter);

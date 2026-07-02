@@ -23,6 +23,8 @@ const DEFAULT_SETTINGS: Array<{
   { key: 'efatura_prefix', value: 'FAT', type: 'string', group: 'billing' },
   { key: 'payment_due_days', value: '7', type: 'number', group: 'billing' },
   { key: 'suspend_after', value: '7', type: 'number', group: 'billing' },
+  { key: 'terminate_after', value: '30', type: 'number', group: 'billing' },
+  { key: 'auto_terminate', value: 'false', type: 'boolean', group: 'billing' },
   { key: 'warning_days', value: '1,3,7', type: 'string', group: 'billing' },
 ];
 

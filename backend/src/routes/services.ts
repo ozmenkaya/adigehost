@@ -9,6 +9,7 @@ import { Product } from '../models';
 import { HetznerService } from '../services/HetznerService';
 import { PricingService } from '../services/PricingService';
 import { WHMService } from '../services/WHMService';
+import { ServiceLifecycleService } from '../services/ServiceLifecycleService';
 import { ServerManager } from '../services/ServerManager';
 import { InvoiceService } from '../services/InvoiceService';
 import { SettingsService, BANK_KEYS } from '../services/SettingsService';
@@ -16,6 +17,7 @@ import { NotificationService } from '../services/NotificationService';
 import { User } from '../models';
 import { validate } from '../middleware/validate';
 import { slugify } from '../utils/helpers';
+import { decryptNullable, encryptNullable } from '../security/encryption';
 import { clientDomainsRouter } from './clientDomains';
 
 /**
@@ -41,6 +43,17 @@ async function getOwnedService(serviceId: string, userId: string, isAdmin: boole
   return service;
 }
 
+/** Servisi JSON'a çevirir ve hassas alanları (şifreli root parola) ayıklar. */
+export function sanitizeService(service: Service) {
+  const json = service.toJSON() as Record<string, unknown>;
+  const cfg = json.config as Record<string, unknown> | null;
+  if (cfg && 'rootPasswordEnc' in cfg) {
+    const { rootPasswordEnc: _omit, ...rest } = cfg;
+    json.config = rest;
+  }
+  return json;
+}
+
 // --- GET /services — kendi servislerim ---
 servicesRouter.get(
   '/',
@@ -49,7 +62,7 @@ servicesRouter.get(
       where: { userId: req.user!.sub },
       order: [['createdAt', 'DESC']],
     });
-    res.json({ success: true, data: services });
+    res.json({ success: true, data: services.map(sanitizeService) });
   }),
 );
 
@@ -58,7 +71,34 @@ servicesRouter.get(
   '/:id',
   asyncHandler(async (req, res) => {
     const service = await getOwnedService(req.params.id, req.user!.sub, req.user!.role === 'admin');
-    res.json({ success: true, data: service });
+    res.json({ success: true, data: sanitizeService(service) });
+  }),
+);
+
+// --- GET /services/:id/vps-credentials — VPS giriş bilgileri (sahip/admin) ---
+servicesRouter.get(
+  '/:id/vps-credentials',
+  asyncHandler(async (req, res) => {
+    const service = await getOwnedService(req.params.id, req.user!.sub, req.user!.role === 'admin');
+    if (service.type !== 'vps') throw ApiError.badRequest('Bu servis bir VPS değil');
+    const cfg = (service.config ?? {}) as { rootPasswordEnc?: string | null; sshKeyUsed?: boolean };
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'vps.reveal_credentials',
+      resource: 'service',
+      resourceId: service.id,
+      ip: req.ip,
+    });
+    res.json({
+      success: true,
+      data: {
+        ipAddress: service.hetznerIp,
+        ipv6: service.hetznerIpv6,
+        username: 'root',
+        password: decryptNullable(cfg.rootPasswordEnc ?? null),
+        sshKeyUsed: cfg.sshKeyUsed === true,
+      },
+    });
   }),
 );
 
@@ -72,7 +112,10 @@ servicesRouter.put(
       throw ApiError.conflict('Servis zaten iptal edilmiş');
     }
 
+    // Dönem sonuna kadar çalışmaya devam eder; otomatik yenileme durur.
+    // nextDue geçince DunningService servisi otomatik sonlandırır (kaynak temizliği).
     service.status = 'cancelled';
+    service.autoRenew = false;
     await service.save();
     await logActivity({
       userId: req.user!.sub,
@@ -81,8 +124,11 @@ servicesRouter.put(
       resourceId: service.id,
       ip: req.ip,
     });
-    // TODO (Faz 2): dönem sonu sonlandırma / Hetzner powerOff / WHM suspend kuyruğu.
-    res.json({ success: true, data: service, message: 'Servis iptal edildi' });
+    res.json({
+      success: true,
+      data: service,
+      message: 'Servis iptal edildi. Ödediğiniz dönem sonuna kadar aktif kalır.',
+    });
   }),
 );
 
@@ -101,6 +147,12 @@ servicesRouter.post(
   '/vps',
   validate(createVpsSchema),
   asyncHandler(async (req, res) => {
+    // Doğrudan provisioning yalnızca yöneticiler içindir. Müşteri akışı ödeme ile
+    // ilerler (/cart/checkout veya /services/order → fatura → ProvisioningService).
+    // Aksi halde giriş yapan herkes ödemesiz gerçek Hetzner sunucusu açabilirdi.
+    if (req.user!.role !== 'admin') {
+      throw ApiError.forbidden('Doğrudan VPS oluşturma yalnızca yöneticiler içindir. Sipariş için sepeti kullanın.');
+    }
     const { name, serverType, location, image, billingCycle } = req.body as {
       name: string;
       serverType: string;
@@ -143,6 +195,7 @@ servicesRouter.post(
       price,
       billingCycle,
       nextDue: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      config: { rootPasswordEnc: encryptNullable(rootPassword), sshKeyUsed: false },
     });
 
     await logActivity({
@@ -172,28 +225,11 @@ servicesRouter.delete(
   asyncHandler(async (req, res) => {
     const service = await getOwnedService(req.params.id, req.user!.sub, req.user!.role === 'admin');
 
-    // VPS ise Hetzner sunucusunu, hosting ise WHM cPanel hesabını kalıcı sil.
-    if (service.type === 'vps' && service.hetznerId) {
-      await HetznerService.deleteServer(service.hetznerId);
-    } else if (service.type === 'hosting' && service.serverId) {
-      const cpanelUser = (service.config as { cpanelUser?: string } | null)?.cpanelUser;
-      const server = await Server.findByPk(service.serverId);
-      if (cpanelUser && server) {
-        await WHMService.forServer(server).terminateAccount(cpanelUser);
-        server.accountCount = Math.max(0, server.accountCount - 1);
-        await server.save();
-      }
-    }
-    service.status = 'terminated';
-    await service.save();
-    await logActivity({
-      userId: req.user!.sub,
-      action: 'service.terminate',
-      resource: 'service',
-      resourceId: service.id,
-      details: { hetznerId: service.hetznerId },
-      ip: req.ip,
-    });
+    // Kaynak temizliği (Hetzner sunucu/volume/floating IP/firewall veya WHM hesabı)
+    // ve durum geçişi tek yerden: ServiceLifecycleService. notify=false — kullanıcı
+    // zaten bu işlemi kendisi tetikledi, ayrıca sonlandırma e-postası göndermeyiz.
+    const reason = req.user!.role === 'admin' ? 'Yönetici tarafından silindi' : 'Müşteri talebiyle silindi';
+    await ServiceLifecycleService.terminate(service.id, reason, false);
     res.json({ success: true, message: 'Servis sonlandırıldı' });
   }),
 );
@@ -308,14 +344,18 @@ servicesRouter.post(
   '/hosting',
   validate(createHostingSchema),
   asyncHandler(async (req, res) => {
+    // Doğrudan cPanel hesabı oluşturma yalnızca yöneticiler içindir (ödemesiz).
+    // Müşteri hosting akışı /services/order veya /cart/checkout → fatura → ödeme.
+    if (req.user!.role !== 'admin') {
+      throw ApiError.forbidden('Doğrudan hosting oluşturma yalnızca yöneticiler içindir. Sipariş için sepeti kullanın.');
+    }
     const { domain, plan, billingCycle } = req.body as {
       domain: string;
       plan?: string;
       billingCycle: 'monthly' | 'quarterly' | 'annually';
       price?: number;
     };
-    const isAdmin = req.user!.role === 'admin';
-    const price = isAdmin && typeof req.body.price === 'number' ? req.body.price : 0;
+    const price = typeof req.body.price === 'number' ? req.body.price : 0;
     const password = req.body.password ?? randomBytes(12).toString('base64url');
 
     // 1) Uygun sunucuyu seç.

@@ -19,6 +19,8 @@ import { logger } from '../config/logger';
 import { logActivity } from '../services/AuditService';
 import { SettingsService, BANK_KEYS, COMPANY_KEYS, DOMAIN_KEYS, VPS_KEYS } from '../services/SettingsService';
 import { ProvisioningService } from '../services/ProvisioningService';
+import { ServiceLifecycleService } from '../services/ServiceLifecycleService';
+import { sanitizeService } from './services';
 import { EInvoiceService } from '../services/EInvoiceService';
 import { WHMService } from '../services/WHMService';
 import { InvoiceService } from '../services/InvoiceService';
@@ -327,7 +329,44 @@ adminRouter.get(
       order: [['createdAt', 'DESC']],
       limit: 200,
     });
-    res.json({ success: true, data: services });
+    // Hassas alanları (config.rootPasswordEnc) ayıkla — admin panelinde de sızmasın.
+    res.json({ success: true, data: services.map(sanitizeService) });
+  }),
+);
+
+// --- PUT /admin/services/:id/status — servisi askıya al / aktive / sonlandır ---
+// Altyapıya (Hetzner/WHM) gerçekten dokunur; ServiceLifecycleService üzerinden.
+const serviceActionSchema = z.object({
+  body: z.object({
+    action: z.enum(['suspend', 'unsuspend', 'terminate']),
+    reason: z.string().max(255).optional(),
+  }),
+});
+adminRouter.put(
+  '/services/:id/status',
+  validate(serviceActionSchema),
+  asyncHandler(async (req, res) => {
+    const service = await Service.findByPk(req.params.id);
+    if (!service) throw ApiError.notFound('Servis bulunamadı');
+    const { action } = req.body as { action: 'suspend' | 'unsuspend' | 'terminate'; reason?: string };
+    const reason = (req.body.reason as string | undefined) ?? 'Yönetici işlemi';
+
+    let acted = false;
+    if (action === 'suspend') acted = await ServiceLifecycleService.suspend(service.id, reason);
+    else if (action === 'unsuspend') acted = await ServiceLifecycleService.unsuspend(service.id);
+    else acted = await ServiceLifecycleService.terminate(service.id, reason);
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: `admin.service_${action}`,
+      resource: 'service',
+      resourceId: service.id,
+      details: { reason, acted },
+      ip: req.ip,
+    });
+
+    await service.reload();
+    res.json({ success: true, data: { id: service.id, status: service.status, acted } });
   }),
 );
 
@@ -726,6 +765,10 @@ adminRouter.post(
             const result = await ProvisioningService.provisionDomain(service);
             provisioned.push({ serviceId: service.id, type: 'domain', ...result });
           }
+        } else if (service.status === 'suspended') {
+          // Ödenmemiş fatura yüzünden askıya alınmış servis → ödeme onaylandı, geri aç.
+          await ServiceLifecycleService.unsuspend(service.id);
+          provisioned.push({ serviceId: service.id, type: 'reactivated' });
         }
       } catch (e) {
         logger.error('Approve provisioning hatası', {
@@ -785,6 +828,9 @@ adminRouter.post(
             cpanelUser: p.cpanelUser ? String(p.cpanelUser) : undefined,
             cpanelUrl: p.cpanelUrl ? String(p.cpanelUrl) : undefined,
             ipAddress: p.ipAddress ? String(p.ipAddress) : undefined,
+            ipv6: p.ipv6 ? String(p.ipv6) : undefined,
+            password: p.rootPassword ? String(p.rootPassword) : undefined,
+            sshKeyUsed: p.sshKeyUsed === true,
           })),
         });
       } catch (err) {

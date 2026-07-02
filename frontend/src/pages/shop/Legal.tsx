@@ -1,6 +1,9 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../utils/api';
+import PageBackdrop from '../../components/shop/PageBackdrop';
+import ShopHeader from '../../components/shop/ShopHeader';
+import ShopFooter from '../../components/shop/ShopFooter';
 
 interface Company {
   company_title?: string;
@@ -376,61 +379,46 @@ export default function Legal() {
   const page = PAGES.find((p) => p.slug === slug);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100 sticky top-0 z-30 shadow-sm">
-        <div className="mx-auto max-w-6xl flex items-center justify-between px-4 py-4">
-          <Link to="/" className="text-2xl font-bold text-brand-700">
-            AdigeHost
-          </Link>
-          <Link to="/" className="text-sm text-slate-600 hover:text-brand-600">
-            ← Anasayfa
-          </Link>
-        </div>
-      </header>
+    <PageBackdrop>
+      <ShopHeader back={{ label: '← Anasayfa', to: '/' }} />
 
       <main className="mx-auto max-w-3xl px-4 py-12">
         {page ? (
-          <article className="rounded-2xl bg-white shadow-sm border border-slate-100 p-8 prose-content">
-            <h1 className="text-3xl font-bold text-slate-900 mb-2">{page.title}</h1>
-            <p className="text-xs text-slate-400 mb-6">
+          <article className="glass prose-content animate-fade-up rounded-2xl p-8">
+            <h1 className="mb-2 text-3xl font-bold text-white">{page.title}</h1>
+            <p className="mb-6 text-xs text-slate-500">
               Son güncelleme: {new Date().toLocaleDateString('tr-TR')}
             </p>
-            <div className="space-y-3 text-slate-700 leading-relaxed">{page.content(company)}</div>
+            <div className="space-y-3 leading-relaxed text-slate-300">{page.content(company)}</div>
           </article>
         ) : (
           <div className="space-y-3">
-            <h1 className="text-3xl font-bold text-slate-900 mb-6">Yasal Sayfalar</h1>
+            <h1 className="mb-6 text-3xl font-bold text-white">Yasal Sayfalar</h1>
             {PAGES.map((p) => (
               <Link
                 key={p.slug}
                 to={`/legal/${p.slug}`}
-                className="block rounded-xl bg-white border border-slate-200 p-4 hover:border-brand-400 hover:shadow-sm transition"
+                className="block rounded-xl glass p-4 transition hover:-translate-y-0.5 hover:border-brand-400/40"
               >
-                <div className="font-semibold text-slate-800">{p.title}</div>
-                <div className="text-sm text-slate-400">/legal/{p.slug}</div>
+                <div className="font-semibold text-white">{p.title}</div>
+                <div className="text-sm text-slate-500">/legal/{p.slug}</div>
               </Link>
             ))}
           </div>
         )}
 
         <style>{`
- .prose-content h3 { font-size: 1.125rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #0f172a; }
+ .prose-content h3 { font-size: 1.125rem; font-weight: 700; margin: 1.5rem 0 0.5rem; color: #ffffff; }
  .prose-content ul { list-style: disc; margin-left: 1.5rem; }
  .prose-content li { margin: 0.25rem 0; }
- .prose-content a { color: #2563eb; text-decoration: underline; }
- .prose-content strong { color: #0f172a; }
- .prose-content code { background: #f1f5f9; padding: 0 0.4rem; border-radius: 0.25rem; font-size: 0.875em; }
+ .prose-content a { color: #93c5fd; text-decoration: underline; }
+ .prose-content a:hover { color: #bfdbfe; }
+ .prose-content strong { color: #f1f5f9; }
+ .prose-content code { background: rgba(255,255,255,0.08); padding: 0 0.4rem; border-radius: 0.25rem; font-size: 0.875em; color: #e0f2fe; }
  `}</style>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-slate-800 text-slate-400 text-sm py-8 px-4 text-center">
-        <div>
-          © {new Date().getFullYear()} {company.company_title ?? 'AdigeHost'} — Tüm hakları
-          saklıdır.
-        </div>
-      </footer>
-    </div>
+      <ShopFooter companyTitle={company.company_title ?? 'AdigeHost'} />
+    </PageBackdrop>
   );
 }

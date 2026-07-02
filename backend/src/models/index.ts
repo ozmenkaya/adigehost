@@ -12,6 +12,7 @@ import { Setting } from './Setting';
 import { Product } from './Product';
 import { Category } from './Category';
 import { Integration } from './Integration';
+import { SshKey } from './SshKey';
 
 /**
  * Model ilişkileri (associations).
@@ -64,6 +65,9 @@ Consent.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 User.hasMany(ActivityLog, { foreignKey: 'userId', as: 'logs' });
 ActivityLog.belongsTo(User, { foreignKey: 'userId', as: 'user' });
 
+User.hasMany(SshKey, { foreignKey: 'userId', as: 'sshKeys' });
+SshKey.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
 export {
   sequelize,
   User,
@@ -82,6 +86,7 @@ export {
   Product,
   Category,
   Integration,
+  SshKey,
 };
 
 /** Tüm modellerin kaydı (migrate/sync için). */
@@ -102,4 +107,5 @@ export const models = {
   Product,
   Category,
   Integration,
+  SshKey,
 };

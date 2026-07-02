@@ -37,6 +37,9 @@ const checkoutSchema = z.object({
         vpsImage: z.string().max(64).optional(),
         vpsWithIpv4: z.boolean().optional(),
         vpsHostname: z.string().max(63).optional(),
+        vpsSshKey: z.string().max(4096).optional(),
+        vpsBackups: z.boolean().optional(),
+        vpsUserData: z.string().max(32768).optional(),
       }),
     ).min(1).max(20),
   }),
@@ -164,7 +167,8 @@ cartRouter.post(
 
         const eurServer = Number(locPrice.price_monthly.gross);
         const eurIpv4 = item.vpsWithIpv4 ? 0.6 : 0;
-        const totalEur = eurServer + eurIpv4;
+        const eurBackups = item.vpsBackups ? eurServer * 0.2 : 0; // Hetzner yedekleme +%20
+        const totalEur = eurServer + eurIpv4 + eurBackups;
         const linePrice = round2(totalEur * eurTry * vpsMarkup); // KDV hariç
 
         const svc = await Service.create({
@@ -182,6 +186,9 @@ cartRouter.post(
           config: {
             hostname: item.vpsHostname,
             withIpv4: item.vpsWithIpv4 !== false,
+            backups: item.vpsBackups === true,
+            sshKey: item.vpsSshKey?.trim() || null,
+            userData: item.vpsUserData?.trim() || null,
             cores: st.cores,
             memory: st.memory,
             disk: st.disk,
@@ -189,7 +196,7 @@ cartRouter.post(
         });
         createdServices.push(svc);
         invoiceLines.push({
-          description: `VPS ${st.name.toUpperCase()} (${st.cores} CPU · ${st.memory}GB RAM · ${st.disk}GB SSD · ${item.vpsLocation.toUpperCase()}) — ${item.vpsHostname}`,
+          description: `VPS ${st.name.toUpperCase()} (${st.cores} CPU · ${st.memory}GB RAM · ${st.disk}GB SSD · ${item.vpsLocation.toUpperCase()})${item.vpsBackups ? ' + Yedekleme' : ''} — ${item.vpsHostname}`,
           quantity: 1,
           unitPrice: linePrice,
           serviceId: svc.id,

@@ -25,6 +25,7 @@ const CLIENT_NAV: NavItem[] = [
   { to: '/app/services', label: 'Servislerim', icon: '' },
   { to: '/app/domains', label: 'Domain', icon: '' },
   { to: '/app/domains/transfer', label: 'Domain Transfer', icon: '' },
+  { to: '/app/ssh-keys', label: 'SSH Anahtarları', icon: '' },
   { to: '/app/cards', label: 'Kartlarım', icon: '' },
   { to: '/app/profile', label: 'Profil', icon: '' },
 ];

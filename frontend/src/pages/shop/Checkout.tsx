@@ -4,6 +4,8 @@ import { api, getApiErrorMessage } from '../../utils/api';
 import { useCartStore, type CartItem } from '../../store/cartStore';
 import { useAuthStore } from '../../store/authStore';
 import IyzicoPaymentModal from '../../components/shared/IyzicoPaymentModal';
+import PageBackdrop from '../../components/shop/PageBackdrop';
+import ShopHeader from '../../components/shop/ShopHeader';
 
 type Mode = 'login' | 'register';
 
@@ -100,6 +102,9 @@ export default function Checkout() {
             base.vpsImage = i.meta.image;
             base.vpsWithIpv4 = i.meta.withIpv4;
             base.vpsHostname = i.domain; // hostname domain alanında tutuluyor
+            base.vpsSshKey = i.meta.sshKey;
+            base.vpsBackups = i.meta.backups;
+            base.vpsUserData = i.meta.userData;
           }
           return base;
         }),
@@ -140,76 +145,60 @@ export default function Checkout() {
   // Sipariş tamamlandı ekranı
   if (result) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-12">
-        <div className="mx-auto max-w-2xl">
-          <div className="rounded-3xl bg-white shadow-xl p-8 text-center">
-            <div className="text-5xl mb-3"></div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">Siparişiniz Alındı!</h1>
-            <p className="text-slate-600 mb-6">
-              <b>{result.invoice.invoiceNum}</b>· Toplam
-              <b className="text-brand-700">{tr(Number(result.invoice.total))} ₺</b>
-            </p>
+      <PageBackdrop>
+        <div className="px-4 py-16">
+          <div className="mx-auto max-w-2xl">
+            <div className="glass animate-fade-up rounded-3xl p-8 text-center">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-emerald-400/30 to-teal-500/20 ring-1 ring-emerald-400/40">
+                <svg viewBox="0 0 24 24" className="h-8 w-8 text-emerald-300" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m4 12 5 5L20 6" />
+                </svg>
+              </div>
+              <h1 className="mb-2 text-2xl font-bold text-white">Siparişiniz Alındı!</h1>
+              <p className="mb-6 text-slate-400">
+                <b className="text-slate-200">{result.invoice.invoiceNum}</b> · Toplam{' '}
+                <b className="text-brand-300">{tr(Number(result.invoice.total))} ₺</b>
+              </p>
 
-            <div className="rounded-2xl bg-amber-50 border border-amber-200 p-5 text-left mb-6">
-              <div className="font-bold text-amber-900 mb-3">Havale / EFT Bilgileri</div>
-              <div className="text-sm text-amber-800 space-y-1">
-                {result.bank.bank_name && (
-                  <div>
-                    <b>Banka:</b>
-                    {result.bank.bank_name}
-                  </div>
-                )}
-                {result.bank.bank_account_holder && (
-                  <div>
-                    <b>Hesap Sahibi:</b>
-                    {result.bank.bank_account_holder}
-                  </div>
-                )}
-                {result.bank.bank_iban && (
-                  <div className="font-mono">
-                    <b>IBAN:</b>
-                    {result.bank.bank_iban}
-                  </div>
-                )}
+              <div className="mb-6 rounded-2xl border border-amber-400/25 bg-amber-400/[0.07] p-5 text-left">
+                <div className="mb-3 font-bold text-amber-200">Havale / EFT Bilgileri</div>
+                <div className="space-y-1 text-sm text-amber-100/90">
+                  {result.bank.bank_name && (
+                    <div><b>Banka:</b> {result.bank.bank_name}</div>
+                  )}
+                  {result.bank.bank_account_holder && (
+                    <div><b>Hesap Sahibi:</b> {result.bank.bank_account_holder}</div>
+                  )}
+                  {result.bank.bank_iban && (
+                    <div className="font-mono"><b>IBAN:</b> {result.bank.bank_iban}</div>
+                  )}
+                </div>
+                <div className="mt-3 border-t border-amber-400/20 pt-3 text-xs text-amber-200/80">
+                  Açıklamaya <b>{result.invoice.invoiceNum}</b> yazın. Ödemeniz onaylandığında
+                  hizmetiniz otomatik aktive edilecek.
+                </div>
               </div>
-              <div className="mt-3 pt-3 border-t border-amber-200 text-xs text-amber-700">
-                Açıklamaya<b>{result.invoice.invoiceNum}</b>yazın. Ödemeniz onaylandığında
-                hizmetiniz otomatik aktive edilecek.
-              </div>
+
+              <button onClick={() => navigate('/app')} className="btn-neon">
+                Panelime Git →
+              </button>
             </div>
-
-            <button
-              onClick={() => navigate('/app')}
-              className="rounded-xl bg-brand-600 px-8 py-3 font-semibold text-white hover:bg-brand-700"
-            >
-              Panelime Git →
-            </button>
           </div>
         </div>
-      </div>
+      </PageBackdrop>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white border-b border-slate-100">
-        <div className="mx-auto max-w-6xl flex items-center justify-between px-4 py-4">
-          <a href="/" className="text-2xl font-bold text-brand-700">
-            AdigeHost
-          </a>
-          <a href="/" className="text-sm text-slate-500 hover:text-slate-700">
-            ← Alışverişe Devam Et
-          </a>
-        </div>
-      </header>
+    <PageBackdrop>
+      <ShopHeader back={{ label: '← Alışverişe Devam Et', to: '/' }} />
 
-      <div className="mx-auto max-w-6xl px-4 py-8 grid lg:grid-cols-3 gap-6">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-8 lg:grid-cols-3">
         {/* SOL: Sepet + Hosting domain */}
-        <div className="lg:col-span-2 space-y-4">
-          <h1 className="text-2xl font-bold text-slate-900">Sipariş Özeti</h1>
+        <div className="space-y-4 lg:col-span-2">
+          <h1 className="text-2xl font-bold text-white">Sipariş Özeti</h1>
 
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-100 divide-y">
+          <div className="glass divide-y divide-white/10 rounded-2xl">
             {items.map((item) => (
               <CheckoutItem
                 key={item.id}
@@ -223,8 +212,8 @@ export default function Checkout() {
 
           {/* Hosting için bilgi */}
           {hostingItems.length > 0 && (
-            <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 text-sm text-blue-800">
-              ℹ Hosting paketleri için kuracağınız<b>alan adını</b>yukarıda belirtin. Henüz
+            <div className="rounded-xl border border-brand-400/25 bg-brand-500/[0.08] p-3 text-sm text-brand-100">
+              ℹ Hosting paketleri için kuracağınız <b>alan adını</b> yukarıda belirtin. Henüz
               domain'iniz yoksa, sepete domain ekleyebilirsiniz.
             </div>
           )}
@@ -233,41 +222,41 @@ export default function Checkout() {
         {/* SAĞ: Auth + Toplam */}
         <div className="space-y-4">
           {/* Toplam */}
-          <div className="rounded-2xl bg-white shadow-sm border border-slate-100 p-5 sticky top-4">
-            <h2 className="font-bold text-slate-800 mb-4">Ödeme</h2>
+          <div className="glass sticky top-24 rounded-2xl p-5">
+            <h2 className="mb-4 font-bold text-white">Ödeme</h2>
 
-            <div className="space-y-2 text-sm pb-4 border-b border-slate-100">
-              <div className="flex justify-between text-slate-600">
+            <div className="space-y-2 border-b border-white/10 pb-4 text-sm">
+              <div className="flex justify-between text-slate-400">
                 <span>Ara toplam ({items.length} kalem)</span>
                 <span>{tr(totalExVat())} ₺</span>
               </div>
-              <div className="flex justify-between text-slate-600">
+              <div className="flex justify-between text-slate-400">
                 <span>KDV %20</span>
                 <span>{tr(vat)} ₺</span>
               </div>
             </div>
 
-            <div className="flex justify-between items-baseline py-4">
-              <span className="font-bold text-slate-900">Toplam</span>
-              <span className="text-2xl font-extrabold text-brand-700">{tr(total())} ₺</span>
+            <div className="flex items-baseline justify-between py-4">
+              <span className="font-bold text-white">Toplam</span>
+              <span className="text-2xl font-extrabold text-brand-300">{tr(total())} ₺</span>
             </div>
 
             {/* Auth gate */}
             {!isLoggedIn ? (
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
-                <div className="flex gap-1 mb-4 rounded-lg bg-white p-1">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="mb-4 flex gap-1 rounded-lg bg-night-900/60 p-1">
                   <button
                     onClick={() => setMode('login')}
-                    className={`flex-1 rounded py-1.5 text-xs font-medium ${
-                      mode === 'login' ? 'bg-brand-600 text-white' : 'text-slate-600'
+                    className={`flex-1 rounded py-1.5 text-xs font-medium transition ${
+                      mode === 'login' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     Giriş Yap
                   </button>
                   <button
                     onClick={() => setMode('register')}
-                    className={`flex-1 rounded py-1.5 text-xs font-medium ${
-                      mode === 'register' ? 'bg-brand-600 text-white' : 'text-slate-600'
+                    className={`flex-1 rounded py-1.5 text-xs font-medium transition ${
+                      mode === 'register' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'
                     }`}
                   >
                     Kayıt Ol
@@ -283,21 +272,21 @@ export default function Checkout() {
                           placeholder="Ad"
                           value={firstName}
                           onChange={(e) => setFirstName(e.target.value)}
-                          className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-full"
+                          className="field text-sm"
                         />
                         <input
                           required
                           placeholder="Soyad"
                           value={lastName}
                           onChange={(e) => setLastName(e.target.value)}
-                          className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-full"
+                          className="field text-sm"
                         />
                       </div>
                       <input
                         placeholder="Telefon"
                         value={phone}
                         onChange={(e) => setPhone(e.target.value)}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-full"
+                        className="field text-sm"
                       />
                     </>
                   )}
@@ -307,7 +296,7 @@ export default function Checkout() {
                     placeholder="E-posta"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-full"
+                    className="field text-sm"
                   />
                   <input
                     required
@@ -316,13 +305,10 @@ export default function Checkout() {
                     minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="rounded-lg border border-slate-300 px-3 py-2 text-sm w-full"
+                    className="field text-sm"
                   />
-                  {authError && <div className="text-xs text-red-600">{authError}</div>}
-                  <button
-                    disabled={authBusy}
-                    className="w-full rounded-xl bg-brand-600 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-                  >
+                  {authError && <div className="text-xs text-red-300">{authError}</div>}
+                  <button disabled={authBusy} className="btn-neon w-full text-sm disabled:opacity-60">
                     {authBusy
                       ? '…'
                       : mode === 'login'
@@ -333,17 +319,19 @@ export default function Checkout() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="rounded-xl bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+                <div className="rounded-xl border border-emerald-400/25 bg-emerald-500/10 p-3 text-sm text-emerald-200">
                   <b>
                     {user?.firstName} {user?.lastName}
-                  </b>
+                  </b>{' '}
                   olarak giriş yaptınız
                 </div>
                 {placeError && (
-                  <div className="rounded-lg bg-red-50 p-3 text-xs text-red-700">{placeError}</div>
+                  <div className="rounded-lg border border-red-400/25 bg-red-500/10 p-3 text-xs text-red-300">
+                    {placeError}
+                  </div>
                 )}
 
-                <div className="text-xs font-medium text-slate-600 uppercase tracking-wider text-center mb-1">
+                <div className="mb-1 text-center text-xs font-medium uppercase tracking-wider text-slate-400">
                   Ödeme Yöntemi Seçin
                 </div>
 
@@ -351,29 +339,29 @@ export default function Checkout() {
                 <button
                   onClick={() => placeOrder('iyzico')}
                   disabled={placing || items.length === 0}
-                  className="w-full rounded-xl bg-brand-600 py-3 text-base font-bold text-white hover:bg-brand-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="btn-neon flex w-full items-center justify-center gap-2 text-base disabled:opacity-60"
                 >
                   {placing ? '…' : <>Kredi Kartı ile Öde</>}
                 </button>
-                <p className="text-xs text-center text-slate-500 -mt-1">
+                <p className="-mt-1 text-center text-xs text-slate-500">
                   iyzico güvencesiyle • 3D Secure • Anında aktivasyon
                 </p>
 
-                <div className="flex items-center gap-2 my-1">
-                  <div className="flex-1 h-px bg-slate-200" />
-                  <span className="text-xs text-slate-400">VEYA</span>
-                  <div className="flex-1 h-px bg-slate-200" />
+                <div className="my-1 flex items-center gap-2">
+                  <div className="h-px flex-1 bg-white/10" />
+                  <span className="text-xs text-slate-500">VEYA</span>
+                  <div className="h-px flex-1 bg-white/10" />
                 </div>
 
                 {/* Havale ile öde */}
                 <button
                   onClick={() => placeOrder('havale')}
                   disabled={placing || items.length === 0}
-                  className="w-full rounded-xl bg-amber-500 py-3 text-base font-bold text-white hover:bg-amber-600 disabled:opacity-60 flex items-center justify-center gap-2"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 py-3 text-base font-bold text-slate-900 shadow-[0_10px_30px_-10px_rgba(251,191,36,0.7)] transition hover:-translate-y-0.5 disabled:opacity-60"
                 >
                   {placing ? '…' : 'Havale / EFT ile Öde'}
                 </button>
-                <p className="text-xs text-center text-slate-500 -mt-1">
+                <p className="-mt-1 text-center text-xs text-slate-500">
                   IBAN bilgilerini göreceksiniz • Ödeme onayı sonrası aktivasyon
                 </p>
               </div>
@@ -388,7 +376,7 @@ export default function Checkout() {
         checkoutFormContent={iyzicoForm ?? ''}
         onClose={() => setIyzicoForm(null)}
       />
-    </div>
+    </PageBackdrop>
   );
 }
 
@@ -407,17 +395,17 @@ function CheckoutItem({
     <div className="p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1">
-          <div className="font-medium text-slate-800">{item.name}</div>
+          <div className="font-medium text-white">{item.name}</div>
           {item.billingCycle && (
-            <div className="text-xs text-slate-500 mt-0.5">
+            <div className="mt-0.5 text-xs text-slate-400">
               Periyot: {item.billingCycle === 'annually' ? 'Yıllık' : 'Aylık'}
             </div>
           )}
-          <div className="text-xs text-slate-400 mt-0.5">KDV hariç {tr(item.priceExVat)} ₺</div>
+          <div className="mt-0.5 text-xs text-slate-500">KDV hariç {tr(item.priceExVat)} ₺</div>
         </div>
         <div className="text-right">
-          <div className="font-bold text-slate-900">{tr(item.price)} ₺</div>
-          <button onClick={onRemove} className="mt-1 text-xs text-red-500 hover:text-red-700">
+          <div className="font-bold text-white">{tr(item.price)} ₺</div>
+          <button onClick={onRemove} className="mt-1 text-xs text-red-400 hover:text-red-300">
             Kaldır
           </button>
         </div>
@@ -425,15 +413,15 @@ function CheckoutItem({
 
       {/* Hosting için domain alanı */}
       {item.type === 'hosting' && (
-        <div className="mt-3 pt-3 border-t border-slate-100">
-          <label className="block text-xs font-medium text-slate-600 mb-1">
-            Hosting alan adı<span className="text-red-500">*</span>
+        <div className="mt-3 border-t border-white/10 pt-3">
+          <label className="mb-1 block text-xs font-medium text-slate-300">
+            Hosting alan adı<span className="text-red-400">*</span>
           </label>
           <input
             value={domainValue}
             onChange={(e) => onDomainChange(e.target.value.toLowerCase().trim())}
             placeholder="ornek.com"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="field text-sm"
             required
           />
         </div>

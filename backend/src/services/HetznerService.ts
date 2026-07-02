@@ -33,6 +33,8 @@ export interface HetznerCreateOptions {
   location?: string; // örn "nbg1" | "fsn1" | "hel1"
   sshKeys?: number[];
   userData?: string;
+  enableIpv4?: boolean; // varsayılan true
+  enableIpv6?: boolean; // varsayılan true
   startAfterCreate?: boolean;
 }
 
@@ -109,6 +111,43 @@ export class HetznerService {
     }
   }
 
+  // --- SSH anahtarları ---
+  /**
+   * Verilen public key'i Hetzner hesabında bulur, yoksa oluşturur ve id döner.
+   * Aynı anahtar tekrar tekrar yüklenmez (public_key ile eşleştirilir).
+   */
+  static async ensureSshKey(publicKey: string, name: string): Promise<number> {
+    const trimmed = publicKey.trim();
+    try {
+      const client = await getClient();
+      const { data: list } = await client.get('/ssh_keys', { params: { per_page: 100 } });
+      const existing = (list.ssh_keys as Array<{ id: number; public_key: string }>).find(
+        (k) => k.public_key.trim() === trimmed,
+      );
+      if (existing) return existing.id;
+      const { data } = await client.post('/ssh_keys', {
+        name,
+        public_key: trimmed,
+        labels: { managed_by: 'adigehost' },
+      });
+      return data.ssh_key.id as number;
+    } catch (err) {
+      // İsim çakışması vb. → yeniden listeleyip anahtarı bul
+      try {
+        const { data: retry } = await (await getClient()).get('/ssh_keys', {
+          params: { per_page: 100 },
+        });
+        const again = (retry.ssh_keys as Array<{ id: number; public_key: string }>).find(
+          (k) => k.public_key.trim() === trimmed,
+        );
+        if (again) return again.id;
+      } catch {
+        /* yut */
+      }
+      throw toApiError(err, 'ensureSshKey');
+    }
+  }
+
   // --- Provisioning ---
   static async createServer(opts: HetznerCreateOptions) {
     try {
@@ -122,7 +161,10 @@ export class HetznerService {
         ssh_keys: opts.sshKeys,
         user_data: opts.userData,
         start_after_create: opts.startAfterCreate ?? true,
-        public_net: { enable_ipv4: true, enable_ipv6: true },
+        public_net: {
+          enable_ipv4: opts.enableIpv4 ?? true,
+          enable_ipv6: opts.enableIpv6 ?? true,
+        },
         labels: { managed_by: 'adigehost' },
       });
       logger.info('Hetzner sunucu oluşturuldu', { id: data.server?.id, name: opts.name });
@@ -183,8 +225,22 @@ export class HetznerService {
   static shutdown(id: number) {
     return this.action(id, 'shutdown');
   }
-  static rebuild(id: number, image: string) {
-    return this.action(id, 'rebuild', { image });
+  /** Sunucuyu imajdan yeniden kurar. userData (cloud-init) ile SSH anahtarı vb. enjekte edilebilir. */
+  static async rebuild(
+    id: number,
+    image: string,
+    userData?: string,
+  ): Promise<{ action: unknown; rootPassword: string | null }> {
+    const data = await this.action(id, 'rebuild', {
+      image,
+      ...(userData ? { user_data: userData } : {}),
+    });
+    return { action: data.action, rootPassword: (data.root_password as string | null) ?? null };
+  }
+  /** Root parolayı sıfırlar — Hetzner yeni parolayı yalnızca bu yanıtta döner. */
+  static async resetPassword(id: number): Promise<{ rootPassword: string | null; action: unknown }> {
+    const data = await this.action(id, 'reset_password');
+    return { rootPassword: (data.root_password as string | null) ?? null, action: data.action };
   }
   static enableBackup(id: number) {
     return this.action(id, 'enable_backup');
@@ -248,6 +304,210 @@ export class HetznerService {
       return data.metrics;
     } catch (err) {
       throw toApiError(err, 'getMetrics');
+    }
+  }
+
+  // --- Rescale (plan değiştir) ---
+  /** Sunucu tipini değiştirir. Sunucu KAPALI olmalı. upgradeDisk=true diskteki büyümeyi de uygular (geri alınamaz). */
+  static async changeType(id: number, serverType: string, upgradeDisk = false) {
+    return this.action(id, 'change_type', { server_type: serverType, upgrade_disk: upgradeDisk });
+  }
+
+  // --- Rescue (kurtarma modu) ---
+  /** Kurtarma sistemini etkinleştirir; dönen root_password ile reset sonrası rescue'ya boot edilir. */
+  static async enableRescue(id: number, sshKeys?: number[]): Promise<{ rootPassword: string | null }> {
+    const data = await this.action(id, 'enable_rescue', {
+      type: 'linux64',
+      ...(sshKeys && sshKeys.length ? { ssh_keys: sshKeys } : {}),
+    });
+    return { rootPassword: (data.root_password as string | null) ?? null };
+  }
+  static disableRescue(id: number) {
+    return this.action(id, 'disable_rescue');
+  }
+
+  // --- ISO ---
+  static async listIsos(): Promise<unknown[]> {
+    try {
+      const { data } = await (await getClient()).get('/isos', { params: { per_page: 100 } });
+      return data.isos;
+    } catch (err) {
+      throw toApiError(err, 'listIsos');
+    }
+  }
+  static attachIso(id: number, iso: string) {
+    return this.action(id, 'attach_iso', { iso });
+  }
+  static detachIso(id: number) {
+    return this.action(id, 'detach_iso');
+  }
+
+  // --- Reverse DNS (PTR) ---
+  static changeReverseDns(id: number, ip: string, dnsPtr: string | null) {
+    return this.action(id, 'change_dns_ptr', { ip, dns_ptr: dnsPtr });
+  }
+
+  // --- Volumes (blok depolama) ---
+  static async createVolume(opts: {
+    name: string;
+    size: number; // GB (min 10)
+    location: string;
+    serverId?: number;
+    format?: string; // 'ext4' | 'xfs'
+  }) {
+    try {
+      const { data } = await (await getClient()).post('/volumes', {
+        name: opts.name,
+        size: opts.size,
+        ...(opts.serverId ? { server: opts.serverId, automount: true } : { location: opts.location }),
+        ...(opts.format ? { format: opts.format } : {}),
+        labels: { managed_by: 'adigehost' },
+      });
+      return { volume: data.volume, action: data.action };
+    } catch (err) {
+      throw toApiError(err, 'createVolume');
+    }
+  }
+  static async listVolumes(serverId?: number) {
+    try {
+      const { data } = await (await getClient()).get('/volumes', { params: { per_page: 100 } });
+      const vols = data.volumes as Array<{ server: number | null }>;
+      return serverId ? vols.filter((v) => v.server === serverId) : vols;
+    } catch (err) {
+      throw toApiError(err, 'listVolumes');
+    }
+  }
+  static async detachVolume(volumeId: number) {
+    try {
+      const { data } = await (await getClient()).post(`/volumes/${volumeId}/actions/detach`, {});
+      return data.action;
+    } catch (err) {
+      throw toApiError(err, 'detachVolume');
+    }
+  }
+  static async deleteVolume(volumeId: number) {
+    try {
+      await (await getClient()).delete(`/volumes/${volumeId}`);
+      return true;
+    } catch (err) {
+      throw toApiError(err, 'deleteVolume');
+    }
+  }
+
+  // --- Firewall ---
+  static async listFirewalls(): Promise<Array<{ id: number; name: string; labels?: Record<string, string>; rules: unknown[]; applied_to?: unknown[] }>> {
+    try {
+      const { data } = await (await getClient()).get('/firewalls', { params: { per_page: 100 } });
+      return data.firewalls;
+    } catch (err) {
+      throw toApiError(err, 'listFirewalls');
+    }
+  }
+  static async createFirewall(name: string, rules: unknown[], serverId: number, serviceId: string) {
+    try {
+      const { data } = await (await getClient()).post('/firewalls', {
+        name,
+        rules,
+        apply_to: [{ type: 'server', server: { id: serverId } }],
+        labels: { managed_by: 'adigehost', service: serviceId },
+      });
+      return data.firewall;
+    } catch (err) {
+      throw toApiError(err, 'createFirewall');
+    }
+  }
+  static async setFirewallRules(firewallId: number, rules: unknown[]) {
+    try {
+      const { data } = await (await getClient()).post(`/firewalls/${firewallId}/actions/set_rules`, { rules });
+      return data.actions;
+    } catch (err) {
+      throw toApiError(err, 'setFirewallRules');
+    }
+  }
+  static async applyFirewall(firewallId: number, serverId: number) {
+    try {
+      const { data } = await (await getClient()).post(`/firewalls/${firewallId}/actions/apply_to_resources`, {
+        apply_to: [{ type: 'server', server: { id: serverId } }],
+      });
+      return data.actions;
+    } catch (err) {
+      throw toApiError(err, 'applyFirewall');
+    }
+  }
+  static async deleteFirewall(firewallId: number) {
+    try {
+      await (await getClient()).delete(`/firewalls/${firewallId}`);
+      return true;
+    } catch (err) {
+      throw toApiError(err, 'deleteFirewall');
+    }
+  }
+
+  // --- Private Networks ---
+  static async createNetwork(name: string, ipRange = '10.0.0.0/16', serviceId?: string) {
+    try {
+      const { data } = await (await getClient()).post('/networks', {
+        name,
+        ip_range: ipRange,
+        labels: { managed_by: 'adigehost', ...(serviceId ? { service: serviceId } : {}) },
+      });
+      return data.network as { id: number; name: string; ip_range: string };
+    } catch (err) {
+      throw toApiError(err, 'createNetwork');
+    }
+  }
+  static async deleteNetwork(networkId: number) {
+    try {
+      await (await getClient()).delete(`/networks/${networkId}`);
+      return true;
+    } catch (err) {
+      throw toApiError(err, 'deleteNetwork');
+    }
+  }
+  static async getNetwork(networkId: number) {
+    try {
+      const { data } = await (await getClient()).get(`/networks/${networkId}`);
+      return data.network as { id: number; name: string; ip_range: string };
+    } catch (err) {
+      throw toApiError(err, 'getNetwork');
+    }
+  }
+  static attachToNetwork(serverId: number, networkId: number) {
+    return this.action(serverId, 'attach_to_network', { network: networkId });
+  }
+  static detachFromNetwork(serverId: number, networkId: number) {
+    return this.action(serverId, 'detach_from_network', { network: networkId });
+  }
+
+  // --- Floating IPs ---
+  static async createFloatingIp(type: 'ipv4' | 'ipv6', serverId: number, description: string, serviceId: string) {
+    try {
+      const { data } = await (await getClient()).post('/floating_ips', {
+        type,
+        server: serverId,
+        description,
+        labels: { managed_by: 'adigehost', service: serviceId },
+      });
+      return data.floating_ip as { id: number; ip: string; type: string };
+    } catch (err) {
+      throw toApiError(err, 'createFloatingIp');
+    }
+  }
+  static async listFloatingIps(serverId?: number) {
+    try {
+      const { data } = await (await getClient()).get('/floating_ips', { params: { per_page: 100 } });
+      const ips = data.floating_ips as Array<{ id: number; ip: string; type: string; server: number | null; labels?: Record<string, string> }>;
+      return serverId ? ips.filter((f) => f.server === serverId) : ips;
+    } catch (err) {
+      throw toApiError(err, 'listFloatingIps');
+    }
+  }
+  static async deleteFloatingIp(fipId: number) {
+    try {
+      await (await getClient()).delete(`/floating_ips/${fipId}`);
+      return true;
+    } catch (err) {
+      throw toApiError(err, 'deleteFloatingIp');
     }
   }
 

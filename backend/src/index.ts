@@ -4,6 +4,7 @@ import { logger } from './config/logger';
 import { connectDatabase, closeDatabase } from './config/database';
 import { connectRedis, redis } from './config/redis';
 import { startScheduler } from './jobs/scheduler';
+import { startBillingProcessor } from './jobs/billingProcessor';
 import './models'; // modelleri ve ilişkileri kaydet
 
 async function bootstrap(): Promise<void> {
@@ -20,8 +21,10 @@ async function bootstrap(): Promise<void> {
     });
   });
 
-  // Zamanlanmış görevler (yalnızca cluster'da tek instance çalıştırır).
+  // Zamanlanmış görevler + faturalama kuyruğu işleyicisi
+  // (yalnızca cluster'da tek instance çalıştırır).
   startScheduler();
+  startBillingProcessor();
 
   // Düzgün kapanış (PM2 reload / SIGTERM)
   const shutdown = async (signal: string): Promise<void> => {
