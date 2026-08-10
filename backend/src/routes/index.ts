@@ -13,6 +13,7 @@ import { whmRouter } from './whm';
 import { serversRouter } from './servers';
 import { adminRouter } from './admin';
 import { integrationsRouter } from './integrations';
+import { adminTicketsRouter } from './adminTickets';
 import { webhooksRouter } from './webhooks';
 import { publicRouter } from './public';
 import { cartRouter } from './cart';
@@ -56,4 +57,5 @@ router.use('/ssh-keys', authenticate, sshKeysRouter);
 // Admin uçları
 router.use('/servers', authenticate, requireAdmin, serversRouter);
 router.use('/admin/integrations', authenticate, requireAdmin, integrationsRouter);
+router.use('/admin/tickets', authenticate, requireAdmin, adminTicketsRouter);
 router.use('/admin', authenticate, requireAdmin, adminRouter);

@@ -14,6 +14,8 @@ import Integrations from './pages/admin/Integrations';
 import Settings from './pages/admin/Settings';
 import Logs from './pages/admin/Logs';
 import Sync from './pages/admin/Sync';
+import AdminTickets from './pages/admin/Tickets';
+import AdminTicketDetail from './pages/admin/TicketDetail';
 // Client
 import ClientDashboard from './pages/client/Dashboard';
 import ClientServices from './pages/client/Services';
@@ -26,6 +28,8 @@ import Domains from './pages/client/Domains';
 import Profile from './pages/client/Profile';
 import Cards from './pages/client/Cards';
 import DomainTransfer from './pages/client/DomainTransfer';
+import Tickets from './pages/client/Tickets';
+import TicketDetail from './pages/client/TicketDetail';
 // Shop (public)
 import Sales from './pages/shop/Sales';
 import Checkout from './pages/shop/Checkout';
@@ -76,6 +80,8 @@ export default function App() {
         <Route path="services" element={<AdminServices />} />
         <Route path="products" element={<Products />} />
         <Route path="invoices" element={<Invoices />} />
+        <Route path="tickets" element={<AdminTickets />} />
+        <Route path="tickets/:id" element={<AdminTicketDetail />} />
         <Route path="servers" element={<Servers />} />
         <Route path="integrations" element={<Integrations />} />
         <Route path="settings" element={<Settings />} />
@@ -96,6 +102,8 @@ export default function App() {
         <Route path="services" element={<ClientServices />} />
         <Route path="services/:id" element={<ServiceDetail />} />
         <Route path="invoices" element={<ClientInvoices />} />
+        <Route path="tickets" element={<Tickets />} />
+        <Route path="tickets/:id" element={<TicketDetail />} />
         <Route path="order/hosting" element={<OrderHosting />} />
         <Route path="order/vps" element={<OrderVPS />} />
         <Route path="ssh-keys" element={<SshKeys />} />

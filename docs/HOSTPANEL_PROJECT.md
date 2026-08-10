@@ -590,11 +590,11 @@ POST /api/invoices/:id/pay/saved-card
 ### Ticketlar
 
 ```
-GET    /api/tickets
+GET    /api/tickets                  ?status=open|closed|all
 POST   /api/tickets
-GET    /api/tickets/:id
-POST   /api/tickets/:id/reply
-PUT    /api/tickets/:id/close
+GET    /api/tickets/:id              detay + yazışma
+POST   /api/tickets/:id/replies      kapalı talebe yazmak yeniden açar
+POST   /api/tickets/:id/close
 ```
 
 ### Admin
@@ -606,8 +606,11 @@ GET    /api/admin/clients/:id
 PUT    /api/admin/clients/:id/suspend
 GET    /api/admin/services
 GET    /api/admin/invoices
-GET    /api/admin/tickets
-PUT    /api/admin/tickets/:id/assign
+GET    /api/admin/tickets            ?status&department&priority&search
+GET    /api/admin/tickets/:id
+POST   /api/admin/tickets/:id/replies
+PUT    /api/admin/tickets/:id        durum / öncelik / departman
+# not: /assign henüz yok — Ticket modelinde atanan personel alanı bulunmuyor.
 GET    /api/admin/servers
 POST   /api/admin/servers
 PUT    /api/admin/servers/:id

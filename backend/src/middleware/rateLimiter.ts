@@ -40,6 +40,14 @@ export const apiLimiter = createLimiter({
   prefix: 'api',
 });
 
+/** Yeni destek talebi: 10 talep / saat (spam ve kaza eseri tekrar gönderime karşı). */
+export const ticketLimiter = createLimiter({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  message: 'Çok fazla destek talebi açtınız. Mevcut talebinize yanıt yazabilirsiniz.',
+  prefix: 'ticket',
+});
+
 /** Giriş/kayıt gibi hassas uçlar: 5 deneme / 15 dakika. */
 export const authLimiter = createLimiter({
   windowMs: 15 * 60 * 1000,

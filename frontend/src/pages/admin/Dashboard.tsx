@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
 
 interface Stats {
@@ -15,12 +16,31 @@ interface Stats {
 const fmt = (n: number) =>
   new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(n);
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent?: string }) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+function StatCard({
+  label,
+  value,
+  accent,
+  to,
+}: {
+  label: string;
+  value: string;
+  accent?: string;
+  /** Verilirse kart tıklanabilir olur ve ilgili listeye gider. */
+  to?: string;
+}) {
+  const inner = (
+    <>
       <div className="text-sm text-slate-500">{label}</div>
       <div className={`mt-1 text-2xl font-bold ${accent ?? 'text-slate-900'}`}>{value}</div>
-    </div>
+    </>
+  );
+  const cls = 'rounded-2xl border border-slate-200 bg-white p-5 shadow-sm';
+  return to ? (
+    <Link to={to} className={`${cls} block transition hover:border-brand-300`}>
+      {inner}
+    </Link>
+  ) : (
+    <div className={cls}>{inner}</div>
   );
 }
 
@@ -54,7 +74,12 @@ export default function AdminDashboard() {
           value={String(stats.pendingServices)}
           accent="text-amber-600"
         />
-        <StatCard label="Açık Talep" value={String(stats.openTickets)} accent="text-blue-600" />
+        <StatCard
+          label="Açık Talep"
+          value={String(stats.openTickets)}
+          accent="text-blue-600"
+          to="/admin/tickets"
+        />
         <StatCard label="Sunucu" value={String(stats.servers)} />
         <StatCard label="Ödenmemiş" value={fmt(stats.unpaidTotal)} accent="text-red-600" />
         <StatCard label="Bu Ay Gelir" value={fmt(stats.monthlyRevenue)} accent="text-green-700" />

@@ -98,6 +98,27 @@ function itemsHtml(
   </table>`;
 }
 
+// ─── Destek talebi başlık kutusu ────────────────────────────────────────────
+const PRIORITY_TR: Record<string, string> = {
+  low: 'Düşük',
+  medium: 'Normal',
+  high: 'Yüksek',
+  urgent: 'Acil',
+};
+
+function ticketMetaHtml(ticketNum: string, subject: string, priority?: string): string {
+  return `<table style="border-collapse:collapse;width:100%;font-size:14px;margin:12px 0;background:#f8fafc;border-radius:8px">
+    <tr><td style="padding:8px 12px;color:#64748b">Talep No</td><td style="padding:8px 12px;font-weight:600">${esc(ticketNum)}</td></tr>
+    <tr><td style="padding:8px 12px;color:#64748b">Konu</td><td style="padding:8px 12px;font-weight:500">${esc(subject)}</td></tr>
+    ${priority ? `<tr><td style="padding:8px 12px;color:#64748b">Öncelik</td><td style="padding:8px 12px">${esc(PRIORITY_TR[priority] ?? priority)}</td></tr>` : ''}
+  </table>`;
+}
+
+/** Mesaj gövdesini alıntı bloğu olarak gösterir. Ham metin — `esc()` ile kaçışlanır. */
+function quoteHtml(message: string): string {
+  return `<div style="border-left:3px solid #cbd5e1;padding:4px 0 4px 14px;margin:12px 0;color:#334155;font-size:14px;white-space:pre-wrap">${esc(message)}</div>`;
+}
+
 // ════════════════════════════════════════════════════════════════════════════
 export class NotificationService {
   // ── Auth ──────────────────────────────────────────────────────────────────
@@ -402,5 +423,84 @@ export class NotificationService {
       `Sipariş Alındı — ${opts.invoiceNum} (${tr(opts.total)} ₺)`,
       html,
     );
+  }
+
+  // ── Destek Talepleri ──────────────────────────────────────────────────────
+
+  /** Müşteriye "talebiniz alındı" bilgisi. */
+  static async sendTicketCreated(opts: {
+    to: string;
+    firstName: string;
+    ticketId: string;
+    ticketNum: string;
+    subject: string;
+  }): Promise<void> {
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <p>Destek talebiniz kaydedildi. Ekibimiz en kısa sürede yanıtlayacak.</p>
+      ${ticketMetaHtml(opts.ticketNum, opts.subject)}
+      <p style="font-size:13px;color:#64748b">Bu e-postayı yanıtlamayın; ek bilgi için talebi panelden açıp yazın.</p>`;
+    const html = wrapHtml('Destek Talebiniz Alındı', body, {
+      label: 'Talebi Görüntüle',
+      url: `${env.FRONTEND_URL}/app/tickets/${opts.ticketId}`,
+    });
+    await deliver(opts.to, `[${opts.ticketNum}] Talebiniz alındı — ${opts.subject}`, html);
+  }
+
+  /** Destek ekibi yanıtladığında müşteriye bildirim. */
+  static async sendTicketReplied(opts: {
+    to: string;
+    firstName: string;
+    ticketId: string;
+    ticketNum: string;
+    subject: string;
+    message: string;
+    closed?: boolean;
+  }): Promise<void> {
+    const body = `
+      <p>Sayın <strong>${esc(opts.firstName)}</strong>,</p>
+      <p>Destek talebinize yanıt verildi.</p>
+      ${ticketMetaHtml(opts.ticketNum, opts.subject)}
+      ${quoteHtml(opts.message)}
+      ${
+        opts.closed
+          ? '<p style="font-size:13px;color:#64748b">Talep kapatıldı. Konu devam ediyorsa panelden yeniden yazabilirsiniz.</p>'
+          : ''
+      }`;
+    const html = wrapHtml('Talebinize Yanıt Verildi', body, {
+      label: 'Yanıtı Görüntüle',
+      url: `${env.FRONTEND_URL}/app/tickets/${opts.ticketId}`,
+    });
+    await deliver(opts.to, `[${opts.ticketNum}] Yanıt — ${opts.subject}`, html);
+  }
+
+  /** Yeni talep veya müşteri yanıtı geldiğinde destek ekibine bildirim. */
+  static async sendTicketToStaff(opts: {
+    to: string[];
+    ticketId: string;
+    ticketNum: string;
+    subject: string;
+    message: string;
+    customerName: string;
+    customerEmail: string;
+    isNew: boolean;
+    priority: string;
+  }): Promise<void> {
+    if (opts.to.length === 0) {
+      logger.warn('Destek bildirimi gönderilemedi: alıcı adresi yok', { ticket: opts.ticketNum });
+      return;
+    }
+    const body = `
+      <p><strong>${esc(opts.customerName)}</strong> (${esc(opts.customerEmail)})
+         ${opts.isNew ? 'yeni bir destek talebi açtı' : 'talebine yanıt yazdı'}.</p>
+      ${ticketMetaHtml(opts.ticketNum, opts.subject, opts.priority)}
+      ${quoteHtml(opts.message)}`;
+    const html = wrapHtml(
+      opts.isNew ? 'Yeni Destek Talebi' : 'Müşteri Yanıtı',
+      body,
+      { label: 'Talebi Aç', url: `${env.FRONTEND_URL}/admin/tickets/${opts.ticketId}` },
+    );
+    const subject = `[${opts.ticketNum}] ${opts.isNew ? 'Yeni talep' : 'Müşteri yanıtı'} — ${opts.subject}`;
+    await Promise.all(opts.to.map((addr) => deliver(addr, subject, html)));
   }
 }
