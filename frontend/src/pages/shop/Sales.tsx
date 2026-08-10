@@ -80,8 +80,8 @@ const SOLUTIONS: { title: string; desc: string; icon: ReactNode; href: string; h
     ),
   },
   {
-    title: 'Dedicated Sunucu',
-    desc: 'Tümüyle size ait fiziksel/VPS kaynak, tam kök erişimi ve DDoS koruması.',
+    title: 'VPS Sunucu',
+    desc: 'CPU, RAM ve diski siz seçin; tam kök erişimli VPS dakikalar içinde teslim.',
     href: '/vps',
     hue: 'from-violet-400/80 to-fuchsia-600/80',
     icon: (
@@ -95,7 +95,7 @@ const SOLUTIONS: { title: string; desc: string; icon: ReactNode; href: string; h
   {
     title: 'Güvenlik & SSL',
     desc: 'Ücretsiz SSL, WAF ve gerçek zamanlı tehdit izleme ile veriniz güvende.',
-    href: '/hizmet/alan-adi',
+    href: '/legal/ssl-sertifikasi',
     hue: 'from-emerald-400/80 to-teal-600/80',
     icon: (
       <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
@@ -625,7 +625,7 @@ export default function Sales() {
         <div className="animate-fade-up">
           <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-medium text-brand-200 backdrop-blur">
             <span className="h-1.5 w-1.5 animate-glow-pulse rounded-full bg-emerald-400" />
-            %99.9 çalışma süresi • Türkiye odaklı destek
+            2001'den beri hizmetinizdeyiz • %99.9 çalışma süresi
           </span>
 
           <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">
@@ -897,8 +897,18 @@ export default function Sales() {
         <Reveal className="mb-12 text-center">
           <h2 className="text-2xl font-extrabold text-white sm:text-3xl">Neden AdigeHost?</h2>
         </Reveal>
-        <div className="grid gap-6 sm:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {[
+            {
+              title: '2001\'den Beri',
+              desc: '25 yılı aşkın tecrübeyle kesintisiz hizmet veriyoruz.',
+              icon: (
+                <>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 3" />
+                </>
+              ),
+            },
             {
               title: 'Hızlı Kurulum',
               desc: 'Ödeme onayının ardından hosting hesabınız dakikalar içinde aktive edilir.',

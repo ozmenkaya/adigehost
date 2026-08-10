@@ -1,5 +1,8 @@
+import { useCompany } from '../../hooks/useCompany';
+
 /** Public sayfaların ortak koyu alt bilgisi. */
 export default function ShopFooter({ companyTitle = 'AdigeHost' }: { companyTitle?: string }) {
+  const company = useCompany();
   return (
     <footer className="relative border-t border-white/10 bg-night-950/80 px-4 pb-6 pt-14 text-sm text-slate-400 backdrop-blur">
       <div className="mx-auto max-w-5xl">
@@ -17,6 +20,7 @@ export default function ShopFooter({ companyTitle = 'AdigeHost' }: { companyTitl
             <h4 className="mb-3 text-sm font-semibold text-white">Kurumsal</h4>
             <ul className="space-y-2 text-xs">
               <li><a href="/legal/hakkimizda" className="hover:text-white">Hakkımızda</a></li>
+              <li><a href="/sss" className="hover:text-white">Sık Sorulan Sorular</a></li>
               <li><a href="/legal/ssl-sertifikasi" className="hover:text-white">SSL Sertifikası</a></li>
               <li><a href="mailto:destek@adigehost.tr" className="hover:text-white">İletişim</a></li>
             </ul>
@@ -55,8 +59,11 @@ export default function ShopFooter({ companyTitle = 'AdigeHost' }: { companyTitl
         </div>
 
         <div className="mt-6 flex flex-col items-center justify-between gap-2 text-xs text-slate-500 md:flex-row">
-          <div>© {new Date().getFullYear()} {companyTitle} — Tüm hakları saklıdır.</div>
-          <div>destek@adigehost.tr</div>
+          <div>© {new Date().getFullYear()} {companyTitle} — 2001'den beri hizmetinizdeyiz.</div>
+          <div className="flex items-center gap-3">
+            {company.company_phone && <a href={`tel:${company.company_phone.replace(/\s/g, '')}`} className="hover:text-white">{company.company_phone}</a>}
+            <a href="mailto:destek@adigehost.tr" className="hover:text-white">destek@adigehost.tr</a>
+          </div>
         </div>
       </div>
     </footer>

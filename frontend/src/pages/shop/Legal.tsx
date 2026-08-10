@@ -1,21 +1,9 @@
-import { type ReactNode, useEffect, useState } from 'react';
+import { type ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { api } from '../../utils/api';
 import PageBackdrop from '../../components/shop/PageBackdrop';
 import ShopHeader from '../../components/shop/ShopHeader';
 import ShopFooter from '../../components/shop/ShopFooter';
-
-interface Company {
-  company_title?: string;
-  company_vkn?: string;
-  company_tax_office?: string;
-  company_address?: string;
-  company_city?: string;
-  company_district?: string;
-  company_postal_code?: string;
-  company_email?: string;
-  company_phone?: string;
-}
+import { useCompany, type Company } from '../../hooks/useCompany';
 
 interface PageDef {
   slug: string;
@@ -101,6 +89,83 @@ const PAGES: PageDef[] = [
               <br />
             </>
           )}
+        </p>
+      </>
+    ),
+  },
+  {
+    slug: 'sss',
+    title: 'Sık Sorulan Sorular',
+    content: (c) => (
+      <>
+        <h3>Ne zamandır hizmet veriyorsunuz?</h3>
+        <p>
+          <strong>AdigeHost, 2001 yılından beri</strong> kesintisiz olarak hosting, VPS ve domain
+          hizmetleri sunmaktadır.
+        </p>
+
+        <h3>Hangi hizmetleri sunuyorsunuz?</h3>
+        <p>
+          WordPress için optimize edilmiş paylaşımlı hosting paketleri, bulut VPS sunucuları, domain
+          kayıt/yenileme/transfer (.com, .com.tr ve 40+ TLD), e-posta hizmetleri ve 7/24 teknik
+          destek sunuyoruz. Detaylar için{' '}
+          <Link to="/legal/hakkimizda">Hakkımızda</Link> sayfasına bakabilirsiniz.
+        </p>
+
+        <h3>Satın aldığım hizmet ne kadar sürede aktif olur?</h3>
+        <ul>
+          <li>
+            <strong>Hosting paketleri:</strong>Ödeme onayını takiben en geç 1 saat içinde aktive
+            edilir; cPanel giriş bilgileri e-posta ile gönderilir.
+          </li>
+          <li>
+            <strong>VPS sunucular:</strong>Ödeme onayını takiben en geç 30 dakika içinde kurulur;
+            root erişim bilgileri e-posta ile iletilir.
+          </li>
+          <li>
+            <strong>Domain kaydı:</strong>Ödeme onayı sonrası anında, ilgili registrar üzerinden
+            kayıt edilir.
+          </li>
+        </ul>
+
+        <h3>Hangi ödeme yöntemlerini kullanabilirim?</h3>
+        <p>
+          Havale/EFT veya İyzico altyapısı üzerinden kredi/banka kartı ile ödeme yapabilirsiniz. Kart
+          bilgileriniz sistemimizde <strong>saklanmaz</strong>, İyzico tarafında güvenle işlenir.
+        </p>
+
+        <h3>Fikrimi değiştirirsem iade alabilir miyim?</h3>
+        <p>
+          Hosting, VPS ve domain gibi dijital hizmetler mevzuat gereği anında ifa edildiğinden
+          (6502 sayılı Kanun, Mesafeli Sözleşmeler Yönetmeliği m.15) genel cayma hakkı
+          bulunmamaktadır. Hizmet henüz aktive edilmemişse veya AdigeHost kaynaklı bir aksaklık
+          varsa istisnai iade mümkündür — detaylar için{' '}
+          <Link to="/legal/teslimat-ve-iade">Teslimat ve İade Şartları</Link>.
+        </p>
+
+        <h3>Verilerim ve ödemelerim güvende mi?</h3>
+        <p>
+          Tüm site ve panel trafiği SSL/TLS ile şifrelenir, veriler AES-256-GCM ile saklanır ve KVKK
+          kapsamında işlenir. Detaylar için{' '}
+          <Link to="/legal/ssl-sertifikasi">SSL Sertifikası</Link> ve{' '}
+          <Link to="/legal/gizlilik">Gizlilik Sözleşmesi</Link> sayfalarına bakabilirsiniz.
+        </p>
+
+        <h3>E-fatura kesiyor musunuz?</h3>
+        <p>Evet, tüm satışlar için yasal e-fatura düzenlenir ve müşteri panelinizden erişilebilir.</p>
+
+        <h3>Destek ekibinize nasıl ulaşabilirim?</h3>
+        <p>
+          <a href="mailto:destek@adigehost.tr">destek@adigehost.tr</a> adresinden
+          {c.company_phone ? (
+            <>
+              {' '}veya <a href={`tel:${c.company_phone.replace(/\s/g, '')}`}>{c.company_phone}</a>{' '}
+              numarasından
+            </>
+          ) : (
+            ' '
+          )}
+          bize ulaşabilirsiniz; ekibimiz 7/24 teknik destek sağlar.
         </p>
       </>
     ),
@@ -367,14 +432,7 @@ const PAGES: PageDef[] = [
 
 export default function Legal() {
   const { slug } = useParams<{ slug: string }>();
-  const [company, setCompany] = useState<Company>({});
-
-  useEffect(() => {
-    api
-      .get('/public/company')
-      .then((r) => setCompany(r.data.data ?? {}))
-      .catch(() => {});
-  }, []);
+  const company = useCompany();
 
   const page = PAGES.find((p) => p.slug === slug);
 

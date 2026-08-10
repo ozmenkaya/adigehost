@@ -56,6 +56,7 @@ export default function App() {
       <Route path="/hizmet/:slug" element={<ServicePage />} />
       <Route path="/legal" element={<Legal />} />
       <Route path="/legal/:slug" element={<Legal />} />
+      <Route path="/sss" element={<Navigate to="/legal/sss" replace />} />
       <Route path="/payment-result" element={<PaymentResult />} />
 
       <Route path="/login" element={<Login />} />

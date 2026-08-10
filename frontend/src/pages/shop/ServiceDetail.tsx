@@ -23,42 +23,42 @@ const SERVICE_CONTENT: Record<string, ServiceContent> = {
   'web-sitesi': {
     subtitle: 'Web siteniz için hızlı, güvenli ve ölçeklenebilir hosting.',
     intro:
-      'Bu sayfanın içeriğini buradan düzenleyebilirsiniz. Web sitesi/hosting hizmetinizi, paket avantajlarını ve teknik özellikleri burada anlatın.',
+      'AdigeHost hosting paketleri NVMe SSD depolama ve LiteSpeed sunucu teknolojisiyle çalışır; WordPress dahil web sitenizi hızlı ve kesintisiz yayında tutar. cPanel üzerinden kolayca yönetir, ücretsiz SSL sertifikası ve günlük otomatik yedeklemeyle sitenizi güvende tutarsınız. Ödeme onayının ardından hesabınız en geç 1 saat içinde aktif olur.',
     bullets: ['NVMe SSD disk', 'Ücretsiz SSL sertifikası', 'Günlük yedekleme', '7/24 Türkçe destek'],
     cta: { label: 'Paketleri Gör', href: '/' },
   },
   'e-posta': {
     subtitle: 'Alan adınıza özel kurumsal e-posta çözümleri.',
     intro:
-      'Bu sayfanın içeriğini buradan düzenleyebilirsiniz. Kurumsal e-posta paketlerinizi, kutu boyutlarını ve spam/virüs korumasını burada anlatın.',
+      'Alan adınıza özel e-posta kutularıyla (ör. bilgi@sirketiniz.com) kurumsal görünümünüzü güçlendirin. DKIM/SPF/DMARC imzalı gönderimlerle e-postalarınızın spam klasörüne düşme riski azalır; webmail veya telefon/bilgisayarınızdan senkronize erişebilirsiniz.',
     bullets: ['Alan adınıza özel adresler', 'Webmail erişimi', 'Spam ve virüs koruması', 'Mobil senkronizasyon'],
     cta: { label: 'İletişime Geç', href: 'mailto:destek@adigehost.tr' },
   },
   yedekleme: {
     subtitle: 'Otomatik yedekleme ve hızlı kurtarma ile veriniz güvende.',
     intro:
-      'Bu sayfanın içeriğini buradan düzenleyebilirsiniz. Yedekleme sıklığı, saklama süresi ve geri yükleme süreçlerini burada anlatın.',
+      'Hosting ve VPS hizmetlerinizdeki verileriniz düzenli olarak otomatik yedeklenir. Yanlışlıkla silme, güncelleme hatası veya beklenmedik bir arıza durumunda verilerinizi hızlıca geri yükleyerek kesintiyi en aza indiririz.',
     bullets: ['Otomatik günlük yedek', 'Tek tıkla geri yükleme', 'Farklı lokasyonda saklama', 'Şifreli yedek depolama'],
     cta: { label: 'İletişime Geç', href: 'mailto:destek@adigehost.tr' },
   },
   'alan-adi': {
     subtitle: 'Domain kayıt, yenileme ve transfer — hızlı ve uygun fiyatlı.',
     intro:
-      'Bu sayfanın içeriğini buradan düzenleyebilirsiniz. Desteklenen uzantıları, fiyatları ve transfer sürecini burada anlatın.',
+      'Hayalinizdeki alan adını hemen sorgulayın; .com, .com.tr ve 40\'tan fazla uzantı arasından seçim yapın. Ödeme onayının ardından kaydınız anında tescil edilir; DNS ayarlarınızı ve WHOIS gizlilik tercihinizi müşteri panelinizden kolayca yönetebilirsiniz.',
     bullets: ['40+ uzantı', 'Ücretsiz DNS yönetimi', 'Kolay transfer', 'WHOIS gizliliği'],
     cta: { label: 'Alan Adı Sorgula', href: '/' },
   },
   sunucu: {
     subtitle: 'Yüksek performanslı dedicated ve fiziksel sunucu çözümleri.',
     intro:
-      'Bu sayfanın içeriğini buradan düzenleyebilirsiniz. Donanım seçeneklerini, lokasyonları ve yönetim hizmetlerini burada anlatın.',
+      'Yoğun trafikli projeler veya paylaşımlı hostingin yetmediği özel ihtiyaçlar için dedicated sunucu çözümleri sunuyoruz. İhtiyacınıza göre donanım yapılandırması belirler, isterseniz sunucu yönetimini de üstleniriz — kurulumdan bakıma kadar sürecin her adımında yanınızdayız.',
     bullets: ['Özel donanım', 'Yönetilen hizmet seçeneği', 'Yüksek bant genişliği', 'Kurumsal SLA'],
     cta: { label: 'Teklif Al', href: 'mailto:destek@adigehost.tr' },
   },
   cozum: {
     subtitle: 'İşletmenize özel danışmanlık ve uçtan uca projeler.',
     intro:
-      'Bu sayfanın içeriğini buradan düzenleyebilirsiniz. Sunduğunuz özel çözümleri ve danışmanlık kapsamını burada anlatın.',
+      'Standart paketlerin karşılamadığı özel ihtiyaçlarınız için buradayız: altyapı danışmanlığı, mevcut sitenizin/sisteminizin AdigeHost\'a taşınması (migration) ve sürekli bakım desteği. İhtiyacınızı bize iletin, birlikte en uygun çözümü tasarlayalım.',
     bullets: ['İhtiyaç analizi', 'Özel mimari tasarımı', 'Göç (migration) desteği', 'Sürekli bakım'],
     cta: { label: 'Bizimle İletişime Geçin', href: 'mailto:destek@adigehost.tr' },
   },
