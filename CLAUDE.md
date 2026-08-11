@@ -58,6 +58,11 @@ bash deploy/scripts/rollback.sh --list
 - `deploy.sh` **kirli çalışma dizininde durur**; bilerek yayınlıyorsanız
   `--allow-dirty`. Deploy edilen sürüm `<release>/BUILD_INFO`'da (commit + tarih).
 - Symlink `rename(2)` ile çevrildiği için ziyaretçi hiçbir an yarım build görmez.
+- Deploy **git pull yapmaz** (geliştirme doğrudan bu sunucuda). Gerekirse `--pull`.
+- PM2 uygulaması **root'un daemon'ında** kayıtlı; scriptler `sudo pm2` kullanır.
+  `sudo`suz `pm2` komutu ayrı bir daemon'a bakar ve ikinci bir kopya başlatır.
+- `git push`/`fetch` yalnızca `sudo` ile çalışır (normal kullanıcının GitHub
+  anahtarı yok). Sonrasında `sudo chown -R emrecan:emrecan .git` şart.
 
 ## Kod Kuralları (ÖNEMLİ)
 

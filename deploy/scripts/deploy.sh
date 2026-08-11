@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
 # ============================================================
 # AdigeHost - Deploy (atomik, sıfır-kesinti)
-# Kullanım:  bash deploy/scripts/deploy.sh [--allow-dirty] [--no-pull]
+# Kullanım:  bash deploy/scripts/deploy.sh [--allow-dirty] [--pull]
+#
+#   --pull  deploy öncesi origin/main'i çeker. VARSAYILAN DEĞİL: geliştirme
+#           doğrudan bu sunucuda yapılıyor ve normal kullanıcının GitHub SSH
+#           anahtarı yok (push/fetch yalnızca sudo ile çalışıyor), dolayısıyla
+#           pull adımı hata verip deploy'u durduruyordu. Yerel commit'ler
+#           kaynağın kendisi olduğu için çekmeye gerek yok.
 #
 # Nasıl çalışır
 #   Build çıktısı servis EDİLMEYEN `*/build-out` dizinine yazılır, oradan
@@ -17,11 +23,12 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 ALLOW_DIRTY=0
-DO_PULL=1
+DO_PULL=0
 for arg in "$@"; do
   case "$arg" in
     --allow-dirty) ALLOW_DIRTY=1 ;;
-    --no-pull) DO_PULL=0 ;;
+    --pull) DO_PULL=1 ;;
+    --no-pull) ;; # geriye dönük uyumluluk: pull zaten varsayılan olarak kapalı
     *) echo "Bilinmeyen argüman: $arg" >&2; exit 2 ;;
   esac
 done
