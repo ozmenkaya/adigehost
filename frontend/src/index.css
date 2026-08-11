@@ -110,6 +110,9 @@ body {
   .reveal.is-visible {
     opacity: 1;
     transform: none;
+    /* Animasyon bitti — katman terfisini bırak, aksi halde kartlar kalıcı
+       composited layer'da kalıp hover artefaktı bırakıyor. */
+    will-change: auto;
   }
 
   /* Kart hover için 3B eğim ve neon kenar */
@@ -118,7 +121,12 @@ body {
       transform 0.4s cubic-bezier(0.16, 1, 0.3, 1),
       box-shadow 0.4s ease,
       border-color 0.4s ease;
-    transform-style: preserve-3d;
+    /* preserve-3d KULLANMA: kart içindeki blur'lu parıltı bir `filter`,
+       filter 3B bağlamı düzleştirdiği için blob kendi katmanına kaçıp
+       overflow-hidden kırpmasını atlıyor ve hover sonrası kalıcı iz bırakıyor. */
+    transform-style: flat;
+    isolation: isolate;
+    backface-visibility: hidden;
   }
   .card-3d:hover {
     transform: translateY(-8px) rotateX(4deg);
