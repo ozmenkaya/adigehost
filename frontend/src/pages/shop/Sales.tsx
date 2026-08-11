@@ -9,6 +9,7 @@ import Reveal from '../../components/shop/Reveal';
 import PageBackdrop from '../../components/shop/PageBackdrop';
 import ShopHeader from '../../components/shop/ShopHeader';
 import ShopFooter from '../../components/shop/ShopFooter';
+import ServiceStrip from '../../components/shop/ServiceStrip';
 
 interface Product {
   id: string;
@@ -724,6 +725,9 @@ export default function Sales() {
           {(searching || domainResults) && renderDomainPanel()}
         </div>
       </section>
+
+      {/* Hizmet şeridi — tüm hizmetler ilk ekranda görünsün (kaldırmak için bu satır yeter) */}
+      <ServiceStrip />
 
       {/* Kayan güven şeridi */}
       <div className="relative overflow-hidden border-y border-white/5 py-4">
