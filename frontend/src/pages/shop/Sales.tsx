@@ -892,7 +892,7 @@ export default function Sales() {
       {/* Kategorisiz hosting paketleri */}
       <ProductSection
         title="Hosting Paketleri"
-        subtitle="WordPress için optimize edilmiş, hızlı ve güvenli."
+        subtitle="Siteniz hazırsa yayına alın — WordPress dahil tüm PHP tabanlı siteleri barındırır."
         items={uncategorizedHosting}
         isInCart={isInCart}
         onAddHosting={addHosting}

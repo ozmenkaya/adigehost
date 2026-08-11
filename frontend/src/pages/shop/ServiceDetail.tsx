@@ -23,7 +23,7 @@ const SERVICE_CONTENT: Record<string, ServiceContent> = {
   'web-sitesi': {
     subtitle: 'Web siteniz için hızlı, güvenli ve ölçeklenebilir hosting.',
     intro:
-      'AdigeHost hosting paketleri NVMe SSD depolama ve LiteSpeed sunucu teknolojisiyle çalışır; WordPress dahil web sitenizi hızlı ve kesintisiz yayında tutar. cPanel üzerinden kolayca yönetir, ücretsiz SSL sertifikası ve günlük otomatik yedeklemeyle sitenizi güvende tutarsınız. Ödeme onayının ardından hesabınız en geç 1 saat içinde aktif olur.',
+      'Sitenizi kurup yayında tutuyoruz: hazır bir siteniz varsa taşırız, yoksa web sitesi paketlerimizle biz yaparız. Altyapıda NVMe SSD depolama ve LiteSpeed sunucu teknolojisi var; WordPress dahil PHP tabanlı her siteyi barındırır. Yönetimi cPanel üzerinden yaparsınız, ücretsiz SSL sertifikası ve günlük otomatik yedekleme dahildir. Ödeme onayının ardından hesabınız en geç 1 saat içinde aktif olur.',
     bullets: ['NVMe SSD disk', 'Ücretsiz SSL sertifikası', 'Günlük yedekleme', '7/24 Türkçe destek'],
     cta: { label: 'Paketleri Gör', href: '/' },
   },

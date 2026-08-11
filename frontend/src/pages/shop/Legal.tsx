@@ -4,32 +4,43 @@ import PageBackdrop from '../../components/shop/PageBackdrop';
 import ShopHeader from '../../components/shop/ShopHeader';
 import ShopFooter from '../../components/shop/ShopFooter';
 import { useCompany, type Company } from '../../hooks/useCompany';
+import { useOffering, type OfferingLine } from '../../hooks/useOffering';
 
 interface PageDef {
   slug: string;
   title: string;
-  content: (c: Company) => ReactNode;
+  /** `offering` katalogdan türetilir — hizmet listelerini elle yazmayın, bkz. useOffering. */
+  content: (c: Company, offering: OfferingLine[]) => ReactNode;
+}
+
+/** Hizmet listesini katalogdan basar; katalog boşsa (API erişilemezse) hiç basmaz. */
+function OfferingList({ offering }: { offering: OfferingLine[] }) {
+  if (offering.length === 0) return null;
+  return (
+    <ul>
+      {offering.map((l) => (
+        <li key={l.key}>
+          {l.label}
+          {l.items.length > 0 && <span className="text-slate-500"> — {l.items.join(', ')}</span>}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 const PAGES: PageDef[] = [
   {
     slug: 'hakkimizda',
     title: 'Hakkımızda',
-    content: (c) => (
+    content: (c, offering) => (
       <>
         <p>
-          <strong>AdigeHost</strong>, Türkiye odaklı kurumsal hosting, VPS ve domain çözümleri sunan
-          bir bilişim hizmetleri firmasıdır. Müşterilerimize sunduğumuz hizmetlerde hız,
-          güvenilirlik ve şeffaflık önceliklerimizdir.
+          <strong>AdigeHost</strong>, işletmelerin web sitesini kurup yayında tutan bir bilişim
+          hizmetleri firmasıdır. Siteyi biz yapar, hosting ve bakımını üstleniriz; dilerseniz
+          yalnızca altyapıyı da alabilirsiniz.
         </p>
         <h3>Hizmetlerimiz</h3>
-        <ul>
-          <li>WordPress için optimize edilmiş paylaşımlı hosting paketleri</li>
-          <li>Domain kayıt, yenileme ve transfer hizmetleri (.com, .com.tr ve 40+ TLD)</li>
-          <li>Bulut VPS sunucuları</li>
-          <li>E-posta hizmetleri (DKIM/SPF/DMARC imzalı)</li>
-          <li>7/24 teknik destek</li>
-        </ul>
+        <OfferingList offering={offering} />
         <h3>Neden AdigeHost?</h3>
         <ul>
           <li>
@@ -96,7 +107,7 @@ const PAGES: PageDef[] = [
   {
     slug: 'sss',
     title: 'Sık Sorulan Sorular',
-    content: (c) => (
+    content: (c, offering) => (
       <>
         <h3>Ne zamandır hizmet veriyorsunuz?</h3>
         <p>
@@ -105,11 +116,9 @@ const PAGES: PageDef[] = [
         </p>
 
         <h3>Hangi hizmetleri sunuyorsunuz?</h3>
+        <OfferingList offering={offering} />
         <p>
-          WordPress için optimize edilmiş paylaşımlı hosting paketleri, bulut VPS sunucuları, domain
-          kayıt/yenileme/transfer (.com, .com.tr ve 40+ TLD), e-posta hizmetleri ve 7/24 teknik
-          destek sunuyoruz. Detaylar için{' '}
-          <Link to="/legal/hakkimizda">Hakkımızda</Link> sayfasına bakabilirsiniz.
+          Detaylar için <Link to="/legal/hakkimizda">Hakkımızda</Link> sayfasına bakabilirsiniz.
         </p>
 
         <h3>Satın aldığım hizmet ne kadar sürede aktif olur?</h3>
@@ -433,6 +442,7 @@ const PAGES: PageDef[] = [
 export default function Legal() {
   const { slug } = useParams<{ slug: string }>();
   const company = useCompany();
+  const offering = useOffering();
 
   const page = PAGES.find((p) => p.slug === slug);
 
@@ -447,7 +457,7 @@ export default function Legal() {
             <p className="mb-6 text-xs text-slate-500">
               Son güncelleme: {new Date().toLocaleDateString('tr-TR')}
             </p>
-            <div className="space-y-3 leading-relaxed text-slate-300">{page.content(company)}</div>
+            <div className="space-y-3 leading-relaxed text-slate-300">{page.content(company, offering)}</div>
           </article>
         ) : (
           <div className="space-y-3">
