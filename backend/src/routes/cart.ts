@@ -26,11 +26,13 @@ const checkoutSchema = z.object({
   body: z.object({
     items: z.array(
       z.object({
-        type: z.enum(['hosting', 'domain', 'vps']),
+        type: z.enum(['hosting', 'domain', 'vps', 'website']),
         productId: z.string().uuid().optional(),
         domain: z.string().max(253).optional(),
         billingCycle: z.enum(['monthly', 'quarterly', 'annually']).optional(),
         period: z.coerce.number().int().min(1).max(10).optional(),
+        // Web sitesi paketi için müşterinin proje notu (ne tür bir site istiyor)
+        projectNote: z.string().max(2000).optional(),
         // VPS özelleştirici için
         vpsServerType: z.string().max(32).optional(),
         vpsLocation: z.string().max(16).optional(),
@@ -204,6 +206,54 @@ cartRouter.post(
           serviceId: svc.id,
         });
         subtotal += linePrice;
+      } else if (item.type === 'website') {
+        if (!item.productId) throw ApiError.badRequest('Web sitesi paketi için productId gerekli');
+        const product = await Product.findByPk(item.productId);
+        if (!product || !product.isActive || product.type !== 'website') {
+          throw ApiError.badRequest(`Geçersiz web sitesi paketi: ${item.productId}`);
+        }
+        const cycle = item.billingCycle ?? 'monthly';
+        // Abonelik (bakım + hosting) dönem bedeli
+        const base = cycle === 'annually' && product.priceAnnually
+          ? Number(product.priceAnnually)
+          : Number(product.priceMonthly) * (cycle === 'quarterly' ? 3 : 1);
+        // Tek seferlik tasarım/kurulum bedeli — yenilemede tekrarlamaz
+        const setup = Number(product.setupFee ?? 0);
+
+        const svc = await Service.create({
+          userId,
+          type: 'website',
+          productId: product.id,
+          name: item.domain ? `${product.name} — ${item.domain}` : product.name,
+          domain: item.domain ?? null,
+          status: 'pending', // teslim admin tarafından elle yapılır
+          // Yenileme yalnızca abonelik tutarı üzerinden — kurulum hariç.
+          price: base,
+          billingCycle: cycle,
+          nextDue: new Date(
+            Date.now() + (cycle === 'annually' ? 365 : cycle === 'quarterly' ? 90 : 30) * 86400000,
+          ),
+          config: { projectNote: item.projectNote?.trim() || null, setupFee: setup },
+        });
+        createdServices.push(svc);
+
+        // Kurulum ve abonelik ayrı kalem — müşteri faturada ne için ne ödediğini görsün.
+        if (setup > 0) {
+          invoiceLines.push({
+            description: `${product.name} — kurulum ve tasarım (tek seferlik)`,
+            quantity: 1,
+            unitPrice: setup,
+            serviceId: svc.id,
+          });
+          subtotal += setup;
+        }
+        invoiceLines.push({
+          description: `${product.name} — bakım ve hosting (${cycle === 'annually' ? 'Yıllık' : cycle === 'quarterly' ? '3 Aylık' : 'Aylık'})`,
+          quantity: 1,
+          unitPrice: base,
+          serviceId: svc.id,
+        });
+        subtotal += base;
       }
     }
 

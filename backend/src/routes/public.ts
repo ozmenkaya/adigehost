@@ -69,8 +69,9 @@ publicRouter.get(
   '/vps/options',
   asyncHandler(async (_req, res) => {
     const { HetznerService } = await import('../services/HetznerService');
-    const [serverTypesRaw, locationsRaw, imagesRaw, usdTry, eurTry] = await Promise.all([
+    const [serverTypesRaw, availability, locationsRaw, imagesRaw, usdTry, eurTry] = await Promise.all([
       HetznerService.listServerTypes(),
+      HetznerService.getAvailabilityByLocation(),
       HetznerService.listLocations() as Promise<Array<{ name: string; city: string; country: string; description: string }>>,
       HetznerService.listImages() as Promise<Array<{ name: string; description: string; os_flavor: string; os_version: string; type: string }>>,
       ExchangeRateService.getUsdToTry(),
@@ -82,31 +83,51 @@ publicRouter.get(
     const vatRate = Number(await SettingsService.get('vat_rate', '20'));
     const vatMult = 1 + vatRate / 100;
 
-    // Server types: fiyatları TRY'ye çevir, location bazlı
+    // Satışa açık Hetzner tip kategorileri (Hetzner: regular_purpose = CPX serisi).
+    // CX/CAX (cost_optimized) sık sık stok dışı kaldığı için varsayılan olarak listelenmez.
+    const categoriesStr = await SettingsService.get('vps_categories', 'regular_purpose');
+    const allowedCategories = new Set(
+      categoriesStr.split(',').map((c) => c.trim()).filter(Boolean),
+    );
+
+    // Lokasyon bazında şu an sipariş edilebilir tip id'leri
+    const availableIdsByLocation = new Map<string, Set<number>>(
+      Object.entries(availability).map(([loc, ids]) => [loc, new Set(ids)]),
+    );
+
+    // Server types: fiyatları TRY'ye çevir, location bazlı.
+    // Sadece izinli kategoriler + ilgili lokasyonda stokta olan tipler döner.
     const serverTypes = (serverTypesRaw as Array<{
       id: number; name: string; description: string; cores: number;
-      memory: number; disk: number; cpu_type: string; architecture: string;
+      memory: number; disk: number; cpu_type: string; architecture: string; category?: string;
       prices: Array<{ location: string; price_monthly: { gross: string }; price_hourly: { gross: string } }>;
-    }>).map((st) => ({
-      id: st.id,
-      name: st.name,
-      description: st.description,
-      cores: st.cores,
-      memory: st.memory,
-      disk: st.disk,
-      cpuType: st.cpu_type,
-      architecture: st.architecture,
-      // Location bazlı TL fiyatlar (KDV dahil)
-      pricesByLocation: Object.fromEntries(
-        st.prices.map((p) => {
-          // Hetzner EUR cinsinden gross fatura — markup + KDV
-          const eurMonthly = Number(p.price_monthly.gross);
-          const tlExVat = round2(eurMonthly * eurTry * markup);
-          const tlIncVat = round2(tlExVat * vatMult);
-          return [p.location, { monthlyExVat: tlExVat, monthlyIncVat: tlIncVat, eurOriginal: eurMonthly }];
-        }),
-      ),
-    }));
+    }>)
+      .filter((st) => allowedCategories.size === 0 || allowedCategories.has(st.category ?? ''))
+      .map((st) => ({
+        id: st.id,
+        name: st.name,
+        description: st.description,
+        cores: st.cores,
+        memory: st.memory,
+        disk: st.disk,
+        cpuType: st.cpu_type,
+        architecture: st.architecture,
+        category: st.category ?? null,
+        // Location bazlı TL fiyatlar (KDV dahil) — yalnızca stokta olan lokasyonlar
+        pricesByLocation: Object.fromEntries(
+          st.prices
+            .filter((p) => availableIdsByLocation.get(p.location)?.has(st.id))
+            .map((p) => {
+              // Hetzner EUR cinsinden gross fatura — markup + KDV
+              const eurMonthly = Number(p.price_monthly.gross);
+              const tlExVat = round2(eurMonthly * eurTry * markup);
+              const tlIncVat = round2(tlExVat * vatMult);
+              return [p.location, { monthlyExVat: tlExVat, monthlyIncVat: tlIncVat, eurOriginal: eurMonthly }];
+            }),
+        ),
+      }))
+      // Hiçbir lokasyonda stokta olmayan tipi hiç gösterme
+      .filter((st) => Object.keys(st.pricesByLocation).length > 0);
 
     // IPv4 fiyatı sabit ~0.6 EUR/ay
     const ipv4PriceEur = 0.6;
@@ -120,13 +141,16 @@ publicRouter.get(
     const floatingIpEur = Number(await SettingsService.get('vps_floating_ip_eur', '1.19')) || 1.19;
     const floatingIpIncVat = round2(floatingIpEur * eurTry * markup * vatMult);
 
-    // Lokasyonlar (sade)
-    const locations = (locationsRaw as Array<{ name: string; city: string; country: string; description: string }>).map((l) => ({
-      name: l.name,
-      city: l.city,
-      country: l.country,
-      description: l.description,
-    }));
+    // Lokasyonlar (sade) — en az bir satılabilir tipi olanlar
+    const sellableLocations = new Set(serverTypes.flatMap((st) => Object.keys(st.pricesByLocation)));
+    const locations = (locationsRaw as Array<{ name: string; city: string; country: string; description: string }>)
+      .filter((l) => sellableLocations.has(l.name))
+      .map((l) => ({
+        name: l.name,
+        city: l.city,
+        country: l.country,
+        description: l.description,
+      }));
 
     // OS image'leri — sadece system, type=system, son sürümler
     const images = (imagesRaw as Array<{ name: string; description: string; os_flavor: string; os_version: string; type: string; architecture: string }>)

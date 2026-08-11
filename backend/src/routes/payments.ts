@@ -107,8 +107,12 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
       // Servisleri provision et
       const items = (invoice.get('items') as InvoiceItem[]) ?? [];
       const provisioned: Array<Record<string, unknown>> = [];
+      // Aynı servis birden çok kalemde geçebilir (ör. web sitesi = kurulum + abonelik).
+      // Servisi bir kez işle; yoksa dönem iki kez ilerletilir.
+      const handledServices = new Set<string>();
       for (const item of items) {
-        if (!item.serviceId) continue;
+        if (!item.serviceId || handledServices.has(item.serviceId)) continue;
+        handledServices.add(item.serviceId);
         const service = await Service.findByPk(item.serviceId);
         if (!service) continue;
 
@@ -140,6 +144,12 @@ const iyzicoCallbackHandler = asyncHandler(async (req, res) => {
               provisioned.push({ type: 'vps', ...(await ProvisioningService.provisionVps(service)) });
             } else if (service.type === 'domain') {
               provisioned.push({ type: 'domain', ...(await ProvisioningService.provisionDomain(service)) });
+            } else if (service.type === 'website') {
+              // Otomatik provizyon yok — tasarım/teslim elle yapılır. Ama abonelik
+              // ödendiği için servisi aktif et; yenileme motoru dönemi takip etsin.
+              service.status = 'active';
+              await service.save();
+              provisioned.push({ type: 'website', serviceId: service.id, manual: true });
             }
           } else if (service.status === 'suspended') {
             // Ödenmemiş fatura yüzünden askıya alınmış servis → ödeme geldi, geri aç

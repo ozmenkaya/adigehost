@@ -15,9 +15,14 @@ import { IntegrationService } from './IntegrationService';
 export interface HetznerServerType {
   id: number;
   name: string;
+  description?: string;
   cores: number;
   memory: number;
   disk: number;
+  cpu_type?: string; // 'shared' | 'dedicated'
+  architecture?: string; // 'x86' | 'arm'
+  /** 'regular_purpose' (CPX) | 'cost_optimized' (CX/CAX) | 'general_purpose' (CCX) */
+  category?: string;
   deprecated?: boolean;
   prices: Array<{
     location: string;
@@ -86,6 +91,35 @@ export class HetznerService {
       return (data.server_types as HetznerServerType[]).filter((t) => !t.deprecated);
     } catch (err) {
       throw toApiError(err, 'listServerTypes');
+    }
+  }
+
+  /**
+   * Lokasyon bazında "şu an sipariş edilebilir" server type id'leri.
+   *
+   * Hetzner'da bir tip fiyat listesinde göründüğü halde ilgili datacenter'da
+   * stokta olmayabilir (tükendiğinde `available` listesinden düşer). Sipariş
+   * ekranında yalnızca gerçekten kurulabilen tipleri göstermek için kullanılır.
+   *
+   * Aynı lokasyonda birden çok datacenter olabilir → birleşim alınır.
+   */
+  static async getAvailabilityByLocation(): Promise<Record<string, number[]>> {
+    try {
+      const { data } = await (await getClient()).get('/datacenters', { params: { per_page: 50 } });
+      const dcs = data.datacenters as Array<{
+        location: { name: string };
+        server_types: { available: number[] };
+      }>;
+      const byLocation: Record<string, Set<number>> = {};
+      for (const dc of dcs) {
+        const loc = dc.location?.name;
+        if (!loc) continue;
+        const set = (byLocation[loc] ??= new Set());
+        for (const id of dc.server_types?.available ?? []) set.add(id);
+      }
+      return Object.fromEntries(Object.entries(byLocation).map(([k, v]) => [k, [...v]]));
+    } catch (err) {
+      throw toApiError(err, 'getAvailabilityByLocation');
     }
   }
 

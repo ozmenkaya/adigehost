@@ -2,7 +2,9 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuthStore } from './store/authStore';
 import Layout from './components/shared/Layout';
 import Login from './pages/auth/Login';
-import Register from './pages/auth/Register';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import VerifyEmail from './pages/auth/VerifyEmail';
 // Admin
 import AdminDashboard from './pages/admin/Dashboard';
 import Clients from './pages/admin/Clients';
@@ -37,6 +39,7 @@ import Legal from './pages/shop/Legal';
 import PaymentResult from './pages/shop/PaymentResult';
 import VPSConfigurator from './pages/shop/VPSConfigurator';
 import ServicePage from './pages/shop/ServiceDetail';
+import WebsitePackages from './pages/shop/WebsitePackages';
 
 function ProtectedRoute({ role, children }: { role?: 'admin'; children: React.ReactNode }) {
   const { isAuthenticated, user } = useAuthStore();
@@ -57,14 +60,21 @@ export default function App() {
       <Route path="/" element={<RootRedirect />} />
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/vps" element={<VPSConfigurator />} />
+      <Route path="/web-sitesi" element={<WebsitePackages />} />
+      {/* Eski/alternatif adresler web sitesi paketlerine düşsün */}
+      <Route path="/hizmet/web-sitesi" element={<Navigate to="/web-sitesi" replace />} />
       <Route path="/hizmet/:slug" element={<ServicePage />} />
       <Route path="/legal" element={<Legal />} />
       <Route path="/legal/:slug" element={<Legal />} />
       <Route path="/sss" element={<Navigate to="/legal/sss" replace />} />
       <Route path="/payment-result" element={<PaymentResult />} />
 
+      {/* Giriş ve kayıt tek ekranda yürür; /register geriye dönük uyumluluk için korunur. */}
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
+      <Route path="/register" element={<Navigate to="/login" replace />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
 
       {/* Admin paneli */}
       <Route

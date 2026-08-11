@@ -27,9 +27,9 @@ const iconProps = {
 export const SERVICES: ServiceDef[] = [
   {
     slug: 'web-sitesi',
-    title: 'Web Sitesi',
-    tagline: 'Hızlı ve güvenli hosting ile sitenizi yayında tutun.',
-    href: '/hizmet/web-sitesi',
+    title: 'Web Sitesi Yaptır',
+    tagline: 'Tasarımdan yayına kadar her şeyi biz yapalım.',
+    href: '/web-sitesi',
     accent: 'bg-blue-50 text-blue-600',
     icon: (
       <svg {...iconProps}>

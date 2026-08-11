@@ -99,6 +99,31 @@ whmRouter.post(
   }),
 );
 
+// --- POST /whm/:id/sso ---
+// Tek kullanımlık cPanel giriş linki (şifre sormadan). Link kısa ömürlüdür ve
+// yalnızca servis sahibine (veya admin'e) üretilir.
+const ssoSchema = z.object({
+  body: z.object({ service: z.enum(['cpaneld', 'webmaild']).default('cpaneld') }),
+});
+whmRouter.post(
+  '/:id/sso',
+  validate(ssoSchema),
+  asyncHandler(async (req, res) => {
+    const { service, whm, cpanelUser } = await resolveHosting(req);
+    if (service.status === 'suspended') {
+      throw ApiError.badRequest('Hosting hesabı askıda — cPanel girişi kapalı');
+    }
+    if (service.status === 'terminated') {
+      throw ApiError.badRequest('Hosting hesabı sonlandırılmış');
+    }
+    const session = await whm.createUserSession(cpanelUser, req.body.service);
+    if (!session?.url) throw ApiError.internal('cPanel oturumu oluşturulamadı');
+    await audit(req, 'whm.sso', service.id);
+    // URL tek kullanımlık oturum anahtarı içerir — log'a yazma.
+    res.json({ success: true, data: { url: session.url, expires: session.expires ?? null } });
+  }),
+);
+
 // --- GET /whm/:id/stats ---
 whmRouter.get(
   '/:id/stats',

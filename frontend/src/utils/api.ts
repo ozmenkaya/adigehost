@@ -47,10 +47,19 @@ api.interceptors.response.use(
 /** API hata mesajını okunaklı stringe çevirir. */
 export function getApiErrorMessage(err: unknown): string {
   if (axios.isAxiosError(err)) {
-    return (
-      (err.response?.data as { error?: { message?: string } } | undefined)?.error?.message ??
-      err.message
-    );
+    const error = (
+      err.response?.data as { error?: { message?: string; details?: unknown } } | undefined
+    )?.error;
+    const base = error?.message ?? err.message;
+    // Zod fieldErrors: { alan: ["mesaj", ...] } → "alan: mesaj" olarak ekle
+    const d = error?.details;
+    if (d && typeof d === 'object' && !Array.isArray(d)) {
+      const parts = Object.entries(d as Record<string, unknown>)
+        .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(', ') : String(msgs)}`)
+        .filter(Boolean);
+      if (parts.length) return `${base} (${parts.join(' · ')})`;
+    }
+    return base;
   }
   return 'Beklenmeyen bir hata oluştu';
 }

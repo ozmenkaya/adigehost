@@ -90,31 +90,35 @@ export default function VPSConfigurator() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Tüm server type'ları akıllı sırala: CPU ASC, RAM ASC
-  // Böylece slider en küçükten en büyüğe doğru ilerler (arch/cpuType karışık olabilir)
+  // Seçili lokasyonda stokta olan tipler — CPU ASC, RAM ASC, disk ASC
+  // Böylece slider en küçükten en büyüğe doğru ilerler
   const filteredTypes = useMemo(() => {
     if (!opts) return [];
-    return [...opts.serverTypes].sort((a, b) => {
-      // CPU çekirdek sayısına göre
-      if (a.cores !== b.cores) return a.cores - b.cores;
-      // Sonra RAM
-      if (a.memory !== b.memory) return a.memory - b.memory;
-      // Sonra disk
-      return a.disk - b.disk;
-    });
-  }, [opts]);
+    return opts.serverTypes
+      .filter((s) => s.pricesByLocation[location])
+      .sort((a, b) => {
+        // CPU çekirdek sayısına göre
+        if (a.cores !== b.cores) return a.cores - b.cores;
+        // Sonra RAM
+        if (a.memory !== b.memory) return a.memory - b.memory;
+        // Sonra disk
+        return a.disk - b.disk;
+      });
+  }, [opts, location]);
+
+  // Backend'den gelen lokasyonlar boşsa (ör. hepsi stok dışı) mevcut seçimi koru
+  useEffect(() => {
+    if (!opts?.locations.length) return;
+    if (!opts.locations.some((l) => l.name === location)) setLocation(opts.locations[0].name);
+  }, [opts, location]);
+
+  // Lokasyon değişince slider indeksini listeye sığdır
+  useEffect(() => {
+    if (filteredTypes.length && stIdx > filteredTypes.length - 1) setStIdx(filteredTypes.length - 1);
+  }, [filteredTypes, stIdx]);
 
   // Geçerli server type
-  const currentType = filteredTypes[stIdx];
-
-  // Server type değişince: seçili lokasyon bu type'da yoksa desteklenen ilkine geç
-  useEffect(() => {
-    if (!currentType) return;
-    if (!currentType.pricesByLocation[location]) {
-      const firstAvailable = Object.keys(currentType.pricesByLocation)[0];
-      if (firstAvailable) setLocation(firstAvailable);
-    }
-  }, [currentType, location]);
+  const currentType = filteredTypes[Math.min(stIdx, Math.max(filteredTypes.length - 1, 0))];
 
   // Filtrelenmiş images: mevcut server type'ın mimarisine uygun
   const filteredImages = useMemo(() => {
@@ -269,6 +273,29 @@ export default function VPSConfigurator() {
                   )}
                 </>
               )}
+            </div>
+
+            {/* Lokasyon */}
+            <div className="glass rounded-2xl p-5">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Lokasyon
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(opts?.locations ?? []).map((l) => (
+                  <button
+                    key={l.name}
+                    type="button"
+                    onClick={() => setLocation(l.name)}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold ring-1 transition ${
+                      location === l.name
+                        ? 'bg-brand-500/20 text-brand-100 ring-brand-400/40'
+                        : 'bg-white/[0.03] text-slate-300 ring-white/10 hover:bg-white/[0.06]'
+                    }`}
+                  >
+                    {locLabel(l.name, l.city, l.country)}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* İşletim Sistemi */}

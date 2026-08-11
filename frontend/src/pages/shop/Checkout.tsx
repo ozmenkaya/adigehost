@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
 import { useCartStore, type CartItem } from '../../store/cartStore';
@@ -6,8 +6,7 @@ import { useAuthStore } from '../../store/authStore';
 import IyzicoPaymentModal from '../../components/shared/IyzicoPaymentModal';
 import PageBackdrop from '../../components/shop/PageBackdrop';
 import ShopHeader from '../../components/shop/ShopHeader';
-
-type Mode = 'login' | 'register';
+import AuthPanel from '../../components/auth/AuthPanel';
 
 function tr(n: number) {
   return n.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -20,20 +19,9 @@ interface OrderResult {
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, login, register } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { items, total, totalExVat, clear, remove } = useCartStore();
   void user; // user dropdown'da kullanılıyor
-
-  const [mode, setMode] = useState<Mode>('login');
-  const [authBusy, setAuthBusy] = useState(false);
-  const [authError, setAuthError] = useState('');
-
-  // Auth form alanları
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [phone, setPhone] = useState('');
 
   // Hosting domain alanları (her hosting item için domain sor)
   const [hostingDomains, setHostingDomains] = useState<Record<string, string>>({});
@@ -60,23 +48,6 @@ export default function Checkout() {
     (h) => (hostingDomains[h.id] ?? h.domain ?? '').trim().length > 3,
   );
 
-  const handleAuth = async (e: FormEvent) => {
-    e.preventDefault();
-    setAuthBusy(true);
-    setAuthError('');
-    try {
-      if (mode === 'login') {
-        await login(email, password);
-      } else {
-        await register({ firstName, lastName, email, password, phone });
-      }
-    } catch (err) {
-      setAuthError(getApiErrorMessage(err));
-    } finally {
-      setAuthBusy(false);
-    }
-  };
-
   const placeOrder = async (method: 'havale' | 'iyzico') => {
     if (!isLoggedIn) return;
     if (!allHostingDomainsFilled) {
@@ -96,6 +67,9 @@ export default function Checkout() {
             billingCycle: i.billingCycle,
             period: i.period,
           };
+          if (i.type === 'website') {
+            base.projectNote = i.projectNote;
+          }
           if (i.type === 'vps' && i.meta) {
             base.vpsServerType = i.meta.serverType;
             base.vpsLocation = i.meta.location;
@@ -241,81 +215,14 @@ export default function Checkout() {
               <span className="text-2xl font-extrabold text-brand-300">{tr(total())} ₺</span>
             </div>
 
-            {/* Auth gate */}
+            {/* Auth gate — /login ile aynı tek ekranlı akış */}
             {!isLoggedIn ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                <div className="mb-4 flex gap-1 rounded-lg bg-night-900/60 p-1">
-                  <button
-                    onClick={() => setMode('login')}
-                    className={`flex-1 rounded py-1.5 text-xs font-medium transition ${
-                      mode === 'login' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Giriş Yap
-                  </button>
-                  <button
-                    onClick={() => setMode('register')}
-                    className={`flex-1 rounded py-1.5 text-xs font-medium transition ${
-                      mode === 'register' ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    Kayıt Ol
-                  </button>
+                <div className="mb-3 text-xs text-slate-400">
+                  Siparişi tamamlamak için giriş yapın — hesabınız yoksa aynı ekrandan
+                  oluşturabilirsiniz.
                 </div>
-
-                <form onSubmit={handleAuth} className="space-y-2">
-                  {mode === 'register' && (
-                    <>
-                      <div className="grid grid-cols-2 gap-2">
-                        <input
-                          required
-                          placeholder="Ad"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          className="field text-sm"
-                        />
-                        <input
-                          required
-                          placeholder="Soyad"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          className="field text-sm"
-                        />
-                      </div>
-                      <input
-                        placeholder="Telefon"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="field text-sm"
-                      />
-                    </>
-                  )}
-                  <input
-                    required
-                    type="email"
-                    placeholder="E-posta"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="field text-sm"
-                  />
-                  <input
-                    required
-                    type="password"
-                    placeholder="Şifre (en az 8 karakter)"
-                    minLength={8}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="field text-sm"
-                  />
-                  {authError && <div className="text-xs text-red-300">{authError}</div>}
-                  <button disabled={authBusy} className="btn-neon w-full text-sm disabled:opacity-60">
-                    {authBusy
-                      ? '…'
-                      : mode === 'login'
-                        ? 'Giriş Yap ve Devam Et'
-                        : 'Kayıt Ol ve Devam Et'}
-                  </button>
-                </form>
+                <AuthPanel compact submitLabel="Devam Et" />
               </div>
             ) : (
               <div className="space-y-3">
@@ -399,6 +306,20 @@ function CheckoutItem({
           {item.billingCycle && (
             <div className="mt-0.5 text-xs text-slate-400">
               Periyot: {item.billingCycle === 'annually' ? 'Yıllık' : 'Aylık'}
+            </div>
+          )}
+          {/* Web sitesi paketi: tek seferlik kurulum ile aboneliği ayrı göster —
+              müşteri ilk ödemesinin neden daha yüksek olduğunu anlasın. */}
+          {item.type === 'website' && item.setupFee != null && (
+            <div className="mt-1.5 space-y-0.5 text-xs text-slate-400">
+              <div>
+                Kurulum ve tasarım (tek seferlik):{' '}
+                <b className="text-slate-200">{tr(item.setupFee)} ₺</b>
+              </div>
+              <div>
+                Bakım ve hosting ({item.billingCycle === 'annually' ? 'yıllık' : 'aylık'}):{' '}
+                <b className="text-slate-200">{tr(item.priceExVat - item.setupFee)} ₺</b>
+              </div>
             </div>
           )}
           <div className="mt-0.5 text-xs text-slate-500">KDV hariç {tr(item.priceExVat)} ₺</div>

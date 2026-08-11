@@ -6,14 +6,24 @@ export default function ShopFooter({ companyTitle = 'AdigeHost' }: { companyTitl
   return (
     <footer className="relative border-t border-white/10 bg-night-950/80 px-4 pb-6 pt-14 text-sm text-slate-400 backdrop-blur">
       <div className="mx-auto max-w-5xl">
-        <div className="grid gap-8 md:grid-cols-4">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <div className="mb-3 text-xl font-bold text-white">
               ADIGE<span className="font-light text-slate-400">HOST</span>
             </div>
             <p className="text-xs leading-relaxed text-slate-500">
-              Türkiye odaklı hosting, VPS ve domain hizmetleri.
+              Web sitesi yapımı, alan adı ve hosting — Türkiye odaklı, tek çatı altında.
             </p>
+          </div>
+
+          <div>
+            <h4 className="mb-3 text-sm font-semibold text-white">Hizmetler</h4>
+            <ul className="space-y-2 text-xs">
+              <li><a href="/web-sitesi" className="hover:text-white">Web Sitesi Yaptır</a></li>
+              <li><a href="/#alan-adi" className="hover:text-white">Alan Adı Sorgula</a></li>
+              <li><a href="/#planlar" className="hover:text-white">Hosting Paketleri</a></li>
+              <li><a href="/vps" className="hover:text-white">Sunucu / VPS</a></li>
+            </ul>
           </div>
 
           <div>
@@ -38,8 +48,7 @@ export default function ShopFooter({ companyTitle = 'AdigeHost' }: { companyTitl
           <div>
             <h4 className="mb-3 text-sm font-semibold text-white">Hesap</h4>
             <ul className="space-y-2 text-xs">
-              <li><a href="/login" className="hover:text-white">Giriş Yap</a></li>
-              <li><a href="/register" className="hover:text-white">Kayıt Ol</a></li>
+              <li><a href="/login" className="hover:text-white">Giriş / Kayıt</a></li>
               <li><a href="/app" className="hover:text-white">Müşteri Paneli</a></li>
             </ul>
           </div>

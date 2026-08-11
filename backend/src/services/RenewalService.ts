@@ -11,7 +11,7 @@ import { env } from '../config/env';
 /**
  * Yenileme faturası üretimi — her gün (AutoRenewService'ten sonra) çalışır.
  *
- * Otomatik yenilemesi KAPALI (autoRenew=false) aktif hosting/VPS servislerinin
+ * Otomatik yenilemesi KAPALI (autoRenew=false) aktif hosting/VPS/web sitesi servislerinin
  * vadesi yaklaşınca, dönem fiyatıyla ödenmemiş bir yenileme faturası oluşturur ve
  * müşteriye bildirir. Böylece havale/manuel ödeyen müşteriler de fatura alır ve
  * ödemezlerse DunningService askıya alma zincirini işletebilir.
@@ -32,7 +32,7 @@ export class RenewalService {
       where: {
         status: 'active',
         autoRenew: false,
-        type: { [Op.in]: ['hosting', 'vps'] },
+        type: { [Op.in]: ['hosting', 'vps', 'website'] },
         nextDue: { [Op.lte]: threshold },
       },
       limit: 500,

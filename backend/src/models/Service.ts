@@ -7,7 +7,11 @@ import {
 } from 'sequelize';
 import { sequelize } from '../config/database';
 
-export type ServiceType = 'vps' | 'hosting' | 'domain';
+/**
+ * `website` = web sitesi yapım + bakım aboneliği. Otomatik provizyonu yoktur
+ * (teslim elle yapılır) ama diğerleri gibi dönemsel olarak faturalanır.
+ */
+export type ServiceType = 'vps' | 'hosting' | 'domain' | 'website';
 export type ServiceStatus = 'pending' | 'active' | 'suspended' | 'cancelled' | 'terminated';
 export type BillingCycle = 'monthly' | 'quarterly' | 'annually';
 
@@ -41,7 +45,7 @@ Service.init(
     userId: { type: DataTypes.UUID, allowNull: false },
     serverId: { type: DataTypes.UUID, allowNull: true },
     productId: { type: DataTypes.UUID, allowNull: true },
-    type: { type: DataTypes.ENUM('vps', 'hosting', 'domain'), allowNull: false },
+    type: { type: DataTypes.ENUM('vps', 'hosting', 'domain', 'website'), allowNull: false },
     name: { type: DataTypes.STRING(100), allowNull: false },
     status: {
       type: DataTypes.ENUM('pending', 'active', 'suspended', 'cancelled', 'terminated'),

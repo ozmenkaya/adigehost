@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type CartItemType = 'hosting' | 'domain' | 'vps';
+export type CartItemType = 'hosting' | 'domain' | 'vps' | 'website';
 
 export interface CartItem {
   id: string; // productId veya domain adı
@@ -13,7 +13,9 @@ export interface CartItem {
   billingCycle?: 'monthly' | 'annually';
   domain?: string; // domain siparişleri için
   period?: number; // domain için yıl
-  productId?: string; // hosting için ürün ID
+  productId?: string; // hosting / web sitesi paketi için ürün ID
+  setupFee?: number; // web sitesi paketi: tek seferlik kurulum bedeli (KDV hariç)
+  projectNote?: string; // web sitesi paketi: müşterinin proje notu
   meta?: Record<string, unknown>;
 }
 

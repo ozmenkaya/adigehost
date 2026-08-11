@@ -520,7 +520,7 @@ adminRouter.get(
 
 const productSchema = z.object({
   name: z.string().min(2).max(120),
-  type: z.enum(['hosting', 'vps']).default('hosting'),
+  type: z.enum(['hosting', 'vps', 'website']).default('hosting'),
   categoryId: z.string().uuid().nullable().optional(),
   whmPackage: z.string().max(120).optional(),
   serverId: z.string().uuid().nullable().optional(),
@@ -736,8 +736,12 @@ adminRouter.post(
     // Yenileme siparişiyse (notes'ta RENEWAL:<years>:<svcId>) renewDomain çağrılır.
     const items = (invoice.get('items') as InvoiceItem[]) ?? [];
     const provisioned: Array<Record<string, unknown>> = [];
+    // Aynı servis birden çok kalemde geçebilir (ör. web sitesi = kurulum + abonelik).
+    // Servisi bir kez işle; yoksa dönem iki kez ilerletilir.
+    const handledServices = new Set<string>();
     for (const item of items) {
-      if (!item.serviceId) continue;
+      if (!item.serviceId || handledServices.has(item.serviceId)) continue;
+      handledServices.add(item.serviceId);
       const service = await Service.findByPk(item.serviceId);
       if (!service) continue;
 

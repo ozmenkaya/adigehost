@@ -59,6 +59,7 @@ export default function HostingDetail() {
   const [passMap, setPassMap] = useState<Record<string, string>>({});
 
   const [newCpanelPass, setNewCpanelPass] = useState('');
+  const [openingCpanel, setOpeningCpanel] = useState(false);
   const [msg, setMsg] = useState('');
   const [error, setError] = useState('');
 
@@ -98,9 +99,33 @@ export default function HostingDetail() {
 
   const domain = service?.domain ?? service?.name ?? '';
 
+  // Yedek link: SSO çalışmazsa klasik cPanel giriş ekranı (2083 — WHM portu değil).
   const cpanelUrl = service?.server?.whmHost
-    ? `https://${service.server.whmHost}:${service.server.whmPort ?? 2083}`
+    ? `https://${service.server.whmHost}:2083`
     : null;
+
+  const canOpenCpanel = Boolean(service?.config?.cpanelUser) && service?.status === 'active';
+
+  /**
+   * Tek kullanımlık cPanel oturumu açar. Sekme, popup engelleyiciye takılmamak
+   * için istek öncesinde senkron açılır; URL gelince oraya yönlendirilir.
+   */
+  const openCpanel = async () => {
+    const tab = window.open('', '_blank', 'noopener,noreferrer');
+    setOpeningCpanel(true);
+    try {
+      const r = await api.post(`/whm/${id}/sso`, { service: 'cpaneld' });
+      const url = r.data?.data?.url as string | undefined;
+      if (!url) throw new Error('Giriş bağlantısı alınamadı');
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch (err) {
+      tab?.close();
+      flash(getApiErrorMessage(err), true);
+    } finally {
+      setOpeningCpanel(false);
+    }
+  };
 
   const addEmail = async (e: FormEvent) => {
     e.preventDefault();
@@ -181,19 +206,19 @@ export default function HostingDetail() {
           </p>
         </div>
 
-        {/* cPanel butonu */}
-        {cpanelUrl && (
-          <a
-            href={cpanelUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-600"
+        {/* cPanel butonu — tek kullanımlık oturumla şifresiz giriş */}
+        {canOpenCpanel && (
+          <button
+            type="button"
+            onClick={openCpanel}
+            disabled={openingCpanel}
+            className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-orange-600 disabled:opacity-60"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93V18c0-.55.45-1 1-1s1 .45 1 1v1.93c-3.95-.49-7-3.85-7-7.93h2c0 3.31 2.69 6 6 6s6-2.69 6-6h2c0 4.08-3.05 7.44-7 7.93zM12 8a4 4 0 100 8 4 4 0 000-8z" />
             </svg>
-            cPanel'e Giriş
-          </a>
+            {openingCpanel ? 'Açılıyor…' : "cPanel'e Giriş"}
+          </button>
         )}
       </div>
 
@@ -359,16 +384,26 @@ export default function HostingDetail() {
                 Dosya yöneticisi, e-posta yönlendirme, SSL, Softaculous ve diğer araçlara cPanel
                 üzerinden erişebilirsiniz.
               </p>
-              <a
-                href={cpanelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600"
-              >
-                cPanel'i Aç →
-              </a>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={openCpanel}
+                  disabled={!canOpenCpanel || openingCpanel}
+                  className="inline-flex items-center gap-2 rounded-lg bg-orange-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-orange-600 disabled:opacity-60"
+                >
+                  {openingCpanel ? 'Açılıyor…' : "cPanel'i Aç →"}
+                </button>
+                <a
+                  href={cpanelUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-medium text-orange-700 underline hover:text-orange-800"
+                >
+                  Şifreyle giriş
+                </a>
+              </div>
               <p className="mt-2 text-xs text-orange-600">
-                Kullanıcı adı:
+                Kullanıcı adı:{' '}
                 <span className="font-mono font-bold">{service.config?.cpanelUser}</span>
               </p>
             </div>

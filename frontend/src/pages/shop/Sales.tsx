@@ -65,42 +65,61 @@ function mergeDomainResults(a: DomainResult[], b: DomainResult[]): DomainResult[
   return [...a, ...b.filter((d) => !seen.has(d.domain))];
 }
 
-/** Ana sayfadaki 3 büyük "çözüm" kartı için tanımlar. */
-const SOLUTIONS: { title: string; desc: string; icon: ReactNode; href: string; hue: string }[] = [
+/**
+ * Ana sayfadaki 3 büyük "ne satıyoruz" kartı.
+ *
+ * Sıra bilinçli: ziyaretçilerin çoğu "sitem yok, yapılsın" diye gelir —
+ * en açıklamalı ve en kârlı hizmet başta. Her kart GERÇEK bir satın alma
+ * adımına gider (hukuki metne değil).
+ */
+const SOLUTIONS: {
+  title: string;
+  desc: string;
+  bullets: string[];
+  cta: string;
+  icon: ReactNode;
+  href: string;
+  hue: string;
+}[] = [
   {
-    title: 'Web Hosting',
-    desc: 'NVMe SSD, LiteSpeed ve günlük yedekle sitenizi kesintisiz yayında tutun.',
-    href: '/hizmet/web-sitesi',
+    title: 'Web Sitenizi Yapalım',
+    desc: 'Siteniz yok mu? Tasarımdan yayına kadar her şeyi biz yapalım — siz tek satır kod görmeyin.',
+    bullets: ['Anahtar teslim kurulum', 'Hosting ve SSL dahil', 'Bakım ve güncelleme bizde'],
+    cta: 'Paketleri ve fiyatları gör',
+    href: '/web-sitesi',
     hue: 'from-sky-400/80 to-blue-600/80',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M3 9h18M6.5 6.5h.01M9.5 6.5h.01" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Alan Adınızı Alın',
+    desc: 'İşletmenizin internetteki adresi. .com, .com.tr ve 40+ uzantıyı hemen sorgulayın.',
+    bullets: ['40+ uzantı', 'Anında tescil', 'DNS yönetimi ücretsiz'],
+    cta: 'Alan adı sorgula',
+    href: '#alan-adi',
+    hue: 'from-violet-400/80 to-fuchsia-600/80',
+    icon: (
+      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />
+      </svg>
+    ),
+  },
+  {
+    title: 'Siteniz Varsa Barındıralım',
+    desc: 'Hazır siteniz mi var? cPanel hosting paketlerimize taşıyalım — taşıma ücretsiz.',
+    bullets: ['Ücretsiz taşıma', 'Günlük yedek', 'Ücretsiz SSL'],
+    cta: 'Hosting paketlerine bak',
+    href: '#planlar',
+    hue: 'from-emerald-400/80 to-teal-600/80',
     icon: (
       <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 17a4 4 0 0 1-.8-7.92A5.5 5.5 0 0 1 16 8.5a3.5 3.5 0 0 1 1 6.86" />
         <path d="M8 17h9" />
-      </svg>
-    ),
-  },
-  {
-    title: 'VPS Sunucu',
-    desc: 'CPU, RAM ve diski siz seçin; tam kök erişimli VPS dakikalar içinde teslim.',
-    href: '/vps',
-    hue: 'from-violet-400/80 to-fuchsia-600/80',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="7" rx="1.6" />
-        <rect x="3" y="13" width="18" height="7" rx="1.6" />
-        <path d="M6.5 7.5h.01M6.5 16.5h.01M10 7.5h6M10 16.5h6" />
-      </svg>
-    ),
-  },
-  {
-    title: 'Güvenlik & SSL',
-    desc: 'Ücretsiz SSL, WAF ve gerçek zamanlı tehdit izleme ile veriniz güvende.',
-    href: '/legal/ssl-sertifikasi',
-    hue: 'from-emerald-400/80 to-teal-600/80',
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 3 5 6v5c0 4.4 3 7.9 7 9 4-1.1 7-4.6 7-9V6l-7-3Z" />
-        <path d="m9 12 2 2 4-4" />
       </svg>
     ),
   },
@@ -113,10 +132,10 @@ function CartDrawer({ onCheckout }: { onCheckout: () => void }) {
 
   return (
     <>
-      {/* Sepet butonu — sabit sağ alt */}
+      {/* Sepet butonu — sabit sağ üst */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-neon-violet px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_40px_-8px_rgba(59,130,246,0.7)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_-8px_rgba(139,92,246,0.8)]"
+        className="fixed top-20 right-6 z-40 flex items-center gap-2 rounded-full bg-gradient-to-r from-brand-600 to-neon-violet px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_40px_-8px_rgba(59,130,246,0.7)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_50px_-8px_rgba(139,92,246,0.8)]"
       >
         <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
           <path d="M6 6h15l-1.5 9h-12z" />
@@ -499,13 +518,18 @@ export default function Sales() {
   const isInCart = (id: string) => items.some((i) => i.id === id);
   const goVps = () => navigate('/vps');
 
+  // Web sitesi yapım paketleri kendi vitrininde gösterilir; hosting/VPS kategori
+  // bölümlerine karışmamalı (fiyat mantığı farklı: kurulum + abonelik).
+  const websitePackages = products.filter((p) => p.type === 'website');
+  const sellableProducts = products.filter((p) => p.type !== 'website');
+
   // Yalnızca ürünü olan aktif kategoriler bölüm olur (sortOrder zaten backend'de uygulanır)
   const categorySections = categories
-    .map((c) => ({ category: c, items: products.filter((p) => p.categoryId === c.id) }))
+    .map((c) => ({ category: c, items: sellableProducts.filter((p) => p.categoryId === c.id) }))
     .filter((s) => s.items.length > 0);
 
   // Kategorisi olmayan hosting ürünleri eski "Hosting Paketleri" bölümünde kalır
-  const uncategorizedHosting = products.filter((p) => p.type === 'hosting' && !p.categoryId);
+  const uncategorizedHosting = sellableProducts.filter((p) => p.type === 'hosting' && !p.categoryId);
 
   /** Hero sağ sütununda, animasyonun üzerinde gösterilen sonuç paneli. */
   const renderDomainPanel = () => {
@@ -629,38 +653,38 @@ export default function Sales() {
           </span>
 
           <h1 className="mt-6 text-4xl font-extrabold leading-[1.08] tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Yüksek Performanslı,{' '}
-            <span className="text-gradient text-gradient-anim">Kesintisiz Web Hosting</span> ve Sunucu Çözümleri.
+            İşletmenizin{' '}
+            <span className="text-gradient text-gradient-anim">web sitesini biz kuralım</span>, biz yayında tutalım.
           </h1>
 
           <p className="mt-5 max-w-lg text-lg leading-relaxed text-slate-400">
-            AdigeHost altyapısıyla yüksek performanslı, kesintisiz web hosting, VPS ve domain çözümleri —
-            dakikalar içinde teslim, güvenli ve ölçeklenebilir.
+            Alan adı, hosting ve web sitesi tasarımı — üçü tek yerden. Teknik hiçbir şey bilmenize
+            gerek yok: siteyi biz yapıyor, biz güncelliyor, biz açık tutuyoruz.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
-            <a href="#planlar" className="btn-neon">
-              PLANLARI İNCELE
+            <a href="/web-sitesi" className="btn-neon">
+              WEB SİTESİ YAPTIRMAK İSTİYORUM
               <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M13 6l6 6-6 6" />
               </svg>
             </a>
             <a
-              href="#cozumler"
+              href="#planlar"
               className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-6 py-3.5 text-sm font-semibold text-slate-200 transition hover:border-white/30 hover:bg-white/5"
             >
-              Çözümleri Keşfet
+              Sadece hosting arıyorum
             </a>
           </div>
 
           {/* Domain arama — cam kutu */}
-          <div className="glass mt-9 rounded-2xl p-4">
+          <div id="alan-adi" className="glass mt-9 scroll-mt-24 rounded-2xl p-4">
             <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-400">
               <svg viewBox="0 0 24 24" className="h-4 w-4 text-brand-300" fill="none" stroke="currentColor" strokeWidth="1.7">
                 <circle cx="12" cy="12" r="9" />
                 <path d="M3 12h18M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />
               </svg>
-              Hayalinizdeki alan adını hemen sorgulayın
+              Alan adınız müsait mi? Hemen sorgulayın
             </div>
             <form onSubmit={searchDomain} className="flex gap-2">
               <input
@@ -716,11 +740,11 @@ export default function Sales() {
       {/* ===================== ÇÖZÜMLER (3 büyük kart) ===================== */}
       <section id="cozumler" className="mx-auto max-w-6xl px-4 py-20">
         <Reveal className="mb-12 text-center">
-          <h2 className="text-3xl font-extrabold uppercase tracking-wide text-white sm:text-4xl">
-            İhtiyacınıza Uygun Çözümler
+          <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
+            Size Nasıl Yardımcı Olabiliriz?
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-slate-400">
-            Hangi ölçekte olursanız olun — doğru altyapı burada. Kartların üzerine gelin.
+            Durumunuza en yakın olanı seçin — gerisini biz hallederiz.
           </p>
         </Reveal>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -736,9 +760,17 @@ export default function Sales() {
                   {s.icon}
                 </span>
                 <h3 className="relative mt-6 text-xl font-bold text-white">{s.title}</h3>
-                <p className="relative mt-2 flex-1 text-sm leading-relaxed text-slate-400">{s.desc}</p>
+                <p className="relative mt-2 text-sm leading-relaxed text-slate-400">{s.desc}</p>
+                <ul className="relative mt-4 flex-1 space-y-1.5">
+                  {s.bullets.map((b) => (
+                    <li key={b} className="flex items-center gap-2 text-sm text-slate-300">
+                      <span className="text-emerald-400">✓</span>
+                      {b}
+                    </li>
+                  ))}
+                </ul>
                 <span className="relative mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-300 transition group-hover:gap-3">
-                  Daha fazla
+                  {s.cta}
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
@@ -748,6 +780,71 @@ export default function Sales() {
           ))}
         </div>
       </section>
+
+      {/* ===================== WEB SİTESİ PAKETLERİ VİTRİNİ =====================
+          Ana gelir kalemi anasayfada görünür olmalı. Detay ve satın alma /web-sitesi'nde. */}
+      {websitePackages.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 py-16">
+          <Reveal className="mb-10 text-center">
+            <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
+              Siteniz Yok mu? Biz Yapalım.
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-slate-400">
+              Kurulum bedeli tek seferlik; aylık abonelik sitenizi yayında tutar — hosting, SSL,
+              yedekleme ve bakım dahil.
+            </p>
+          </Reveal>
+          <div
+            className={`grid gap-6 ${
+              websitePackages.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-2 lg:grid-cols-3'
+            }`}
+          >
+            {websitePackages.map((p, i) => {
+              const setup = Number(p.setupFee ?? 0) * 1.2;
+              const monthly = Number(p.priceMonthly) * 1.2;
+              return (
+                <Reveal key={p.id} delay={i * 100}>
+                  <a
+                    href="/web-sitesi"
+                    className="glass group flex h-full flex-col rounded-2xl p-6 transition duration-300 hover:-translate-y-1.5 hover:border-brand-400/40"
+                  >
+                    <h3 className="text-lg font-bold text-white">{p.name}</h3>
+                    {p.description && (
+                      <p className="mt-2 flex-1 text-sm leading-relaxed text-slate-400">
+                        {p.description}
+                      </p>
+                    )}
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      <div className="text-xs uppercase tracking-wide text-slate-500">
+                        Kurulum (tek seferlik)
+                      </div>
+                      <div className="text-2xl font-extrabold text-white">
+                        {Math.round(setup).toLocaleString('tr-TR')} ₺
+                      </div>
+                      <div className="mt-2 text-sm text-slate-300">
+                        + aylık{' '}
+                        <b className="text-brand-300">
+                          {Math.round(monthly).toLocaleString('tr-TR')} ₺
+                        </b>{' '}
+                        bakım ve hosting
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">KDV dahil</div>
+                    </div>
+                    <span className="mt-5 text-sm font-semibold text-brand-300 transition group-hover:translate-x-1">
+                      Detaylar ve sipariş →
+                    </span>
+                  </a>
+                </Reveal>
+              );
+            })}
+          </div>
+          <div className="mt-10 text-center">
+            <a href="/web-sitesi" className="btn-neon">
+              PAKETLERİ KARŞILAŞTIR VE SİPARİŞ VER
+            </a>
+          </div>
+        </section>
+      )}
 
       {/* Tüm hizmetler ızgarası */}
       <section className="mx-auto max-w-6xl px-4 pb-8">

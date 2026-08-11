@@ -137,6 +137,20 @@ export class WHMService {
     return this.call('accountsummary', { user });
   }
 
+  /**
+   * Hesap için tek kullanımlık cPanel/Webmail oturumu açar (WHM create_user_session).
+   * Dönen URL şifre sormadan giriş yapar ve kısa ömürlüdür.
+   *
+   * NOT: URL'i WHM kendi yapılandırılmış hostname'iyle üretir (IP ile bağlansak
+   * bile) — böylece tarayıcıda sertifika adı uyuşmazlığı oluşmaz.
+   */
+  createUserSession(user: string, service: 'cpaneld' | 'webmaild' = 'cpaneld') {
+    return this.call<{ url: string; session: string; cp_security_token: string; expires: number }>(
+      'create_user_session',
+      { user, service },
+    );
+  }
+
   listAccounts() {
     return this.call('listaccts');
   }

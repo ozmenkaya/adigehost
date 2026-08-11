@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import { useCompany } from '../../hooks/useCompany';
 
+/**
+ * Menü sırası satış hunisine göredir: en çok para bırakan ve en çok
+ * açıklama gerektiren hizmet (web sitesi yapımı) başta.
+ */
 const NAV_LINKS = [
+  { href: '/web-sitesi', label: 'Web Sitesi Yaptır' },
+  { href: '/#alan-adi', label: 'Alan Adı' },
   { href: '/#planlar', label: 'Hosting' },
-  { href: '/#cozumler', label: 'Sunucu' },
-  { href: '/#altyapi', label: 'SSL' },
-  { href: '/legal/hakkimizda', label: 'Hakkımızda' },
+  { href: '/vps', label: 'Sunucu / VPS' },
   { href: '/sss', label: 'SSS' },
 ];
 
@@ -14,7 +18,10 @@ const NAV_LINKS = [
  * Public sayfaların ortak yapışkan cam başlığı.
  * - showNav: ortadaki Hosting/Sunucu/SSL bağlantılarını göster (ana sayfa) —
  *   masaüstünde satır içinde, mobilde hamburger menüde.
- * - back: sağda auth butonları yerine geri bağlantısı göster
+ * - back: sağda auth butonu yerine geri bağlantısı göster
+ *
+ * Auth alanında tek buton vardır: /login sayfası hem girişi hem kaydı
+ * tek ekranda yürütür (bkz. components/auth/AuthPanel).
  */
 export default function ShopHeader({
   showNav = false,
@@ -65,25 +72,13 @@ export default function ShopHeader({
             <a href={back.to} className="text-sm text-slate-300 transition hover:text-white">
               {back.label}
             </a>
-          ) : user ? (
-            <a
-              href="/app"
-              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:border-brand-400/60 hover:bg-white/5"
-            >
-              Panelim →
-            </a>
           ) : (
-            <>
-              <a href="/login" className="hidden text-sm text-slate-300 transition hover:text-white sm:block">
-                Giriş Yap
-              </a>
-              <a
-                href="/login"
-                className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:border-brand-400/60 hover:bg-white/5 hover:shadow-[0_0_24px_-6px_rgba(59,130,246,0.8)]"
-              >
-                MÜŞTERİ GİRİŞİ
-              </a>
-            </>
+            <a
+              href={user ? '/app' : '/login'}
+              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:border-brand-400/60 hover:bg-white/5 hover:shadow-[0_0_24px_-6px_rgba(59,130,246,0.8)]"
+            >
+              {user ? 'Panelim →' : 'GİRİŞ / KAYIT'}
+            </a>
           )}
 
           {showNav && (

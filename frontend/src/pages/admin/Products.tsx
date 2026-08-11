@@ -11,7 +11,8 @@ interface Product {
   priceAnnually: number | null;
   description: string | null;
   isActive: boolean;
-  specs: { serverType?: string; location?: string } | null;
+  setupFee: number | null;
+  specs: Record<string, string> | null;
   server?: { name: string } | null;
   category?: { id: string; name: string } | null;
 }
@@ -40,8 +41,16 @@ interface HetznerType {
 
 const LOCATIONS = ['nbg1', 'fsn1', 'hel1', 'hil', 'ash', 'sin'];
 
+type ProductType = 'hosting' | 'vps' | 'website';
+
+const TYPE_LABELS: Record<ProductType, string> = {
+  hosting: 'Hosting (WHM)',
+  vps: 'VPS (Hetzner)',
+  website: 'Web Sitesi Yapımı',
+};
+
 const EMPTY = {
-  type: 'hosting' as 'hosting' | 'vps',
+  type: 'hosting' as ProductType,
   name: '',
   categoryId: '',
   serverId: '',
@@ -50,9 +59,33 @@ const EMPTY = {
   location: 'nbg1',
   priceMonthly: '',
   priceAnnually: '',
+  setupFee: '',
+  /** Web sitesi paketi kapsamı — satır başına "Anahtar: Değer". */
+  specsText: '',
   description: '',
   isActive: true,
 };
+
+/** "Anahtar: Değer" satırlarını specs nesnesine çevirir. */
+function parseSpecs(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split('\n')) {
+    const idx = line.indexOf(':');
+    if (idx < 1) continue;
+    const key = line.slice(0, idx).trim();
+    const val = line.slice(idx + 1).trim();
+    if (key && val) out[key] = val;
+  }
+  return out;
+}
+
+/** specs nesnesini düzenlenebilir "Anahtar: Değer" metnine çevirir. */
+function specsToText(specs: Record<string, unknown> | null | undefined): string {
+  if (!specs) return '';
+  return Object.entries(specs)
+    .map(([k, v]) => `${k}: ${String(v)}`)
+    .join('\n');
+}
 
 const EMPTY_CAT = { name: '', description: '', sortOrder: '0', isActive: true };
 
@@ -159,8 +192,17 @@ export default function Products() {
     }
   };
 
-  const switchType = (type: 'hosting' | 'vps') => {
-    setForm((f) => ({ ...EMPTY, type, categoryId: f.categoryId }));
+  const switchType = (type: ProductType) => {
+    // Tür değişince yalnızca türe özgü alanları sıfırla; ad/fiyat/açıklama gibi
+    // türden bağımsız alanlar korunur (aksi halde girilen ad sessizce silinir).
+    setForm((f) => ({
+      ...f,
+      type,
+      serverId: '',
+      whmPackage: '',
+      serverType: '',
+      location: 'nbg1',
+    }));
     setPackages([]);
     setHetznerTypes([]);
     if (type === 'vps') loadHetznerTypes('nbg1');
@@ -187,7 +229,7 @@ export default function Products() {
     setShowCat(false);
     setError('');
     setForm({
-      type: (p.type as 'hosting' | 'vps') ?? 'hosting',
+      type: (p.type as ProductType) ?? 'hosting',
       name: p.name,
       categoryId: p.categoryId ?? '',
       serverId: '',
@@ -196,6 +238,8 @@ export default function Products() {
       location: p.specs?.location ?? 'nbg1',
       priceMonthly: String(p.priceMonthly ?? ''),
       priceAnnually: p.priceAnnually != null ? String(p.priceAnnually) : '',
+      setupFee: p.setupFee != null ? String(p.setupFee) : '',
+      specsText: p.type === 'website' ? specsToText(p.specs) : '',
       description: p.description ?? '',
       isActive: p.isActive,
     });
@@ -207,14 +251,21 @@ export default function Products() {
     try {
       if (editId) {
         // Düzenleme: yalnızca değiştirilebilir alanlar (tür/paket/spec kuruluşta sabit)
-        await api.put(`/admin/products/${editId}`, {
+        const patch: Record<string, unknown> = {
           name: form.name,
           categoryId: form.categoryId || null,
           priceMonthly: Number(form.priceMonthly),
           priceAnnually: form.priceAnnually ? Number(form.priceAnnually) : null,
           description: form.description || null,
           isActive: form.isActive,
-        });
+        };
+        // Web sitesi paketinde kurulum bedeli ve kapsam metni sonradan da düzenlenir —
+        // fiyat/kapsam değişikliği bu iş modelinde normaldir.
+        if (form.type === 'website') {
+          patch.setupFee = Number(form.setupFee || 0);
+          patch.specs = parseSpecs(form.specsText);
+        }
+        await api.put(`/admin/products/${editId}`, patch);
       } else {
         const payload: Record<string, unknown> = {
           name: form.name,
@@ -228,6 +279,11 @@ export default function Products() {
         if (form.type === 'hosting') {
           payload.serverId = form.serverId || null;
           payload.whmPackage = form.whmPackage || undefined;
+        } else if (form.type === 'website') {
+          // Web sitesi paketi bir sunucuya bağlı değil; teslim elle yapılır.
+          payload.serverId = null;
+          payload.setupFee = Number(form.setupFee || 0);
+          payload.specs = parseSpecs(form.specsText);
         } else {
           payload.serverId = null;
           payload.specs = {
@@ -382,8 +438,8 @@ export default function Products() {
             </div>
           ) : (
             /* Tür seçimi */
-            <div className="flex gap-2">
-              {(['hosting', 'vps'] as const).map((t) => (
+            <div className="flex flex-wrap gap-2">
+              {(['hosting', 'vps', 'website'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -392,7 +448,7 @@ export default function Products() {
                     form.type === t ? 'bg-brand-600 text-white' : 'bg-slate-100 text-slate-600'
                   }`}
                 >
-                  {t === 'hosting' ? 'Hosting (WHM)' : 'VPS (Hetzner)'}
+                  {TYPE_LABELS[t]}
                 </button>
               ))}
             </div>
@@ -419,7 +475,7 @@ export default function Products() {
             ))}
           </select>
 
-          {editId && (
+          {editId && form.type !== 'website' && (
             <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500">
               {form.type === 'hosting'
                 ? `WHM paketi: ${form.whmPackage || '—'}`
@@ -428,8 +484,46 @@ export default function Products() {
             </div>
           )}
 
+          {/* Web sitesi paketi — kurulum bedeli + kapsam maddeleri */}
+          {form.type === 'website' && (
+            <div className="space-y-3 rounded-lg border border-brand-200 bg-brand-50/50 p-3">
+              <div className="text-xs font-semibold text-brand-800">
+                Web sitesi yapım paketi — otomatik kurulum yoktur, teslim elle yapılır.
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">
+                  Tek seferlik kurulum / tasarım bedeli (KDV hariç ₺)
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="7500"
+                  value={form.setupFee}
+                  onChange={(e) => setForm({ ...form, setupFee: e.target.value })}
+                  className={`w-full ${inputCls}`}
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-slate-600">
+                  Paket kapsamı — her satıra bir madde, <code>Anahtar: Değer</code> biçiminde
+                </span>
+                <textarea
+                  rows={7}
+                  placeholder={'Sayfa sayısı: 8 sayfaya kadar\nTeslim süresi: 15 iş günü\nDahil: Hosting + SSL'}
+                  value={form.specsText}
+                  onChange={(e) => setForm({ ...form, specsText: e.target.value })}
+                  className={`w-full font-mono text-xs ${inputCls}`}
+                />
+                <span className="mt-1 block text-xs text-slate-500">
+                  Bu maddeler satış sayfasındaki paket kartında listelenir.
+                </span>
+              </label>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
-            {!editId &&
+            {!editId && form.type === 'website' ? null : !editId &&
               (form.type === 'hosting' ? (
                 <>
                   <select
@@ -500,7 +594,9 @@ export default function Products() {
               required
               type="number"
               step="0.01"
-              placeholder="Aylık fiyat (TL)"
+              placeholder={
+                form.type === 'website' ? 'Aylık bakım bedeli (TL)' : 'Aylık fiyat (TL)'
+              }
               value={form.priceMonthly}
               onChange={(e) => setForm({ ...form, priceMonthly: e.target.value })}
               className={inputCls}
@@ -508,7 +604,11 @@ export default function Products() {
             <input
               type="number"
               step="0.01"
-              placeholder="Yıllık fiyat (TL, opsiyonel)"
+              placeholder={
+                form.type === 'website'
+                  ? 'Yıllık bakım bedeli (TL, opsiyonel)'
+                  : 'Yıllık fiyat (TL, opsiyonel)'
+              }
               value={form.priceAnnually}
               onChange={(e) => setForm({ ...form, priceAnnually: e.target.value })}
               className={inputCls}

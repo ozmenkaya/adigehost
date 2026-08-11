@@ -44,11 +44,18 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
+      // /auth/register oturum açmaz (yalnızca {id, email} döner), bu yüzden
+      // kayıttan hemen sonra login çağrılır — aksi halde kullanıcı "girişli"
+      // görünür ama çerez/oturum olmadığı için sonraki istekler 401 alır.
       register: async (data) => {
         set({ loading: true });
         try {
-          const r = await api.post('/auth/register', data);
-          set({ user: r.data.data.user, isAuthenticated: true, loading: false });
+          await api.post('/auth/register', data);
+          const { data: res } = await api.post('/auth/login', {
+            email: data.email,
+            password: data.password,
+          });
+          set({ user: res.data.user, isAuthenticated: true, loading: false });
         } catch (err) {
           set({ loading: false });
           throw err;

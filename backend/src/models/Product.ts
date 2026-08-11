@@ -8,13 +8,18 @@ import {
 import { sequelize } from '../config/database';
 
 /**
- * Satılabilir ürün/paket (hosting planı).
- * Admin, WHM paketlerinden (whmPackage) hangisinin satılacağına ve fiyatına karar verir.
+ * Satılabilir ürün/paket.
+ *
+ * - `hosting`: WHM/cPanel paketi — admin hangi whmPackage'ın satılacağına karar verir.
+ * - `vps`: Hetzner sunucu (fiyat yapılandırıcıda hesaplanır).
+ * - `website`: web sitesi yapım paketi — `setupFee` tek seferlik tasarım/kurulum bedeli,
+ *   `priceMonthly` ise hosting + bakım + destek aboneliği (düzenli gelir kalemi).
+ *   Otomatik provizyon yoktur; teslim admin tarafından elle yapılır.
  */
 export class Product extends Model<InferAttributes<Product>, InferCreationAttributes<Product>> {
   declare id: CreationOptional<string>;
   declare name: string; // müşteriye gösterilen ad ("Başlangıç Hosting")
-  declare type: CreationOptional<'hosting' | 'vps'>;
+  declare type: CreationOptional<'hosting' | 'vps' | 'website'>;
   declare categoryId: CreationOptional<string | null>; // ait olduğu kategori (null = kategorisiz)
   declare whmPackage: CreationOptional<string | null>; // WHM paket adı
   declare serverId: CreationOptional<string | null>; // tercih edilen sunucu (null = otomatik)
@@ -33,7 +38,11 @@ Product.init(
   {
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     name: { type: DataTypes.STRING(120), allowNull: false },
-    type: { type: DataTypes.ENUM('hosting', 'vps'), allowNull: false, defaultValue: 'hosting' },
+    type: {
+      type: DataTypes.ENUM('hosting', 'vps', 'website'),
+      allowNull: false,
+      defaultValue: 'hosting',
+    },
     categoryId: { type: DataTypes.UUID, allowNull: true },
     whmPackage: { type: DataTypes.STRING(120), allowNull: true },
     serverId: { type: DataTypes.UUID, allowNull: true },
