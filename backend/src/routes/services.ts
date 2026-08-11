@@ -257,14 +257,18 @@ servicesRouter.post(
     const product = await Product.findByPk(productId);
     if (!product || !product.isActive) throw ApiError.badRequest('Geçersiz veya pasif ürün');
 
-    // Hosting için alan adı zorunlu; VPS için ad (yoksa ürün adı kullanılır).
-    if (product.type === 'hosting') {
+    // E-posta paketleri katalogda ayrı tip olarak durur ama cPanel hesabı olarak
+    // açılır; provizyon/yenileme tarafı bunu hosting olarak görmeli.
+    const isDomainBased = product.type === 'hosting' || product.type === 'email';
+    const serviceType = product.type === 'email' ? 'hosting' : product.type;
+
+    // Hosting/e-posta için alan adı zorunlu; VPS için ad (yoksa ürün adı kullanılır).
+    if (isDomainBased) {
       if (!domain || !/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
-        throw ApiError.badRequest('Hosting için geçerli bir alan adı girin');
+        throw ApiError.badRequest('Bu hizmet için geçerli bir alan adı girin');
       }
     }
-    const serviceName =
-      product.type === 'hosting' ? domain! : (req.body.name as string) || product.name;
+    const serviceName = isDomainBased ? domain! : (req.body.name as string) || product.name;
 
     // Yenileme tahsilatı service.price üzerinden yapılır → dönem fiyatı (yıllık
     // indirim dahil), aylık değil. Kurulum ücreti tek seferlik olduğu için hariç.
@@ -278,11 +282,11 @@ servicesRouter.post(
     // Bekleyen servis (henüz provision edilmez — ödeme onayında açılır).
     const service = await Service.create({
       userId: req.user!.sub,
-      type: product.type,
+      type: serviceType,
       productId: product.id,
       serverId: product.serverId,
       name: serviceName,
-      domain: product.type === 'hosting' ? domain : null,
+      domain: isDomainBased ? domain : null,
       status: 'pending',
       price: periodPrice,
       billingCycle,

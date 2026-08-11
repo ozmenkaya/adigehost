@@ -520,7 +520,7 @@ adminRouter.get(
 
 const productSchema = z.object({
   name: z.string().min(2).max(120),
-  type: z.enum(['hosting', 'vps', 'website']).default('hosting'),
+  type: z.enum(['hosting', 'vps', 'website', 'email']).default('hosting'),
   categoryId: z.string().uuid().nullable().optional(),
   whmPackage: z.string().max(120).optional(),
   serverId: z.string().uuid().nullable().optional(),

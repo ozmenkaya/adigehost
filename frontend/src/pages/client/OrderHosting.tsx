@@ -116,7 +116,7 @@ export default function OrderHosting() {
                   p.type === 'vps' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
                 }`}
               >
-                {p.type === 'vps' ? 'VPS' : 'HOSTING'}
+                {p.type === 'vps' ? 'VPS' : p.type === 'email' ? 'E-POSTA' : 'HOSTING'}
               </span>
               <div className="font-semibold text-slate-800">{p.name}</div>
               <div className="mt-2 text-2xl font-bold text-brand-700">

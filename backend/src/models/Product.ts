@@ -19,7 +19,12 @@ import { sequelize } from '../config/database';
 export class Product extends Model<InferAttributes<Product>, InferCreationAttributes<Product>> {
   declare id: CreationOptional<string>;
   declare name: string; // müşteriye gösterilen ad ("Başlangıç Hosting")
-  declare type: CreationOptional<'hosting' | 'vps' | 'website'>;
+  /**
+   * Katalog/vitrin tipi. Provizyon tipi DEĞİLDİR — `Service.type` ayrı bir
+   * alandır. 'email' paketleri cPanel hesabı olarak açıldığı için servis
+   * tarafında 'hosting'e eşlenir (bkz. routes/services.ts).
+   */
+  declare type: CreationOptional<'hosting' | 'vps' | 'website' | 'email'>;
   declare categoryId: CreationOptional<string | null>; // ait olduğu kategori (null = kategorisiz)
   declare whmPackage: CreationOptional<string | null>; // WHM paket adı
   declare serverId: CreationOptional<string | null>; // tercih edilen sunucu (null = otomatik)
@@ -39,7 +44,7 @@ Product.init(
     id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
     name: { type: DataTypes.STRING(120), allowNull: false },
     type: {
-      type: DataTypes.ENUM('hosting', 'vps', 'website'),
+      type: DataTypes.ENUM('hosting', 'vps', 'website', 'email'),
       allowNull: false,
       defaultValue: 'hosting',
     },

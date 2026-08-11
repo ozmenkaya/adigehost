@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../utils/api';
 
 export interface OfferingLine {
-  key: 'website' | 'hosting' | 'vps' | 'domain';
+  key: 'website' | 'hosting' | 'email' | 'vps' | 'domain';
   /** Hizmetin müşteri diliyle adı. */
   label: string;
   /** Katalogdaki gerçek paket adları; katalogdan gelmeyen hizmetlerde boş. */
@@ -12,14 +12,18 @@ export interface OfferingLine {
 /** `/public/products` yalnızca satıştaki ürünleri döndürür — ayrıca filtre gerekmiyor. */
 interface PublicProduct {
   name: string;
-  type: 'hosting' | 'vps' | 'website';
+  type: 'hosting' | 'vps' | 'website' | 'email';
 }
 
-// Katalogdan türetilen satırlar. `hosting` tipi hem barındırma hem e-posta
-// paketlerini kapsıyor (Kurumsal E-Posta da bu tiple kayıtlı), etiket bunu yansıtır.
-const CATALOG_LABELS: Record<'website' | 'hosting', string> = {
+type CatalogKey = 'website' | 'hosting' | 'email';
+
+/** Vitrindeki sıra: önce "siteyi biz yaparız", sonra altyapı. */
+const CATALOG_ORDER: CatalogKey[] = ['website', 'hosting', 'email'];
+
+const CATALOG_LABELS: Record<CatalogKey, string> = {
   website: 'Web sitesi tasarımı ve kurulumu',
-  hosting: 'Hosting ve kurumsal e-posta paketleri',
+  hosting: 'Paylaşımlı hosting paketleri',
+  email: 'Alan adınıza özel kurumsal e-posta',
 };
 
 /**
@@ -47,14 +51,15 @@ export function useOffering() {
       .then(([products, hasVps]) => {
         if (cancelled) return;
 
-        const byType = new Map<'website' | 'hosting', string[]>();
+        const byType = new Map<CatalogKey, string[]>();
         for (const p of products ?? []) {
-          if (p.type !== 'website' && p.type !== 'hosting') continue;
-          byType.set(p.type, [...(byType.get(p.type) ?? []), p.name]);
+          if (!CATALOG_ORDER.includes(p.type as CatalogKey)) continue;
+          const key = p.type as CatalogKey;
+          byType.set(key, [...(byType.get(key) ?? []), p.name]);
         }
 
         const derived: OfferingLine[] = [];
-        for (const key of ['website', 'hosting'] as const) {
+        for (const key of CATALOG_ORDER) {
           const items = byType.get(key);
           if (items?.length) derived.push({ key, label: CATALOG_LABELS[key], items });
         }

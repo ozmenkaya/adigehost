@@ -41,12 +41,14 @@ interface HetznerType {
 
 const LOCATIONS = ['nbg1', 'fsn1', 'hel1', 'hil', 'ash', 'sin'];
 
-type ProductType = 'hosting' | 'vps' | 'website';
+type ProductType = 'hosting' | 'vps' | 'website' | 'email';
 
 const TYPE_LABELS: Record<ProductType, string> = {
   hosting: 'Hosting (WHM)',
   vps: 'VPS (Hetzner)',
   website: 'Web Sitesi Yapımı',
+  // Katalogda ayrı görünür; teknik olarak hosting gibi cPanel hesabı açılır.
+  email: 'Kurumsal E-Posta (WHM)',
 };
 
 const EMPTY = {
@@ -439,7 +441,7 @@ export default function Products() {
           ) : (
             /* Tür seçimi */
             <div className="flex flex-wrap gap-2">
-              {(['hosting', 'vps', 'website'] as const).map((t) => (
+              {(['hosting', 'email', 'vps', 'website'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -679,7 +681,8 @@ export default function Products() {
                   <td className="px-4 py-3 uppercase text-slate-500">{p.type}</td>
                   <td className="px-4 py-3 text-slate-600">{p.category?.name ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-600">
-                    {p.type === 'hosting'
+                    {/* E-posta da WHM paketiyle açılır; specs sütunu yalnızca VPS/website içindir. */}
+                    {p.type === 'hosting' || p.type === 'email'
                       ? (p.whmPackage ?? '—')
                       : `${p.specs?.serverType ?? '—'} / ${p.specs?.location ?? ''}`}
                   </td>

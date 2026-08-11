@@ -528,8 +528,12 @@ export default function Sales() {
     .map((c) => ({ category: c, items: sellableProducts.filter((p) => p.categoryId === c.id) }))
     .filter((s) => s.items.length > 0);
 
-  // Kategorisi olmayan hosting ürünleri eski "Hosting Paketleri" bölümünde kalır
-  const uncategorizedHosting = sellableProducts.filter((p) => p.type === 'hosting' && !p.categoryId);
+  // Kategorisi olmayan hosting/e-posta ürünleri eski "Hosting Paketleri" bölümünde
+  // kalır — kategorisi olanlar kendi bölümünde çıkar. E-posta da buraya dahil,
+  // yoksa kategorisiz bir e-posta paketi vitrinde hiç görünmez.
+  const uncategorizedHosting = sellableProducts.filter(
+    (p) => (p.type === 'hosting' || p.type === 'email') && !p.categoryId,
+  );
 
   /** Hero sağ sütununda, animasyonun üzerinde gösterilen sonuç paneli. */
   const renderDomainPanel = () => {
