@@ -75,7 +75,12 @@ npm run build:frontend
 # 4) DB migration (symlink çevrilmeden önce — şema yeni koda hazır olsun)
 # ---------------------------------------------------------------
 log "DB migration (güvenli mod)"
-npm run migrate --workspace backend
+# LOG_DIR ayrı: uygulama log'unu PM2 root olarak yazıyor, deploy ise normal
+# kullanıcı olarak çalışıyor. Aynı günlük dosyaya iki farklı kullanıcı yazamadığı
+# için (EACCES) migration kendi dizinine loglar. dotenv mevcut ortam değişkenini
+# ezmediğinden buradaki değer .env'deki LOG_DIR'i geçersiz kılar.
+mkdir -p backend/logs/deploy
+LOG_DIR=logs/deploy npm run migrate --workspace backend
 
 # ---------------------------------------------------------------
 # 5) Sürümü hazırla + atomik yayın
