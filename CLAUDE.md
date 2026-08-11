@@ -35,6 +35,30 @@ npm run migrate --workspace backend -- --alter # şema güncelle (dev)
 npm run seed --workspace backend              # admin + varsayılan ayarlar
 ```
 
+## Deploy (ÖNEMLİ)
+
+Production kodu bu repo ile **aynı dizinde** duruyor (`/var/www/adigehost`):
+Nginx `frontend/dist`'i servis ediyor, PM2 `backend/dist/index.js`'i çalıştırıyor.
+Bu yüzden yayın akışı release tabanlı:
+
+```
+frontend/build-out/          # build çıktısı — SERVİS EDİLMEZ
+frontend/releases/<sürüm>/   # yayınlanmış sürümler (son 5 tutulur)
+frontend/dist -> releases/<sürüm>   # symlink; canlı olan bu
+```
+
+```bash
+bash deploy/scripts/deploy.sh      # tek yol: build → release → atomik symlink → pm2 reload
+bash deploy/scripts/rollback.sh    # bir önceki sürüme dön (yeniden build yok)
+bash deploy/scripts/rollback.sh --list
+```
+
+- `npm run build` **canlıya hiçbir şey yayınlamaz** — `build-out`'a yazar.
+  Doğrulama amaçlı serbestçe çalıştırılabilir.
+- `deploy.sh` **kirli çalışma dizininde durur**; bilerek yayınlıyorsanız
+  `--allow-dirty`. Deploy edilen sürüm `<release>/BUILD_INFO`'da (commit + tarih).
+- Symlink `rename(2)` ile çevrildiği için ziyaretçi hiçbir an yarım build görmez.
+
 ## Kod Kuralları (ÖNEMLİ)
 
 1. **API key / token / şifre ASLA log'a yazılmaz** (logger hassas alanları maskeler ama dikkat).

@@ -6,7 +6,14 @@ node_modules/
 # Build outputs
 dist/
 build/
+build-out/
 *.tsbuildinfo
+
+# Deploy artefaktları — `dist` canlıda releases/<sürüm>'e bakan bir symlink'tir,
+# `dist/` kalıbı dizinlerle eşleştiği için symlink'i ayrıca yazmak gerekiyor.
+frontend/dist
+backend/dist
+releases/
 
 # Env & secrets
 .env

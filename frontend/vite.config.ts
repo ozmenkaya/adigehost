@@ -20,7 +20,11 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist',
+    // DİKKAT: canlı servis dizini `frontend/dist`, ve o bir symlink
+    // (`releases/<sürüm>`'e bakar). Build çıktısı bilerek servis EDİLMEYEN
+    // bir dizine yazılır — böylece doğrulama amaçlı alınan bir build canlıyı
+    // etkilemez. Yayınlamayı yalnızca deploy/scripts/deploy.sh yapar.
+    outDir: 'build-out',
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
     // noVNC (rfb) top-level await kullanır → es2022 hedefi gerekir.
