@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { Fragment, type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getApiErrorMessage } from '../../utils/api';
 import { useCartStore, type CartItem } from '../../store/cartStore';
@@ -9,7 +9,6 @@ import Reveal from '../../components/shop/Reveal';
 import PageBackdrop from '../../components/shop/PageBackdrop';
 import ShopHeader from '../../components/shop/ShopHeader';
 import ShopFooter from '../../components/shop/ShopFooter';
-import ServiceStrip from '../../components/shop/ServiceStrip';
 
 interface Product {
   id: string;
@@ -382,6 +381,114 @@ function ProductSection({
   );
 }
 
+/**
+ * "Hosting mu, hazır site mi?" — müşterinin sorduğu ilk soruyu o sormadan cevaplar:
+ * hosting paketi *yer* satar (siteyi siz kurarsınız), web sitesi paketi *emek* satar.
+ * Fiyat çapaları canlı katalogdan türetilir; admin fiyatı değiştirince metin de değişir.
+ */
+function PlanChooser({ hosting, websites }: { hosting: Product[]; websites: Product[] }) {
+  if (hosting.length === 0 || websites.length === 0) return null;
+
+  const hostingFrom = Math.min(...hosting.map((p) => Number(p.priceMonthly))) * 1.2;
+  const entrySite = websites.reduce((best, p) =>
+    Number(p.setupFee ?? 0) < Number(best.setupFee ?? 0) ? p : best,
+  );
+  const siteSetup = Number(entrySite.setupFee ?? 0) * 1.2;
+  const siteMonthly = Number(entrySite.priceMonthly) * 1.2;
+  const money = (n: number) => `${Math.round(n).toLocaleString('tr-TR')} ₺`;
+
+  const rows: Array<{ label: string; self: string; done: string }> = [
+    { label: 'Siteyi kim kurar?', self: 'Siz (veya ajansınız)', done: 'Biz kurarız' },
+    { label: 'Tasarım', self: 'Kendi temanız', done: 'Size özel tasarım' },
+    { label: 'İçerik girişi', self: 'Sizde', done: 'Bizde — metin ve görselleri biz yükleriz' },
+    { label: 'Güncelleme / bakım', self: 'Sizde', done: 'Bizde — düzenli güncelleme ve takip' },
+    { label: 'Teknik altyapı', self: 'NVMe + SSL + günlük yedek', done: 'NVMe + SSL + günlük yedek' },
+    {
+      label: 'Başlangıç maliyeti',
+      self: `${money(hostingFrom)}/ay — kurulum bedeli yok`,
+      done: `${money(siteSetup)} kurulum + ${money(siteMonthly)}/ay`,
+    },
+  ];
+
+  return (
+    <section id="karsilastirma" className="mx-auto max-w-5xl px-4 py-16">
+      <Reveal className="mb-10 text-center">
+        <h2 className="text-3xl font-extrabold text-white sm:text-4xl">Hangisi Bana Uygun?</h2>
+        <p className="mx-auto mt-3 max-w-2xl text-slate-400">
+          Hosting paketi siteniz için <b className="text-slate-200">yer</b> verir; web sitesi paketi
+          siteyi <b className="text-slate-200">sizin yerinize yapar</b>. Aradaki fiyat farkı sunucu
+          değil, emek farkıdır.
+        </p>
+      </Reveal>
+
+      <Reveal>
+        <div className="glass overflow-hidden rounded-2xl">
+          {/* Sütun başlıkları */}
+          <div className="grid grid-cols-1 gap-px bg-white/10 sm:grid-cols-[1.1fr_1fr_1fr]">
+            <div className="hidden bg-slate-950/60 p-5 sm:block" />
+            <div className="bg-slate-950/60 p-5">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                Sitem hazır
+              </div>
+              <div className="mt-1 text-lg font-bold text-white">Hosting Paketi</div>
+              <div className="mt-1 text-sm text-slate-400">
+                {money(hostingFrom)}/ay'dan başlar
+              </div>
+            </div>
+            <div className="bg-gradient-to-b from-brand-500/15 to-transparent p-5 ring-1 ring-inset ring-brand-400/25">
+              <div className="text-xs font-semibold uppercase tracking-wide text-brand-300">
+                Sitem yok
+              </div>
+              <div className="mt-1 text-lg font-bold text-white">Web Sitesi Paketi</div>
+              <div className="mt-1 text-sm text-slate-400">
+                {money(siteSetup)} kurulum + {money(siteMonthly)}/ay
+              </div>
+            </div>
+          </div>
+
+          {/* Kıyas satırları */}
+          <div className="grid grid-cols-1 gap-px bg-white/10 sm:grid-cols-[1.1fr_1fr_1fr]">
+            {rows.map((r) => (
+              <Fragment key={r.label}>
+                <div className="bg-slate-950/40 px-5 py-4 text-sm font-semibold text-slate-300">
+                  {r.label}
+                </div>
+                <div className="bg-slate-950/40 px-5 py-4 text-sm text-slate-400">
+                  <span className="mr-2 text-xs uppercase tracking-wide text-slate-600 sm:hidden">
+                    Hosting:
+                  </span>
+                  {r.self}
+                </div>
+                <div className="bg-slate-950/40 px-5 py-4 text-sm text-slate-300 ring-1 ring-inset ring-brand-400/10">
+                  <span className="mr-2 text-xs uppercase tracking-wide text-brand-400/70 sm:hidden">
+                    Web sitesi:
+                  </span>
+                  {r.done}
+                </div>
+              </Fragment>
+            ))}
+          </div>
+        </div>
+      </Reveal>
+
+      <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a href="#planlar" className="btn-neon">
+          HOSTİNG PAKETLERİNİ GÖR
+        </a>
+        <a
+          href="/web-sitesi"
+          className="rounded-xl border border-brand-400/50 px-6 py-3 text-sm font-semibold text-brand-200 transition hover:border-brand-300 hover:bg-brand-500/10"
+        >
+          SİTEMİ SİZ YAPIN →
+        </a>
+      </div>
+      <p className="mt-4 text-center text-xs text-slate-500">
+        Emin değil misiniz? Bize yazın — sitenizi anlatın, hangisinin işinizi göreceğini söyleyelim.
+      </p>
+    </section>
+  );
+}
+
 export default function Sales() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
@@ -523,6 +630,8 @@ export default function Sales() {
   // bölümlerine karışmamalı (fiyat mantığı farklı: kurulum + abonelik).
   const websitePackages = products.filter((p) => p.type === 'website');
   const sellableProducts = products.filter((p) => p.type !== 'website');
+  // Karşılaştırma bloğunun "…₺/ay'dan başlar" çapası için (kategorili/kategorisiz hepsi).
+  const hostingProducts = sellableProducts.filter((p) => p.type === 'hosting');
 
   // Yalnızca ürünü olan aktif kategoriler bölüm olur (sortOrder zaten backend'de uygulanır)
   const categorySections = categories
@@ -726,9 +835,6 @@ export default function Sales() {
         </div>
       </section>
 
-      {/* Hizmet şeridi — tüm hizmetler ilk ekranda görünsün (kaldırmak için bu satır yeter) */}
-      <ServiceStrip />
-
       {/* Kayan güven şeridi */}
       <div className="relative overflow-hidden border-y border-white/5 py-4">
         <div className="flex w-max animate-marquee gap-10 whitespace-nowrap px-5 text-sm font-medium text-slate-500">
@@ -745,8 +851,39 @@ export default function Sales() {
         </div>
       </div>
 
+      {/* ===================== TÜM HİZMETLER IZGARASI =====================
+          Ziyaretçi önce hizmet yelpazesinin tamamını görsün; hangi durumda
+          olduğunu seçtiren 3 büyük kart hemen altında geliyor. */}
+      <section className="mx-auto max-w-6xl px-4 pb-6 pt-16">
+        <Reveal className="mb-10 text-center">
+          <h2 className="text-2xl font-extrabold text-white sm:text-3xl">Tüm İhtiyaçlarınız Tek Çatı Altında</h2>
+          <p className="mt-2 text-slate-400">İhtiyacınız olan hizmeti seçin — gerisini AdigeHost halletsin.</p>
+        </Reveal>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+          {SERVICES.map((s, i) => (
+            <Reveal key={s.slug} delay={i * 60}>
+              <a
+                href={s.href}
+                className="group flex h-full flex-col items-start gap-3 rounded-2xl glass p-5 transition duration-300 hover:-translate-y-1.5 hover:border-brand-400/40 hover:shadow-[0_24px_50px_-24px_rgba(37,99,235,0.7)]"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 text-brand-300 ring-1 ring-white/10 transition group-hover:bg-brand-500/20 group-hover:text-brand-200">
+                  {s.icon}
+                </span>
+                <div className="flex-1">
+                  <div className="font-bold text-white">{s.title}</div>
+                  <div className="mt-1 text-sm leading-relaxed text-slate-400">{s.tagline}</div>
+                </div>
+                <span className="text-sm font-semibold text-brand-300 transition group-hover:translate-x-1">
+                  Keşfet →
+                </span>
+              </a>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
       {/* ===================== ÇÖZÜMLER (3 büyük kart) ===================== */}
-      <section id="cozumler" className="mx-auto max-w-6xl px-4 py-20">
+      <section id="cozumler" className="mx-auto max-w-6xl px-4 pb-20 pt-12">
         <Reveal className="mb-12 text-center">
           <h2 className="text-3xl font-extrabold text-white sm:text-4xl">
             Size Nasıl Yardımcı Olabiliriz?
@@ -854,34 +991,8 @@ export default function Sales() {
         </section>
       )}
 
-      {/* Tüm hizmetler ızgarası */}
-      <section className="mx-auto max-w-6xl px-4 pb-8">
-        <Reveal className="mb-10 text-center">
-          <h2 className="text-2xl font-extrabold text-white sm:text-3xl">Tüm İhtiyaçlarınız Tek Çatı Altında</h2>
-          <p className="mt-2 text-slate-400">İhtiyacınız olan hizmeti seçin — gerisini AdigeHost halletsin.</p>
-        </Reveal>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-          {SERVICES.map((s, i) => (
-            <Reveal key={s.slug} delay={i * 60}>
-              <a
-                href={s.href}
-                className="group flex h-full flex-col items-start gap-3 rounded-2xl glass p-5 transition duration-300 hover:-translate-y-1.5 hover:border-brand-400/40 hover:shadow-[0_24px_50px_-24px_rgba(37,99,235,0.7)]"
-              >
-                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/5 text-brand-300 ring-1 ring-white/10 transition group-hover:bg-brand-500/20 group-hover:text-brand-200">
-                  {s.icon}
-                </span>
-                <div className="flex-1">
-                  <div className="font-bold text-white">{s.title}</div>
-                  <div className="mt-1 text-sm leading-relaxed text-slate-400">{s.tagline}</div>
-                </div>
-                <span className="text-sm font-semibold text-brand-300 transition group-hover:translate-x-1">
-                  Keşfet →
-                </span>
-              </a>
-            </Reveal>
-          ))}
-        </div>
-      </section>
+      {/* Hosting paketi mi, hazır site mi? — iki teklifi yan yana koyan karar bloğu */}
+      <PlanChooser hosting={hostingProducts} websites={websitePackages} />
 
       {/* Kategori bölümleri — her aktif kategori ayrı başlık olarak */}
       <div id="planlar" />
