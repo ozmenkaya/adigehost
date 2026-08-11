@@ -45,8 +45,9 @@ for app in frontend backend; do
 done
 
 log "PM2 reload"
-pm2 reload ecosystem.config.cjs --env production
-pm2 save
+# Uygulama root'un PM2 daemon'ında kayıtlı — sudo şart (bkz. deploy.sh).
+sudo pm2 reload ecosystem.config.cjs --env production
+sudo pm2 save
 
 log "✅ Geri alındı — sürüm: $TARGET"
 cat "frontend/releases/$TARGET/BUILD_INFO" 2>/dev/null || true

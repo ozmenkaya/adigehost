@@ -118,12 +118,16 @@ publish backend
 # 6) PM2 reload
 # ---------------------------------------------------------------
 log "PM2 reload (sıfır-kesinti)"
-if pm2 describe adigehost-api > /dev/null 2>&1; then
-  pm2 reload ecosystem.config.cjs --env production
+# DİKKAT: uygulama root'un PM2 daemon'ında kayıtlı ve 5000 portunu o tutuyor.
+# PM2 daemon'ları kullanıcı başına ayrıdır; sudo'suz çağırırsan normal kullanıcının
+# boş daemon'ı "uygulama çalışmıyor" deyip ikinci bir kopya başlatır, o da portu
+# alamayıp sonsuz restart döngüsüne girer (2026-08-11'de oldu).
+if sudo pm2 describe adigehost-api > /dev/null 2>&1; then
+  sudo pm2 reload ecosystem.config.cjs --env production
 else
-  pm2 start ecosystem.config.cjs --env production
+  fail "adigehost-api root'un PM2'sinde kayıtlı değil — elle kontrol edin (sudo pm2 list)."
 fi
-pm2 save
+sudo pm2 save
 
 # ---------------------------------------------------------------
 # 7) Duman testi
