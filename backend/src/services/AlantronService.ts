@@ -285,15 +285,33 @@ export class AlantronService {
     // altında iç içe gelebiliyor — önce onu dene, yoksa kök seviyeye düş.
     const data = (raw[fullDomain] as Record<string, unknown> | undefined) ?? raw;
     assertOk(data, 'registerdomain');
-    const rc = Number(data.registrycode ?? data.registry_code ?? data.id ?? 0);
+    let rc = Number(data.registrycode ?? data.registry_code ?? data.id ?? 0);
     if (!rc) {
       logger.error('Alantron registerdomain: registrycode alınamadı, ham yanıt', { domain: fullDomain, raw });
+      // Bazı uzantılarda registrycode anında oluşmuyor — getregistrycode ile dene (AA destek).
+      rc = (await this.getRegistrycodeByDomain(fullDomain).catch(() => null)) ?? 0;
     }
     logger.info('Alantron: domain kaydedildi', { domain: fullDomain, year, registrycode: rc });
     return {
       registrycode: rc,
       message: String(data.mesaj ?? data.message ?? 'OK'),
     };
+  }
+
+  /**
+   * Domain adından registrycode'u getirir (registerdomain yanıtı kaçırılırsa
+   * ya da mevcut bir domain için registrycode kayıp/0 ise kurtarma yolu).
+   */
+  static async getRegistrycodeByDomain(domain: string): Promise<number | null> {
+    const creds = await getCreds();
+    const raw = await post<Record<string, unknown>>(creds, {
+      type: 'getregistrycode',
+      domain,
+    });
+    // createcontact/registerdomain'de olduğu gibi yanıt domain anahtarı altında iç içe gelir.
+    const data = (raw[domain] as Record<string, unknown> | undefined) ?? raw;
+    const rc = Number(data.registrycode ?? 0);
+    return rc > 0 ? rc : null;
   }
 
   /**
