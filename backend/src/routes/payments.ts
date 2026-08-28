@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { Invoice, InvoiceItem, Service, User } from '../models';
+import { Invoice, InvoiceItem, SavedCard, Service, User } from '../models';
 import { IyzicoService } from '../services/IyzicoService';
 import { ProvisioningService } from '../services/ProvisioningService';
 import { EInvoiceService } from '../services/EInvoiceService';
@@ -27,7 +27,7 @@ export const paymentsRouter = Router();
 
 // ── POST /payments/iyzico/init (auth gerektirir) ─────────────────────────────
 const initSchema = z.object({
-  body: z.object({ invoiceId: z.string().uuid() }),
+  body: z.object({ invoiceId: z.string().uuid(), saveCard: z.boolean().optional() }),
 });
 
 paymentsRouter.post(
@@ -42,8 +42,17 @@ paymentsRouter.post(
     }
     if (invoice.status === 'paid') throw ApiError.conflict('Fatura zaten ödenmiş');
 
+    // Kayıtlı kartı varsa checkout formunda otomatik teklif et (tek tık ödeme).
+    const existingCard = await SavedCard.findOne({
+      where: { userId: invoice.userId },
+      order: [['isDefault', 'DESC'], ['createdAt', 'DESC']],
+    });
+
     const callbackUrl = `${env.APP_URL}/api/payments/iyzico/callback`;
-    const result = await IyzicoService.createCheckoutForm(invoice.id, callbackUrl);
+    const result = await IyzicoService.createCheckoutForm(invoice.id, callbackUrl, {
+      cardUserKey: existingCard?.cardUserKey,
+      saveCard: req.body.saveCard,
+    });
 
     await logActivity({
       userId: req.user.sub,

@@ -31,6 +31,7 @@ export default function Checkout() {
   const [placeError, setPlaceError] = useState('');
   const [result, setResult] = useState<OrderResult | null>(null);
   const [iyzicoForm, setIyzicoForm] = useState<string | null>(null);
+  const [saveCard, setSaveCard] = useState(false);
 
   // Sepet boşsa anasayfaya
   useEffect(() => {
@@ -91,6 +92,7 @@ export default function Checkout() {
         // 2a) İyzico checkout form başlat → sayfa içinde modal aç
         const initRes = await api.post('/payments/iyzico/init', {
           invoiceId: orderData.invoice.id,
+          saveCard,
         });
         const formContent = initRes.data.data?.checkoutFormContent as string | undefined;
         if (!formContent) {
@@ -243,6 +245,15 @@ export default function Checkout() {
                 </div>
 
                 {/* Kart ile öde (iyzico) */}
+                <label className="flex items-center gap-2 text-xs text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={saveCard}
+                    onChange={(e) => setSaveCard(e.target.checked)}
+                    className="h-4 w-4 rounded border-white/20 bg-white/5 accent-brand-500"
+                  />
+                  Kartımı sonraki ödemeler için kaydet (otomatik yenileme için gerekli)
+                </label>
                 <button
                   onClick={() => placeOrder('iyzico')}
                   disabled={placing || items.length === 0}

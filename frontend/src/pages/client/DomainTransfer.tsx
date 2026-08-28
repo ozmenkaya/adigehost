@@ -22,6 +22,7 @@ export default function DomainTransfer() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ invoiceNum: string; total: number } | null>(null);
   const [iyzicoForm, setIyzicoForm] = useState<string | null>(null);
+  const [saveCard, setSaveCard] = useState(false);
 
   const submitCheck = async (e: FormEvent) => {
     e.preventDefault();
@@ -55,7 +56,10 @@ export default function DomainTransfer() {
       const invoice = r.data.data.invoice;
 
       if (payMethod === 'iyzico') {
-        const initRes = await api.post('/payments/iyzico/init', { invoiceId: invoice.id });
+        const initRes = await api.post('/payments/iyzico/init', {
+          invoiceId: invoice.id,
+          saveCard,
+        });
         const formContent = initRes.data.data?.checkoutFormContent;
         if (formContent) {
           setIyzicoForm(formContent);
@@ -250,6 +254,15 @@ export default function DomainTransfer() {
                 </div>
 
                 <div className="space-y-2 pt-2">
+                  <label className="flex items-center gap-2 text-xs text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={saveCard}
+                      onChange={(e) => setSaveCard(e.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    Kartımı sonraki ödemeler için kaydet (otomatik yenileme için gerekli)
+                  </label>
                   <button
                     onClick={() => createOrder('iyzico')}
                     disabled={busy || !authCode}

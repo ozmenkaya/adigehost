@@ -20,6 +20,7 @@ interface Invoice {
   paidAt: string | null;
   createdAt: string;
   items?: InvoiceItem[];
+  edmInvoiceId?: string | null;
 }
 
 const STATUS: Record<Invoice['status'], { label: string; cls: string }> = {
@@ -44,6 +45,7 @@ export default function Invoices() {
   const [error, setError] = useState('');
   const [paying, setPaying] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [saveCardMap, setSaveCardMap] = useState<Record<string, boolean>>({});
 
   const load = async () => {
     setLoading(true);
@@ -65,7 +67,10 @@ export default function Invoices() {
     setPaying(id);
     setError('');
     try {
-      const r = await api.post('/payments/iyzico/init', { invoiceId: id });
+      const r = await api.post('/payments/iyzico/init', {
+        invoiceId: id,
+        saveCard: saveCardMap[id] ?? false,
+      });
       const url = r.data.data?.paymentPageUrl as string | undefined;
       if (url) {
         window.location.href = url;
@@ -124,6 +129,16 @@ export default function Invoices() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-lg font-bold text-slate-900">{tl(inv.total)} ₺</span>
+                    {inv.edmInvoiceId && (
+                      <a
+                        href={`/api/invoices/${inv.id}/pdf`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        PDF
+                      </a>
+                    )}
                     {payable && (
                       <button
                         onClick={() => pay(inv.id)}
@@ -135,6 +150,20 @@ export default function Invoices() {
                     )}
                   </div>
                 </div>
+
+                {payable && (
+                  <label className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                    <input
+                      type="checkbox"
+                      checked={saveCardMap[inv.id] ?? false}
+                      onChange={(e) =>
+                        setSaveCardMap((m) => ({ ...m, [inv.id]: e.target.checked }))
+                      }
+                      className="h-4 w-4 rounded border-slate-300"
+                    />
+                    Kartımı sonraki ödemeler için kaydet (otomatik yenileme için gerekli)
+                  </label>
+                )}
 
                 {inv.items && inv.items.length > 0 && (
                   <>

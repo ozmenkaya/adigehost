@@ -62,6 +62,21 @@ export class EDMService {
     }
   }
 
+  /** Daha önce gönderilmiş bir e-fatura/e-arşivin PDF içeriğini getirir (base64 → Buffer). */
+  static async getInvoicePdf(uuid: string): Promise<Buffer> {
+    const creds = await getCreds();
+    const sessionId = await this.login();
+    const inner =
+      `<INVOICE_SEARCH_KEY><UUID>${uuid}</UUID></INVOICE_SEARCH_KEY>` +
+      '<HEADER_ONLY>N</HEADER_ONLY>' +
+      '<INVOICE_CONTENT_TYPE>PDF</INVOICE_CONTENT_TYPE>';
+    const xml = await edmCall(creds, 'GetInvoice', sessionId, inner);
+    assertEdmOk(xml, 'GetInvoice');
+    const content = extractAll(xml, 'CONTENT')[0];
+    if (!content) throw new ApiError(502, 'EDM PDF içeriği alınamadı', 'EDM_ERROR');
+    return Buffer.from(content, 'base64');
+  }
+
   static async healthcheck(): Promise<boolean> {
     try {
       await this.login();

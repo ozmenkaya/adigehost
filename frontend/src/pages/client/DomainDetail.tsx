@@ -560,6 +560,7 @@ function RenewTab({
   const [loadingPrice, setLoadingPrice] = useState(true);
   const [creating, setCreating] = useState(false);
   const [iyzicoForm, setIyzicoForm] = useState<string | null>(null);
+  const [saveCard, setSaveCard] = useState(false);
 
   useEffect(() => {
     setLoadingPrice(true);
@@ -577,7 +578,7 @@ function RenewTab({
       const r = await api.post(`/services/${serviceId}/domain/renew-order`, { years });
       const invoiceId = r.data.data.invoice.id;
       if (payMethod === 'iyzico') {
-        const initRes = await api.post('/payments/iyzico/init', { invoiceId });
+        const initRes = await api.post('/payments/iyzico/init', { invoiceId, saveCard });
         const formContent = initRes.data.data?.checkoutFormContent as string | undefined;
         if (formContent) {
           setIyzicoForm(formContent);
@@ -679,6 +680,15 @@ function RenewTab({
 
         {/* Ödeme butonları */}
         <div className="mt-4 space-y-2">
+          <label className="flex items-center gap-2 text-xs text-slate-500">
+            <input
+              type="checkbox"
+              checked={saveCard}
+              onChange={(e) => setSaveCard(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300"
+            />
+            Kartımı sonraki ödemeler için kaydet (otomatik yenileme için gerekli)
+          </label>
           <button
             onClick={() => create('iyzico')}
             disabled={creating || !price}
