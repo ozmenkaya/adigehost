@@ -227,7 +227,7 @@ export class AlantronService {
     const creds = await getCreds();
     // cusername: zorunlu, benzersiz, harf+rakam
     const cusername = `c${Date.now()}`;
-    const data = await post<Record<string, unknown>>(creds, {
+    const raw = await post<Record<string, unknown>>(creds, {
       type: 'createcontact',
       cusername,
       name: `${contact.firstName} ${contact.lastName}`.trim(),
@@ -240,6 +240,8 @@ export class AlantronService {
       phone: contact.phone,
       fax: contact.fax ?? contact.phone,
     });
+    // getDomain'de olduğu gibi yanıt cusername anahtarı altında iç içe gelir.
+    const data = (raw[cusername] as Record<string, unknown> | undefined) ?? raw;
     assertOk(data, 'createcontact');
     const contactId = data.contactid ?? data.cuserid ?? data.id;
     if (!contactId) throw ApiError.internal('Alantron createContact: contactid alınamadı');
@@ -266,9 +268,10 @@ export class AlantronService {
     const cleanTld = tld.replace(/^\./, '');
     // Tek alan adı olarak gönder: domain="adigehost", tld parametresiz de denenebilir
     // Döküman: domain=alanadim.com (tam ad) ya da domain+tld ayrı
-    const data = await post<Record<string, unknown>>(creds, {
+    const fullDomain = `${domain}.${cleanTld}`;
+    const raw = await post<Record<string, unknown>>(creds, {
       type: 'registerdomain',
-      domain: `${domain}.${cleanTld}`,   // tam alan adı
+      domain: fullDomain,   // tam alan adı
       year,
       ownerid: contactId,
       adminid: contactId,
@@ -278,9 +281,15 @@ export class AlantronService {
       sdns: nameServers[1] ?? nameServers[0],
       privacy: 'no',
     });
+    // createcontact'ta olduğu gibi yanıt gönderdiğimiz anahtar (burada tam alan adı)
+    // altında iç içe gelebiliyor — önce onu dene, yoksa kök seviyeye düş.
+    const data = (raw[fullDomain] as Record<string, unknown> | undefined) ?? raw;
     assertOk(data, 'registerdomain');
     const rc = Number(data.registrycode ?? data.registry_code ?? data.id ?? 0);
-    logger.info('Alantron: domain kaydedildi', { domain: `${domain}.${cleanTld}`, year, registrycode: rc });
+    if (!rc) {
+      logger.error('Alantron registerdomain: registrycode alınamadı, ham yanıt', { domain: fullDomain, raw });
+    }
+    logger.info('Alantron: domain kaydedildi', { domain: fullDomain, year, registrycode: rc });
     return {
       registrycode: rc,
       message: String(data.mesaj ?? data.message ?? 'OK'),
