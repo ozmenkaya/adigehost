@@ -111,7 +111,9 @@ export default function HostingDetail() {
    * için istek öncesinde senkron açılır; URL gelince oraya yönlendirilir.
    */
   const openCpanel = async () => {
-    const tab = window.open('', '_blank', 'noopener,noreferrer');
+    // noopener KULLANMA: verilirse window.open() her zaman null döner (tab
+    // referansı kaybolur) ve URL sonradan hiçbir yere yazılamaz.
+    const tab = window.open('', '_blank');
     setOpeningCpanel(true);
     try {
       const r = await api.post(`/whm/${id}/sso`, { service: 'cpaneld' });
