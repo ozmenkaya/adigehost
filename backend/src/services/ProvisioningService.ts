@@ -182,11 +182,6 @@ export class ProvisioningService {
     }
     const user = await User.findByPk(service.userId);
     if (!user) throw ApiError.notFound('Müşteri bulunamadı');
-    if (!user.address || !user.city || !user.phone) {
-      throw ApiError.badRequest(
-        'Domain kaydı için müşteri profili eksik (adres, şehir, telefon gerekli)',
-      );
-    }
 
     const cfg = service.config as { period?: number; provider?: string } | null;
     const period = Number(cfg?.period ?? 1);
@@ -199,20 +194,11 @@ export class ProvisioningService {
         : 'domainnameapi');
 
     if (preferredProvider === 'alantron') {
-      // Alantron: önce yetkili oluştur, sonra kaydı yap.
-      const phoneRaw = user.phone.replace(/\D/g, '');
-      const phone = phoneRaw.startsWith('90') ? phoneRaw : `90${phoneRaw.replace(/^0/, '')}`;
-      const contactId = await AlantronService.createContact({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        company: user.company ?? user.firstName,
-        email: user.email,
-        address: user.address,
-        city: user.city,
-        country: 'tr',
-        zip: user.postalCode ?? '00000',
-        phone,
-      });
+      // Alantron: alan adı, yetkilisinin kullanıcı adı altında panelde görünür.
+      // Müşteri başına yeni contact üretilirse alan adı bayi panelimizde
+      // görünmez olur — bu yüzden bayi yetkilisi kullanılır. Müşteri sahipliği
+      // panelimizdeki Service kaydıyla takip edilir.
+      const contactId = await AlantronService.getOwnerContactId();
       const dotIdx = service.domain.indexOf('.');
       const sld = service.domain.slice(0, dotIdx);
       const tld = service.domain.slice(dotIdx + 1);
@@ -229,7 +215,12 @@ export class ProvisioningService {
       return { domain: service.domain, provider: 'alantron' };
     }
 
-    // DomainNameAPI (varsayılan)
+    // DomainNameAPI (varsayılan) — müşteri iletişim bilgisi zorunlu.
+    if (!user.address || !user.city || !user.phone) {
+      throw ApiError.badRequest(
+        'Domain kaydı için müşteri profili eksik (adres, şehir, telefon gerekli)',
+      );
+    }
     const phoneDigits = user.phone.replace(/\D/g, '').replace(/^90/, '').replace(/^0/, '');
     const contact: DomainContact = {
       contactType: 'Registrant',
@@ -271,24 +262,9 @@ export class ProvisioningService {
 
     const user = await User.findByPk(service.userId);
     if (!user) throw ApiError.notFound('Müşteri bulunamadı');
-    if (!user.address || !user.city || !user.phone) {
-      throw ApiError.badRequest('Transfer için müşteri profili eksik (adres/şehir/telefon)');
-    }
 
-    // Contact oluştur (her transfer için yeni)
-    const phoneRaw = user.phone.replace(/\D/g, '');
-    const phone = phoneRaw.startsWith('90') ? phoneRaw : `90${phoneRaw.replace(/^0/, '')}`;
-    const contactId = await AlantronService.createContact({
-      firstName: user.firstName,
-      lastName: user.lastName,
-      company: user.company ?? user.firstName,
-      email: user.email,
-      address: user.address,
-      city: user.city,
-      country: 'tr',
-      zip: user.postalCode ?? '00000',
-      phone,
-    });
+    // Kayıtta olduğu gibi bayi yetkilisi kullanılır (panelde görünürlük).
+    const contactId = await AlantronService.getOwnerContactId();
 
     const result = await AlantronService.transferDomain({
       domain: service.domain,

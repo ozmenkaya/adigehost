@@ -19,7 +19,12 @@ interface AlantronDomain {
   name: string;
   domain: string | null;
   status: string;
-  config: { provider?: string; registrycode?: number } | null;
+  config: {
+    provider?: string;
+    registrycode?: number;
+    contacts?: { owner?: number | null; admin?: number | null; bill?: number | null; tech?: number | null };
+    contactsOk?: boolean;
+  } | null;
   user?: { firstName: string; lastName: string; email: string } | null;
   createdAt: string;
   nextDue?: string | null;
@@ -90,10 +95,13 @@ export default function Sync() {
         updated: number;
         unchanged: number;
         notManaged: string[];
+        wrongContacts?: string[];
         errors: { domain: string; message: string }[];
       };
       let msg = `${s.total} domain tarandı · ${s.updated} güncellendi · ${s.unchanged} zaten güncel`;
       if (s.notManaged.length) msg += ` · ⚠ ${s.notManaged.length} yönetilmiyor (${s.notManaged.join(', ')})`;
+      if (s.wrongContacts?.length)
+        msg += ` · ⚑ ${s.wrongContacts.length} alan adının yetkilisi bayi hesabında değil (${s.wrongContacts.join(', ')})`;
       if (s.errors.length) msg += ` · ${s.errors.length} hata`;
       setAlSyncMsg(msg);
       await loadAlantron();
@@ -426,6 +434,14 @@ export default function Sync() {
                               {daysLeft! < 0 ? 'Süresi doldu!' : `${daysLeft} gün kaldı`}
                             </div>
                           )}
+                          {d.config?.contactsOk === false && (
+                            <div
+                              className="text-xs text-amber-600 font-medium"
+                              title={`Yetkili: ${d.config?.contacts?.owner ?? '?'} — Alantron panelinde bayi kullanıcı adınızla görünmez.`}
+                            >
+                              ⚠ Yetkili bayi hesabında değil
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <DomainAssign
@@ -470,6 +486,7 @@ export default function Sync() {
                               id={d.id}
                               domain={d.domain ?? d.name}
                               registrycode={d.config.registrycode}
+                              contactsOk={d.config.contactsOk}
                               onRenewed={() => void loadAlantron()}
                             />
                           )}
@@ -560,14 +577,17 @@ function DomainAssign({
 function DomainActions({
   id,
   domain,
+  contactsOk,
   onRenewed,
 }: {
   id: string;
   domain: string;
   registrycode?: number;
+  contactsOk?: boolean;
   onRenewed: () => void;
 }) {
   const [renewing, setRenewing] = useState(false);
+  const [fixing, setFixing] = useState(false);
   const [info, setInfo] = useState<Record<string, unknown> | null>(null);
   const [showInfo, setShowInfo] = useState(false);
   const [msg, setMsg] = useState('');
@@ -583,6 +603,26 @@ function DomainActions({
       setMsg(getApiErrorMessage(e));
     } finally {
       setRenewing(false);
+    }
+  };
+
+  const fixContacts = async () => {
+    if (
+      !confirm(
+        `${domain} alan adının 4 yetkilisi (owner/admin/bill/tech) bayi hesabınıza çekilsin mi?\n` +
+          'Alantron panelinde kendi kullanıcı adınızla görebilmeniz için gerekli.',
+      )
+    )
+      return;
+    setFixing(true);
+    try {
+      const r = await api.post(`/admin/sync/alantron/${id}/contacts`, {});
+      setMsg(r.data.message);
+      onRenewed();
+    } catch (e) {
+      setMsg(getApiErrorMessage(e));
+    } finally {
+      setFixing(false);
     }
   };
 
@@ -611,6 +651,15 @@ function DomainActions({
         >
           {renewing ? '…' : '↻ Yenile'}
         </button>
+        {contactsOk === false && (
+          <button
+            onClick={fixContacts}
+            disabled={fixing}
+            className="rounded border border-amber-300 px-2 py-0.5 text-xs text-amber-700 hover:bg-amber-50 disabled:opacity-40"
+          >
+            {fixing ? '…' : '⚑ Yetkiliyi düzelt'}
+          </button>
+        )}
         <button
           onClick={fetchInfo}
           className="rounded border border-slate-300 px-2 py-0.5 text-xs text-slate-500 hover:bg-slate-50"

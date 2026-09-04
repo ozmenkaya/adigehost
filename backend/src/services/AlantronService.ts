@@ -27,6 +27,8 @@ interface AlantronCreds {
   resellerno: string;
   resellerpwd: string;
   dkey?: string;
+  /** Kayıt/transferde kullanılacak yetkili (contact) ID — boşsa resellerno kullanılır. */
+  contactid?: string | number;
 }
 
 async function getCreds(): Promise<AlantronCreds> {
@@ -35,6 +37,35 @@ async function getCreds(): Promise<AlantronCreds> {
     throw ApiError.internal('Alantron yapılandırılmamış (Entegrasyonlar → Alantron)');
   }
   return raw as unknown as AlantronCreds;
+}
+
+/**
+ * Alantron yanıt gövdesini ayrıştırır.
+ *
+ * ⚠️  Özellikle `.tr` alan adlarında sunucu JSON'un ÖNÜNE düz metin ekleyebiliyor:
+ *     `domain_name=BAĞLANTI BAŞARISIZ oysaki: alanadi.com.tr\nBAĞLANTI BAŞARISIZ\n{...}`
+ * Bu durumda axios gövdeyi string bırakır; alan okumaları sessizce `undefined`
+ * döner ve senkron boş nameserver / locked=false yazardı. Gövdedeki ilk `{` ile
+ * son `}` arasını ayıklayıp parse ediyoruz; olmazsa hata fırlatıyoruz (sessiz
+ * bozuk veriden iyidir).
+ */
+function parseBody<T>(data: unknown, ctx: string): T {
+  if (typeof data !== 'string') return data as T;
+  const start = data.indexOf('{');
+  const end = data.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    try {
+      const parsed = JSON.parse(data.slice(start, end + 1)) as T;
+      logger.warn(`Alantron yanıtı düz metin öneki içeriyordu (${ctx})`, {
+        prefix: data.slice(0, Math.min(start, 120)).replace(/\s+/g, ' ').trim(),
+      });
+      return parsed;
+    } catch {
+      /* aşağıda hata fırlatılır */
+    }
+  }
+  logger.error(`Alantron yanıtı ayrıştırılamadı (${ctx})`, { body: data.slice(0, 300) });
+  throw new ApiError(502, `Alantron yanıtı ayrıştırılamadı (${ctx})`, 'ALANTRON_BAD_RESPONSE');
 }
 
 /** GET isteği gönderir; params'a resellerno + resellerpwd eklenir. */
@@ -53,7 +84,7 @@ async function get<T = Record<string, unknown>>(
       },
       timeout: 30_000,
     });
-    return data as T;
+    return parseBody<T>(data, String(params.type ?? 'request'));
   } catch (err) {
     throw toApiError(err, String(params.type ?? 'request'));
   }
@@ -77,13 +108,14 @@ async function post<T = Record<string, unknown>>(
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       timeout: 30_000,
     });
-    return data as T;
+    return parseBody<T>(data, String(params.type ?? 'request'));
   } catch (err) {
     throw toApiError(err, String(params.type ?? 'request'));
   }
 }
 
 function toApiError(err: unknown, ctx: string): ApiError {
+  if (err instanceof ApiError) return err; // parseBody'den gelen hata olduğu gibi geçsin
   if (isAxiosError(err)) {
     const status = err.response?.status ?? 502;
     const msg = err.response?.data?.mesaj ?? err.response?.data?.message ?? err.message;
@@ -216,6 +248,66 @@ export class AlantronService {
   }
 
   /**
+   * Kayıt / transferde owner-admin-bill-tech olarak kullanılacak yetkili ID'si.
+   *
+   * ⚠️  Alantron panelinde alan adı, YETKİLİSİNİN kullanıcı adı altında görünür.
+   * Her müşteri için ayrı contact üretilirse (`c<timestamp>`), alan adı kendi
+   * bayi kullanıcı adımızla panelde GÖRÜNMEZ (Alantron destek, 2026-09-04).
+   * Bu yüzden varsayılan olarak entegrasyondaki `contactid`, yoksa `resellerno`
+   * kullanılır — ikisi de bayi hesabının kullanıcı adına bağlıdır.
+   */
+  static async getOwnerContactId(): Promise<number> {
+    const creds = await getCreds();
+    const id = Number(creds.contactid ?? creds.resellerno);
+    if (!id || Number.isNaN(id)) {
+      throw ApiError.internal('Alantron yetkili (contact) ID çözülemedi');
+    }
+    return id;
+  }
+
+  /** Yetkili bilgisi (cuserid ile). Yanıt cuserid anahtarı altında iç içe gelir. */
+  static async getContact(contactId: number): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const raw = await get<Record<string, unknown>>(creds, {
+      type: 'getcontact',
+      cuserid: contactId,
+    });
+    const data = (raw[String(contactId)] as Record<string, unknown> | undefined) ?? raw;
+    if (String(data.status ?? raw.status ?? '').toLowerCase() === 'hata') {
+      throw new ApiError(
+        404,
+        String(data.description ?? raw.description ?? 'Yetkili bulunamadı'),
+        'ALANTRON_NOT_FOUND',
+      );
+    }
+    return data;
+  }
+
+  /**
+   * Alan adının 4 yetkilisini (owner/admin/bill/tech) değiştirir — AA-00207.
+   * Yanlış yetkiliyle kaydedilmiş alan adlarını bayi hesabına geri almak için.
+   */
+  static async modifyContacts(
+    registrycode: number,
+    contactId: number,
+    contacts?: { owner?: number; admin?: number; bill?: number; tech?: number },
+  ): Promise<Record<string, unknown>> {
+    const creds = await getCreds();
+    const raw = await post<Record<string, unknown>>(creds, {
+      type: 'modifycontact',
+      registrycode,
+      ownercontactid: contacts?.owner ?? contactId,
+      admincontactid: contacts?.admin ?? contactId,
+      billcontactid: contacts?.bill ?? contactId,
+      techcontactid: contacts?.tech ?? contactId,
+    });
+    const data = (raw[String(registrycode)] as Record<string, unknown> | undefined) ?? raw;
+    assertOk(data, 'modifycontact');
+    logger.info('Alantron: alan adı yetkilileri güncellendi', { registrycode, contactId });
+    return data;
+  }
+
+  /**
    * Yetkili (contact) oluşturur → contactid döner.
    * Domain kaydından önce en az bir kez çalıştırılmalıdır.
    */
@@ -276,6 +368,7 @@ export class AlantronService {
       ownerid: contactId,
       adminid: contactId,
       billid: contactId,
+      billlid: contactId, // AA-00206 parametre tablosunda "billlid" olarak geçiyor
       techid: contactId,
       pdns: nameServers[0],
       sdns: nameServers[1] ?? nameServers[0],
@@ -419,6 +512,13 @@ export class AlantronService {
     if (String(data.status ?? '').toLowerCase() === 'hata') {
       throw new ApiError(404, String(data.description ?? 'Domain bulunamadı'), 'ALANTRON_NOT_FOUND');
     }
+    // Yanıt beklenen `{ "<registrycode>": {...} }` biçiminde değilse sessizce boş
+    // veri döndürmek yerine hata ver — aksi halde senkron boş NS/tarih yazar.
+    const details = data[String(registrycode)];
+    if (!details || typeof details !== 'object') {
+      logger.error('Alantron getdomain: beklenmeyen yanıt biçimi', { registrycode, data });
+      throw new ApiError(502, 'Alantron getdomain: beklenmeyen yanıt', 'ALANTRON_BAD_RESPONSE');
+    }
     return data;
   }
 
@@ -552,6 +652,8 @@ export class AlantronService {
     locked: boolean;
     authCode?: string;
     privacy: boolean;
+    /** Alan adının yetkilileri (owner/admin/bill/tech contact ID'leri). */
+    contacts: { owner: number | null; admin: number | null; bill: number | null; tech: number | null };
     childNameServers: Array<{ ns: string; ip: string }>;
     raw: Record<string, unknown>;
   }> {
@@ -586,6 +688,10 @@ export class AlantronService {
     const exp = details.expepoch ? Number(details.expepoch) : null;
     const reg = details.regepoch ? Number(details.regepoch) : null;
     const privacy = String(details.private ?? '').toLowerCase() === 'yes';
+    const num = (v: unknown): number | null => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
 
     return {
       domain: String(details.domain ?? ''),
@@ -595,6 +701,12 @@ export class AlantronService {
       locked: lock === 'yes' || lock === 'true' || lock === '1',
       authCode: details.authcode ? String(details.authcode) : undefined,
       privacy,
+      contacts: {
+        owner: num(details.owner),
+        admin: num(details.admin),
+        bill: num(details.bill),
+        tech: num(details.tech),
+      },
       childNameServers,
       raw: data,
     };

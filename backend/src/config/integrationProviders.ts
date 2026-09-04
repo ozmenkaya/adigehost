@@ -12,6 +12,7 @@ export interface ProviderField {
   options?: string[]; // type === 'select' için
   placeholder?: string;
   required?: boolean;
+  help?: string; // form altında gösterilen açıklama
 }
 
 export interface ProviderDef {
@@ -56,6 +57,15 @@ export const PROVIDERS: ProviderDef[] = [
       { key: 'resellerno', label: 'Bayi No (resellerno)', type: 'text', required: true, placeholder: '2192087' },
       { key: 'resellerpwd', label: 'API Şifresi', type: 'password', secret: true, required: true },
       { key: 'dkey', label: 'dkey', type: 'text', placeholder: '233348' },
+      {
+        key: 'contactid',
+        label: 'Yetkili (contact) ID',
+        type: 'text',
+        placeholder: '22111520',
+        help: 'Kayıt/transferde owner-admin-bill-tech olarak kullanılacak Alantron yetkili ID’si. '
+          + 'alantron.com panelindeki kullanıcı adınıza ait olmalı — aksi halde alan adları panelde görünmez. '
+          + 'Boş bırakılırsa resellerno kullanılır.',
+      },
     ],
   },
   {

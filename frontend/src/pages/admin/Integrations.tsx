@@ -9,6 +9,7 @@ interface Field {
   options?: string[];
   placeholder?: string;
   required?: boolean;
+  help?: string;
 }
 interface Provider {
   key: string;
@@ -278,6 +279,9 @@ export default function Integrations() {
                     onChange={(e) => setVal(field.key, e.target.value)}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                   />
+                )}
+                {field.help && (
+                  <p className="mt-1 text-xs text-slate-500">{field.help}</p>
                 )}
               </div>
             ))}

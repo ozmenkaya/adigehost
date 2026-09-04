@@ -1122,6 +1122,56 @@ adminRouter.get(
 );
 
 /**
+ * POST /admin/sync/alantron/:id/contacts
+ * Alan adının 4 yetkilisini (owner/admin/bill/tech) bayi contact'ına çeker.
+ *
+ * Alantron'da alan adı, yetkilisinin kullanıcı adı altında panelde görünür.
+ * Eski akış her kayıt için `c<timestamp>` kullanıcı adıyla yeni contact üretiyordu;
+ * bu alan adları alantron.com panelinde bayi kullanıcı adıyla görünmüyor.
+ */
+adminRouter.post(
+  '/sync/alantron/:id/contacts',
+  validate(
+    z.object({
+      body: z.object({ contactId: z.coerce.number().int().positive().optional() }),
+    }),
+  ),
+  asyncHandler(async (req, res) => {
+    const service = await Service.findByPk(req.params.id);
+    if (!service || service.type !== 'domain') throw ApiError.notFound('Domain bulunamadı');
+    const cfg = (service.config ?? {}) as { registrycode?: number };
+    if (!cfg.registrycode) throw ApiError.badRequest('Bu domain için registrycode kaydedilmemiş');
+
+    const { AlantronService } = await import('../services/AlantronService');
+    const contactId = req.body.contactId ?? (await AlantronService.getOwnerContactId());
+    await AlantronService.modifyContacts(cfg.registrycode, contactId);
+
+    // Alantron'dan tazele → config.contacts / contactsOk güncellensin
+    const full = await AlantronService.getDomainFull(cfg.registrycode).catch(() => null);
+    if (full) {
+      const ok = [full.contacts.owner, full.contacts.admin, full.contacts.bill, full.contacts.tech]
+        .every((c) => c === contactId);
+      service.set('config', { ...cfg, contacts: full.contacts, contactsOk: ok });
+      await service.save();
+    }
+
+    await logActivity({
+      userId: req.user!.sub,
+      action: 'admin.domain_contacts_fix',
+      resource: 'service',
+      resourceId: service.id,
+      details: { registrycode: cfg.registrycode, contactId },
+      ip: req.ip,
+    });
+    res.json({
+      success: true,
+      message: `${service.domain} yetkilileri ${contactId} olarak güncellendi`,
+      data: full?.contacts ?? null,
+    });
+  }),
+);
+
+/**
  * POST /admin/sync/alantron/refresh
  * Panele kayıtlı tüm Alantron domainlerinin bitiş tarihi / kilit / NS bilgisini
  * Alantron API'sinden tek tek çekip DB'yi günceller (toplu senkron).

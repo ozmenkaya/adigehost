@@ -17,6 +17,7 @@ export interface AlantronSyncSummary {
   unchanged: number; // zaten güncel
   noRegistrycode: number; // registrycode'u olmayan (atlanan)
   notManaged: string[]; // Alantron hesabında yönetilmeyen (yanlış rc)
+  wrongContacts: string[]; // yetkilisi bayi contact'ı olmayan (panelde görünmez)
   errors: Array<{ domain: string; message: string }>;
   syncedAt: string;
 }
@@ -45,6 +46,7 @@ export class DomainSyncService {
       unchanged: 0,
       noRegistrycode: 0,
       notManaged: [],
+      wrongContacts: [],
       errors: [],
       syncedAt: new Date().toISOString(),
     };
@@ -69,6 +71,7 @@ export class DomainSyncService {
       updated: summary.updated,
       unchanged: summary.unchanged,
       notManaged: summary.notManaged.length,
+      wrongContacts: summary.wrongContacts.length,
       errors: summary.errors.length,
     });
     return summary;
@@ -81,11 +84,22 @@ export class DomainSyncService {
     const domain = svc.domain ?? svc.name;
     try {
       const full = await AlantronService.getDomainFull(rc);
+      // Yetkili (contact) kontrolü: alan adı, yetkilisinin kullanıcı adı altında
+      // Alantron panelinde görünür. Bayi yetkilisi dışında bir contact varsa
+      // domain panelde görünmez → admin arayüzünde uyarı gösterilir.
+      const ownerContactId = await AlantronService.getOwnerContactId().catch(() => null);
+      const contactsOk =
+        ownerContactId != null &&
+        [full.contacts.owner, full.contacts.admin, full.contacts.bill, full.contacts.tech].every(
+          (c) => c === ownerContactId,
+        );
       const newConfig: Record<string, unknown> = {
         ...cfg,
         alantronManaged: true,
         nameservers: full.nameServers,
         locked: full.locked,
+        contacts: full.contacts,
+        contactsOk,
         lastSyncedAt: summary.syncedAt,
       };
 
@@ -98,6 +112,7 @@ export class DomainSyncService {
       } else {
         summary.unchanged += 1;
       }
+      if (!contactsOk) summary.wrongContacts.push(domain ?? String(rc));
       svc.set('config', newConfig);
       await svc.save();
     } catch (err) {
