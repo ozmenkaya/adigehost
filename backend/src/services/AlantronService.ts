@@ -135,10 +135,20 @@ function toApiError(err: unknown, ctx: string): ApiError {
   return ApiError.internal('Alantron işlemi başarısız');
 }
 
-/** Alantron yanıtında hata var mı kontrol eder (status: "error"). */
+/**
+ * Alantron yanıtında iş hatası var mı kontrol eder.
+ *
+ * ⚠️  Alantron `lang=tr` ile hataları `{"status":"hata","description":"4713 ..."}`
+ * biçiminde döndürüyor. Eskiden yalnızca `status === 'error'` kontrol edildiği için
+ * BAŞARISIZ kayıt/yenileme/DNS işlemleri başarılı sayılıyordu (2026-09-04'te
+ * modifycontact denemesinde yakalandı). Hata mesajı `description` alanında.
+ */
 function assertOk(data: Record<string, unknown>, ctx: string): void {
-  if (String(data.status ?? '').toLowerCase() === 'error') {
-    const msg = String(data.mesaj ?? data.message ?? data.hata ?? 'Bilinmeyen hata');
+  const status = String(data.status ?? '').toLowerCase();
+  if (status === 'error' || status === 'hata' || status === 'failed') {
+    const msg = String(
+      data.description ?? data.mesaj ?? data.message ?? data.hata ?? 'Bilinmeyen hata',
+    );
     logger.error(`Alantron iş hatası (${ctx})`, { msg, data });
     throw new ApiError(502, `Alantron ${ctx}: ${msg}`, 'ALANTRON_ERROR');
   }
